@@ -14,6 +14,13 @@ SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "train_deberta.py"
 WORDS = {"nurse": "alpha alpha alpha", "surgeon": "gamma gamma gamma"}
 
 
+def _load_script():
+    spec = importlib.util.spec_from_file_location("train_deberta", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _split(name, per_cell):
     cells = [(o, g) for o in WORDS for g in ("female", "male") for _ in range(per_cell)]
     rows = [(f"{name}-{i}", WORDS[o], o, g) for i, (o, g) in enumerate(cells)]
@@ -30,6 +37,11 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
     def execute(**constants):
         root = tmp_path_factory.mktemp("deberta")
         splits = {"train": _split("train", 8), "dev": _split("dev", 2), "test": _split("test", 2)}
+        # Train shares of women: nurse 4 of 16 (0.25), surgeon 12 of 16 (0.75). In the test
+        # split nurse has the higher share, so a script that took the shares from test would
+        # get the opposite correlation.
+        splits["train"].loc[0:3, "gender"] = "male"
+        splits["train"].loc[24:27, "gender"] = "female"
         splits["test"].loc[2, "occupation"] = "surgeon"  # a male nurse bio the model gets wrong
 
         def pretrained(cls, max_length, batch_size=32):
@@ -49,9 +61,7 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
             patch.setattr(data, "load_split", lambda split, variant="original": splits[split])
             patch.setattr(DebertaModel, "pretrained", classmethod(pretrained))
             patch.setenv("HBX_ARTIFACTS", str(root / "artifacts"))
-            spec = importlib.util.spec_from_file_location("train_deberta", SCRIPT)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            module = _load_script()
             for name, value in (defaults | constants).items():
                 patch.setattr(module, name, value)
             module.main(root / "results")
@@ -232,3 +242,56 @@ def test_the_script_prints_one_progress_line_per_evaluation(execute, capsys):
     lines = [line for line in capsys.readouterr().out.splitlines() if "dev_macro_f1" in line]
     assert len(lines) == 1
     assert "lr=0.003" in lines[0] and "step=8" in lines[0] and "epoch=1" in lines[0]
+
+
+def test_the_gap_share_correlation_uses_the_share_of_women_in_the_training_subsample(run):
+    # TPR gaps (women minus men): nurse 1 - 1 = 0; surgeon 1 - 2/3 = 1/3, because the male
+    # surgeon bio 2 is a miss. With training shares 0.25 and 0.75 the gap rises with the share:
+    # correlation +1 (two points).
+    test = _metrics(run)["test"]
+    assert test["per_occupation"]["nurse"]["tpr_gap"]["value"] == 0.0
+    assert test["per_occupation"]["surgeon"]["tpr_gap"]["value"] == pytest.approx(1 / 3)
+    assert test["gap_share_pearson"]["value"] == pytest.approx(1.0)
+
+
+def test_length_report_percentiles_follow_numpy_linear_interpolation(tiny_tokenizer, monkeypatch):
+    # Bios of 1 to 10 words have 3 to 12 tokens with [CLS] and [SEP]. Sorted, index 4.5 is
+    # (7 + 8) / 2; index 8.1 is 11.1; 8.55 is 11.55; 8.91 is 11.91; 8.991 is 11.991.
+    module = _load_script()
+    monkeypatch.setattr(module, "MAX_LENGTH", 8)
+    monkeypatch.setattr(
+        DebertaModel, "pretrained", classmethod(lambda cls, n: cls(None, tiny_tokenizer(n)))
+    )
+    report = module._length_report(["alpha " * n for n in range(1, 11)])
+    assert report["token_length_percentiles"] == pytest.approx(
+        {"p50": 7.5, "p90": 11.1, "p95": 11.55, "p99": 11.91, "p99.9": 11.991, "max": 12}
+    )
+    # 9, 10, 11 and 12 tokens are longer than 8; a bio of exactly 8 tokens is not cut.
+    assert report["share_truncated"] == 0.4
+
+
+def test_a_bio_of_exactly_max_length_tokens_is_not_truncated(tiny_tokenizer, monkeypatch):
+    module = _load_script()
+    monkeypatch.setattr(module, "MAX_LENGTH", 5)
+    monkeypatch.setattr(
+        DebertaModel, "pretrained", classmethod(lambda cls, n: cls(None, tiny_tokenizer(n)))
+    )
+    assert module._length_report(["alpha alpha alpha"])["share_truncated"] == 0.0
+
+
+def test_confidence_intervals_that_touch_overlap():
+    module = _load_script()
+
+    def interval(low, high):
+        return {"value": (low + high) / 2, "ci_low": low, "ci_high": high}
+
+    def overlap(baseline, deberta):
+        both = {"macro_f1": baseline, "rms_tpr_gap": baseline}
+        return module._comparison({"macro_f1": deberta, "rms_tpr_gap": deberta}, both)["macro_f1"][
+            "cis_overlap"
+        ]
+
+    assert overlap(interval(0.1, 0.5), interval(0.5, 0.9)) is True
+    assert overlap(interval(0.5, 0.9), interval(0.1, 0.5)) is True
+    assert overlap(interval(0.1, 0.4), interval(0.5, 0.9)) is False
+    assert overlap(interval(0.5, 0.9), interval(0.1, 0.4)) is False
