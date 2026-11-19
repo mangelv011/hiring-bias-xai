@@ -112,3 +112,8 @@ def test_axis_labels_stay_inside_the_figure():
             assert box.x1 <= fig.bbox.x1 and box.y1 <= fig.bbox.y1
     finally:
         plt.close(fig)
+
+
+def test_the_pdf_carries_no_creation_date_so_reruns_are_byte_identical(fig, tmp_path):
+    plotting.save(fig, "demo", tmp_path)
+    assert b"/CreationDate" not in (tmp_path / "demo.pdf").read_bytes()
