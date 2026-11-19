@@ -55,7 +55,7 @@ The saved weights and tokenizer of the main model at its best dev macro-F1, kept
 _Avoid_: snapshot, saved model
 
 **Representation**:
-A vector the main model builds for a bio: the [CLS] state after the embeddings and after each layer, and the final vector its classification head reads. Probes and concept erasure work on these.
+A vector the main model builds for a bio: the [CLS] state after the embeddings and after each layer, and the final vector its classification head reads. Probes work on these.
 _Avoid_: embedding, features, hidden states (unqualified)
 
 **Screener**:
