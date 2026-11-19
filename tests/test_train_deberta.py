@@ -282,7 +282,9 @@ def test_length_report_percentiles_follow_numpy_linear_interpolation(tiny_tokeni
     module = _load_script()
     monkeypatch.setattr(module, "MAX_LENGTH", 8)
     monkeypatch.setattr(
-        DebertaModel, "pretrained", classmethod(lambda cls, n: cls(None, tiny_tokenizer(n)))
+        DebertaModel,
+        "pretrained",
+        classmethod(lambda cls, n, batch=32: cls(None, tiny_tokenizer(n))),
     )
     report = module._length_report(["alpha " * n for n in range(1, 11)])
     assert report["token_length_percentiles"] == pytest.approx(
@@ -340,7 +342,9 @@ def test_share_above_counts_bios_with_more_than_n_tokens(tiny_tokenizer, monkeyp
     # 126 words are 128 tokens with [CLS] and [SEP]: not above 128. 127 words are 129: above.
     module = _load_script()
     monkeypatch.setattr(
-        DebertaModel, "pretrained", classmethod(lambda cls, n: cls(None, tiny_tokenizer(n)))
+        DebertaModel,
+        "pretrained",
+        classmethod(lambda cls, n, batch=32: cls(None, tiny_tokenizer(n))),
     )
     report = module._length_report(["alpha " * 126, "alpha " * 127])
     assert report["share_above"] == {"128": 0.5, "256": 0.0, "512": 0.0}
