@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from joblib import Parallel
 
 from hiring_bias_xai import data
 from hiring_bias_xai.models import BaselineModel
@@ -145,3 +146,17 @@ def test_the_grid_runs_in_parallel_and_the_results_do_not_depend_on_it(train_bas
         return result
 
     assert metrics(2) == metrics(1)
+
+
+def test_n_jobs_is_the_number_of_processes_given_to_joblib(train_baseline, monkeypatch):
+    seen = []
+
+    class Spy(Parallel):
+        def __init__(self, n_jobs=None, **kwargs):
+            seen.append(n_jobs)
+            super().__init__(n_jobs=1, **kwargs)
+
+    monkeypatch.setattr(train_baseline.module, "Parallel", Spy)
+    train_baseline.module.N_JOBS = 3
+    train_baseline()
+    assert seen == [3]
