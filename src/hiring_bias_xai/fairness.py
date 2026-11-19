@@ -20,12 +20,12 @@ def _metrics(true, pred, female, shares):
     n_cell = np.bincount(cell, minlength=2 * k).reshape(k, 2)
     hit_cell = np.bincount(cell[hit], minlength=2 * k).reshape(k, 2)
     with np.errstate(all="ignore"):
-        f1 = np.where(n_true > 0, 2 * true_positive / (n_true + n_pred), np.nan)
+        f1 = 2 * true_positive / (n_true + n_pred)
         tpr = hit_cell / n_cell
         gap = tpr[:, 0] - tpr[:, 1]
         return {
             "accuracy": hit.mean(),
-            "macro_f1": np.nanmean(f1),
+            "macro_f1": np.mean(f1),
             "tpr_female": tpr[:, 0],
             "tpr_male": tpr[:, 1],
             "tpr_gap": gap,
@@ -69,7 +69,7 @@ def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> 
     per_occupation = {}
     for i, occupation in enumerate(occupations):
         in_occupation = true == i
-        per_occupation[str(occupation)] = {
+        per_occupation[occupation] = {
             name: _summary(point[name][i], resampled[name][:, i])
             for name in ("tpr_female", "tpr_male", "tpr_gap")
         } | {
