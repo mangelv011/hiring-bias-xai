@@ -40,6 +40,42 @@ def two_proportion_p(hits_a: int, n_a: int, hits_b: int, n_b: int) -> float:
     return float(2 * stats.norm.sf(abs(z)))
 
 
+def _by_occupation(y_true, y_pred, gender):
+    """Occupation names (sorted) and, for each, its bios' hit flags and female flags."""
+    y_true, y_pred = np.asarray(y_true), np.asarray(y_pred)
+    female = np.asarray(gender) == "female"
+    names = np.unique(y_true)
+    cells = [(y_true == name) for name in names]
+    return names.tolist(), [(y_pred[c] == name, female[c]) for name, c in zip(names, cells, strict=True)]
+
+
+def _rms(cells) -> float:
+    gaps = [hit[female].mean() - hit[~female].mean() for hit, female in cells]
+    return float(np.sqrt(np.mean(np.square(gaps))))
+
+
+def rms_permutation_test(y_true, y_pred, gender, *, n_perm=1000, seed=SEED) -> dict:
+    """RMS TPR gap against a null where gender carries no information about the hits.
+
+    The null shuffles the gender labels among the bios of each occupation and keeps the
+    predictions fixed. `p_value` is (1 + permutations with an RMS gap at least the observed) /
+    (1 + n_perm).
+    """
+    _, cells = _by_occupation(y_true, y_pred, gender)
+    observed = _rms(cells)
+    rng = np.random.default_rng(seed)
+    null = np.array(
+        [_rms([(hit, rng.permutation(female)) for hit, female in cells]) for _ in range(n_perm)]
+    )
+    return {
+        "observed": observed,
+        "null_mean": float(null.mean()),
+        "null_p95": float(np.percentile(null, 95)),
+        "p_value": float((1 + np.sum(null >= observed)) / (1 + n_perm)),
+        "n_permutations": n_perm,
+    }
+
+
 def _pearson_rows(x, y):
     """Pearson correlation of each row of `x` with the same row of `y`; NaN for a constant row."""
     x = x - x.mean(axis=-1, keepdims=True)
