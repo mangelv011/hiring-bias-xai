@@ -32,7 +32,6 @@ def test_scrub_strips_the_ends():
     assert data.scrub("She is a nurse. ") == "is a nurse."
 
 
-
 @pytest.mark.parametrize(
     "word",
     ["the", "shell", "heritage", "hierarchy", "there", "sheriff", "history", "ashes", "this"],
