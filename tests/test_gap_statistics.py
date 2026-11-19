@@ -77,9 +77,9 @@ def test_the_point_values_are_the_correlations_of_the_data():
     gap = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     share = np.array([1.0, 3.0, 2.0, 5.0, 4.0, 6.0])
     out = gap_statistics.correlations(gap, share, n_boot=10)
-    # Pearson: sxy = 14, sxx = syy = 17.5 -> 0.8. Spearman is the same on these ranks.
-    assert out["pearson"]["value"] == pytest.approx(0.8)
-    assert out["spearman"]["value"] == pytest.approx(0.8)
+    # Pearson: sxy = 15.5, sxx = syy = 17.5 -> 31/35. Spearman is the same on these ranks.
+    assert out["pearson"]["value"] == pytest.approx(31 / 35)
+    assert out["spearman"]["value"] == pytest.approx(31 / 35)
 
 
 def test_the_occupation_bootstrap_intervals_are_wide_for_noisy_points_and_reproducible():
@@ -101,7 +101,7 @@ def test_the_fisher_interval_uses_the_number_of_occupations():
     gap = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     share = np.array([1.0, 3.0, 2.0, 5.0, 4.0, 6.0])
     out = gap_statistics.correlations(gap, share, n_boot=10)["pearson"]
-    low, high = gap_statistics.fisher_ci(0.8, 6)
+    low, high = gap_statistics.fisher_ci(31 / 35, 6)
     assert (out["fisher_ci_low"], out["fisher_ci_high"]) == pytest.approx((low, high))
 
 
