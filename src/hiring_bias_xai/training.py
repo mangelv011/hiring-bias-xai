@@ -34,8 +34,12 @@ def train(
     epochs: int,
     batch_size: int,
     eval_every: int,
+    patience: float = math.inf,
 ) -> list[dict]:
-    """Fine-tune `model` and return one row per evaluation on the dev bios."""
+    """Fine-tune `model` and return one row per evaluation on the dev bios.
+
+    Training stops after `patience` evaluations in a row without a higher dev macro-F1.
+    """
     network = model.network
     targets = torch.tensor([model.labels.index(label) for label in train_labels])
     optimizer = torch.optim.AdamW(network.parameters(), lr=learning_rate)
@@ -44,7 +48,7 @@ def train(
     scheduler = get_linear_schedule_with_warmup(
         optimizer, math.ceil(WARMUP_RATIO * total_steps), total_steps
     )
-    rows, step, losses = [], 0, []
+    rows, step, losses, best_f1, stale = [], 0, [], -1.0, 0
     for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_texts))
         for start in range(0, len(order) - batch_size + 1, batch_size):
@@ -73,4 +77,10 @@ def train(
                     | _evaluate(model, dev_texts, dev_labels)
                 )
                 losses = []
+                if rows[-1]["dev_macro_f1"] > best_f1:
+                    best_f1, stale = rows[-1]["dev_macro_f1"], 0
+                else:
+                    stale += 1
+                if stale >= patience:
+                    return rows
     return rows
