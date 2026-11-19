@@ -21,11 +21,19 @@ One of four groups signalled by a name: Spain, Morocco, Romania, Hispanic Americ
 _Avoid_: ethnicity, nationality, Latin America
 
 **Showcase occupations**:
-The two occupations used for illustrative figures.
+The six occupations used for illustrative figures: the three with the lowest and the three with the highest share of women in the training subsample, among those with at least 500 test bios.
 _Avoid_: example occupations
 
+**Bio ID**:
+The identifier of a bio, `<split>-<row index in the official split>`, such as `test-1234`. The dataset has no ID column.
+_Avoid_: row number, index
+
+**Training subsample**:
+The 60,000 train bios (10,000 for dev) drawn at random within each occupation and gender group, in proportion to its size. The test split is never subsampled.
+_Avoid_: sample, subset
+
 **XAI subset**:
-The fixed, stratified subset of test bios on which all expensive explanations are computed.
+The fixed 2,000 test bios, stratified by occupation and gender, on which all expensive explanations are computed.
 _Avoid_: sample, explanation set
 
 ## Models

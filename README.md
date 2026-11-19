@@ -24,7 +24,7 @@ Expensive explanations run on a fixed, stratified XAI subset of the test bios. T
 
 ## Status
 
-Scaffolding only: package layout, environment, CI, glossary and the first two decision records. No data loading, training or analysis code yet.
+Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). No training or analysis code yet.
 
 ## How to run
 
