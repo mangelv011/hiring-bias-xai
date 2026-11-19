@@ -34,3 +34,12 @@ def test_macro_f1_averages_the_f1_of_each_occupation():
     # nurse: TP 4, FP 1 (a female surgeon), FN 2 (a female and a male nurse) -> 8 / 11.
     # surgeon: TP 5, FP 2, FN 1 -> 10 / 13.
     assert _report()["macro_f1"]["value"] == pytest.approx((8 / 11 + 10 / 13) / 2)
+
+
+def test_tpr_is_the_share_of_true_bios_of_an_occupation_predicted_as_it():
+    per_occupation = _report()["per_occupation"]
+    # nurse: 3 of 4 women, 1 of 2 men. surgeon: 1 of 2 women, 4 of 4 men.
+    assert per_occupation[N]["tpr_female"]["value"] == pytest.approx(3 / 4)
+    assert per_occupation[N]["tpr_male"]["value"] == pytest.approx(1 / 2)
+    assert per_occupation[S]["tpr_female"]["value"] == pytest.approx(1 / 2)
+    assert per_occupation[S]["tpr_male"]["value"] == pytest.approx(4 / 4)
