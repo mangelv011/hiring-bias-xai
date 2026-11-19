@@ -356,3 +356,8 @@ def test_dev_and_test_scoring_use_the_evaluation_batch_size(execute):
     execute(LEARNING_RATES=(3e-3,), EPOCHS=1, EVAL_BATCH_SIZE=3)
     assert set(execute.batch_sizes) == {3}
     assert len(execute.batch_sizes) == 3  # the model of the run, the length report, the final load
+
+
+def test_the_training_log_is_written_with_unix_line_endings(run):
+    # The result files in the repo use LF on every platform.
+    assert b"\r" not in (run / "results" / "training_log.csv").read_bytes()
