@@ -1,3 +1,4 @@
+import numpy as np
 
 from hiring_bias_xai import data
 from hiring_bias_xai.models import BaselineModel
@@ -21,3 +22,9 @@ def _fitted(**kwargs):
 
 def test_labels_are_the_28_occupations_in_dataset_order():
     assert list(_fitted().labels) == list(data.OCCUPATIONS)
+
+
+def test_predict_proba_gives_one_probability_row_per_text_over_all_28_occupations():
+    proba = _fitted().predict_proba(["a patient", "a scalpel", "something else"])
+    assert proba.shape == (3, 28)
+    np.testing.assert_allclose(proba.sum(axis=1), 1.0)
