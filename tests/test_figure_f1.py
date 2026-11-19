@@ -86,6 +86,29 @@ def test_there_is_one_dot_per_occupation_at_its_share_and_gap(figure):
     assert np.array(sorted(map(tuple, offsets))) == pytest.approx(np.array(expected))
 
 
+def _lines(ax):
+    return [(line.get_xdata(), line.get_ydata()) for line in ax.get_lines()]
+
+
+def test_there_is_a_zero_reference_line(figure):
+    (ax,) = figure.axes
+    assert any(np.all(np.asarray(y) == 0) for _, y in _lines(ax))
+
+
+def test_the_fitted_line_is_the_least_squares_line_of_the_dots(figure):
+    # The dots lie on gap = 1.2 * share - 0.6, so the OLS line has slope 1.2 and intercept -0.6.
+    (ax,) = figure.axes
+    fitted = [(x, y) for x, y in _lines(ax) if not np.all(np.asarray(y) == 0)]
+    assert len(fitted) == 1
+    x, y = fitted[0]
+    assert np.polyfit(x, y, 1) == pytest.approx([1.2, -0.6])
+
+
+def test_the_figure_states_pearson_r_with_its_fisher_interval(figure):
+    (ax,) = figure.axes
+    assert "r = 0.85 [0.71, 0.93]" in [t.get_text() for t in ax.texts]
+
+
 def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
     (ax,) = figure.axes
     bars = [
