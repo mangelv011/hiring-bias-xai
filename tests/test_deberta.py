@@ -169,3 +169,39 @@ def test_pretrained_downloads_the_pinned_revision_into_the_artifacts_directory_w
     assert calls["model"][1]["dtype"] == torch.float32
     assert calls["model"][1]["id2label"] == dict(enumerate(data.OCCUPATIONS))
     assert calls["tokenizer"][1]["model_max_length"] == 256
+
+
+def test_logits_softmax_to_the_probabilities_and_stay_float32(tiny_network, tiny_tokenizer):
+    model = _model(tiny_network, tiny_tokenizer)
+    logits = model.logits(TEXTS)
+    assert logits.dtype == np.float32
+    softmax = torch.softmax(torch.from_numpy(logits), dim=-1).numpy()
+    np.testing.assert_allclose(softmax, model.predict_proba(TEXTS), atol=1e-6)
+
+
+def test_predict_returns_the_occupation_name_with_the_largest_logit(tiny_network, tiny_tokenizer):
+    model = _model(tiny_network, tiny_tokenizer)
+    model.network.classifier.bias.data[data.OCCUPATIONS.index("surgeon")] = 100.0
+    assert list(model.predict(TEXTS)) == ["surgeon"] * len(TEXTS)
+
+
+def test_class_log_odds_is_the_class_logit_minus_the_log_sum_of_exponentials_of_the_others(
+    tiny_network, tiny_tokenizer
+):
+    model = _model(tiny_network, tiny_tokenizer)
+    z = model.logits(TEXTS).astype(np.float64)
+    for index in (0, 13, 27):
+        others = np.delete(z, index, axis=1)
+        expected = z[:, index] - np.log(np.exp(others).sum(axis=1))
+        np.testing.assert_allclose(model.class_log_odds(TEXTS, data.OCCUPATIONS[index]), expected)
+
+
+def test_class_log_odds_does_not_saturate_where_probabilities_do(tiny_network, tiny_tokenizer):
+    # A bias of 200 on nurse makes the float32 probability of nurse exactly 1, so log-odds from
+    # probabilities would be infinite. From logits they stay finite.
+    model = _model(tiny_network, tiny_tokenizer)
+    model.network.classifier.bias.data[data.OCCUPATIONS.index("nurse")] = 200.0
+    assert (model.predict_proba(TEXTS)[:, 13] == 1.0).all()
+    odds = model.class_log_odds(TEXTS, "nurse")
+    assert np.isfinite(odds).all()
+    assert (odds > 150).all()
