@@ -4,7 +4,6 @@ import itertools
 import time
 from pathlib import Path
 
-import numpy as np
 from joblib import Parallel, delayed
 from sklearn.metrics import f1_score
 
@@ -22,13 +21,9 @@ MIN_DF_GRID = (5, 20)
 N_JOBS = 6
 
 
-def _predict(model: BaselineModel, texts) -> np.ndarray:
-    return np.array(model.labels)[model.predict_proba(texts).argmax(axis=1)]
-
-
 def _macro_f1(model: BaselineModel, frame) -> float:
     occupations = frame["occupation"]
-    predicted = _predict(model, frame["text"])
+    predicted = model.predict(frame["text"])
     return float(f1_score(occupations, predicted, average="macro"))
 
 
@@ -51,7 +46,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         key = (dev_f1, -model.C, model.min_df)  # ties: the smaller C, then the larger min_df
         if best_key is None or key > best_key:
             best, best_key = model, key
-    predicted = _predict(best, test["text"])
+    predicted = best.predict(test["text"])
     best.save()
     results.save_predictions("baseline", test, predicted)
     report = fairness.evaluate(

@@ -29,10 +29,6 @@ BASELINE_METRICS = RESULTS_DIR / "metrics_baseline.json"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def _predict(model: DebertaModel, texts) -> list[str]:
-    return [model.labels[i] for i in model.logits(list(texts)).argmax(axis=1)]
-
-
 def _length_report(texts) -> dict:
     """Token lengths of the bios before any cutting, and the share `MAX_LENGTH` would cut."""
     tokenizer = DebertaModel.pretrained(MAX_LENGTH, EVAL_BATCH_SIZE).tokenizer
@@ -115,13 +111,15 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     model = DebertaModel.load(EVAL_BATCH_SIZE)
     model.network.to(DEVICE)
     test_frame = data.load_split("test")
-    predicted = _predict(model, test_frame["text"])
+    predicted = model.predict(list(test_frame["text"]))
     results.save_predictions("deberta", test_frame, predicted)
     report = fairness.evaluate(
         test_frame["occupation"], predicted, test_frame["gender"], data.share_women(train_frame)
     )
     train_f1 = float(
-        f1_score(train_frame["occupation"], _predict(model, train_frame["text"]), average="macro")
+        f1_score(
+            train_frame["occupation"], model.predict(list(train_frame["text"])), average="macro"
+        )
     )
     columns = ["base_learning_rate", "step", "epoch", "train_loss", "dev_loss", "dev_macro_f1"]
     pd.DataFrame(log)[[*columns, "learning_rate"]].to_csv(
