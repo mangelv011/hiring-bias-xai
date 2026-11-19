@@ -27,7 +27,26 @@ def build(results_dir: Path):
 
     fig, ax = plotting.new_figure(HEIGHT_INCHES)
     ax.errorbar(x, gap, yerr=[gap - low, high - gap], fmt="none", ecolor=plotting.NEUTRAL, lw=0.6)
-    ax.scatter(x, gap, s=12, color=plotting.NEUTRAL, zorder=3)
+    showcase = _read(results_dir, "showcase_occupations.json")
+    labelled = {
+        row["occupation"]: side
+        for side in ("male_dominated", "female_dominated")
+        for row in showcase[side]
+    }
+    is_showcase = np.array([name in labelled for name in names])
+    ax.scatter(x[~is_showcase], gap[~is_showcase], s=12, color=plotting.NEUTRAL, zorder=3)
+    ax.scatter(x[is_showcase], gap[is_showcase], s=16, color=plotting.HIGHLIGHT, zorder=4)
+    for name, xi, yi in zip(names, x, gap, strict=True):
+        if name in labelled:
+            right = labelled[name] == "male_dominated"
+            ax.annotate(
+                name.replace("_", " "),
+                (xi, yi),
+                xytext=(4 if right else -4, 0),
+                textcoords="offset points",
+                ha="left" if right else "right",
+                va="center",
+            )
     ax.axhline(0, color=DARK, lw=0.6, zorder=1)
     slope, intercept = np.polyfit(x, gap, 1)
     ax.plot([x.min(), x.max()], [intercept + slope * x.min(), intercept + slope * x.max()], color=DARK, lw=1)
