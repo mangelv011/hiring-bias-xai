@@ -38,3 +38,10 @@ class BaselineModel:
             LogisticRegression(C=self.C),
         ).fit(texts, occupations)
         return self
+
+    def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
+        seen = self.pipeline.predict_proba(texts)
+        columns = [self.labels.index(name) for name in self.pipeline.classes_]
+        proba = np.zeros((len(seen), len(self.labels)))
+        proba[:, columns] = seen
+        return proba
