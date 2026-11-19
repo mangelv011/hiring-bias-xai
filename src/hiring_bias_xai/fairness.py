@@ -36,7 +36,9 @@ def _metrics(true, pred, female, shares):
 
 def _summary(value, resampled):
     ci_low, ci_high = np.nanpercentile(resampled, [2.5, 97.5])
-    return {"value": float(value), "ci_low": float(ci_low), "ci_high": float(ci_high)}
+    summary = {"value": float(value), "ci_low": float(ci_low), "ci_high": float(ci_high)}
+    n_dropped = int(np.isnan(resampled).sum())
+    return summary | {"n_dropped": n_dropped} if n_dropped else summary
 
 
 def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> dict:
@@ -44,7 +46,8 @@ def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> 
 
     Every metric is `{"value", "ci_low", "ci_high"}`, a 95% percentile bootstrap interval from
     `n_boot` resamples of bios. A resample whose occupation x gender cell is empty gives NaN
-    for the metrics that depend on it and is ignored for them.
+    for the metrics that depend on it and is ignored for them; `n_dropped` counts those
+    resamples and appears only when there are some.
     """
     y_true, y_pred, gender = np.asarray(y_true), np.asarray(y_pred), np.asarray(gender)
     occupations = np.unique(y_true)
