@@ -186,6 +186,35 @@ def test_the_null_summary_is_the_mean_and_95th_percentile_of_the_permuted_rms_ga
     assert out["null_mean"] == pytest.approx(1 / 3, abs=0.04)
 
 
+SPEC = {
+    "a": (45, 50, 20, 25),
+    "b": (30, 50, 45, 60),
+    "c": (10, 20, 70, 80),
+    "d": (60, 80, 20, 30),
+}
+SHARES = {"a": 0.2, "b": 0.4, "c": 0.7, "d": 0.9}
+
+
+def test_compute_agrees_with_the_fairness_module_and_holds_every_statistic():
+    y_true, y_pred, gender = _bios(SPEC)
+    report = fairness.evaluate(y_true, y_pred, gender, SHARES, n_boot=2)
+    out = gap_statistics.compute(y_true, y_pred, gender, SHARES, n_boot=20, n_perm=20)
+    assert out["n_occupations"] == 4
+    assert out["pearson"]["value"] == pytest.approx(report["gap_share_pearson"]["value"])
+    assert out["rms_tpr_gap"]["observed"] == pytest.approx(report["rms_tpr_gap"]["value"])
+    assert out["rms_tpr_gap"]["n_permutations"] == 20
+    assert sorted(out["spearman"]) == ["ci_high", "ci_low", "value"]
+    assert sorted(out["leave_one_out"]) == ["max", "min"]
+    for name, row in out["occupations"].items():
+        assert row["share_women"] == SHARES[name]
+        assert row["tpr_gap"] == pytest.approx(report["per_occupation"][name]["tpr_gap"]["value"])
+        assert 0 <= row["p_raw"] <= row["p_holm"] <= 1
+    assert out["n_significant_holm"] == sum(
+        row["p_holm"] < 0.05 for row in out["occupations"].values()
+    )
+    assert 0 < out["n_significant_holm"] < 4  # the planted gaps of "c" and "d" differ in size
+
+
 def test_occupation_tests_report_raw_and_holm_adjusted_p_and_the_gap():
     # a: 90% of 100 women against 80% of 100 men, raw p = 0.04767. b: 5 of 10 against 50 of 100,
     # no gap, p = 1. c: 0 of 100 against 40 of 100, p < 1e-9. Holm over 3: sorted p are c, a, b,
