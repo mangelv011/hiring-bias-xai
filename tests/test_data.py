@@ -1,5 +1,6 @@
 import time
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -140,3 +141,28 @@ def test_load_split_scrubbed_variant_scrubs_the_text_and_keeps_the_rest(fake_raw
     assert list(scrubbed["text"]) == ["is a nurse.", "Lee builds code"]
     assert list(original["text"]) == ["She is a nurse.", "Mr. Lee builds code"]
     assert scrubbed.drop(columns="text").equals(original.drop(columns="text"))
+
+
+def _synthetic(groups):
+    """Raw split from {(profession, gender): size}, rows interleaved in a fixed shuffled order."""
+    rows = [(p, g) for (p, g), size in groups.items() for _ in range(size)]
+    order = np.random.default_rng(7).permutation(len(rows))
+    return _raw([(f"bio {i}", *rows[k]) for i, k in enumerate(order)])
+
+
+def _counts(df):
+    return df.groupby(["occupation", "gender"]).size().to_dict()
+
+
+def test_train_is_a_60000_bio_subsample_with_stratified_quotas(fake_raw):
+    # n * size / total = 6 * size / 7: 30000, 6000, 12000.857, 11999.143. The floors sum to
+    # 59999; the one leftover goes to the larger remainder (architect male).
+    fake_raw(train=_synthetic({(0, 0): 35000, (0, 1): 7000, (1, 0): 14001, (1, 1): 13999}))
+    df = data.load_split("train")
+    assert len(df) == 60000
+    assert _counts(df) == {
+        ("accountant", "male"): 30000,
+        ("accountant", "female"): 6000,
+        ("architect", "male"): 12001,
+        ("architect", "female"): 11999,
+    }

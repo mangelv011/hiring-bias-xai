@@ -36,10 +36,13 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
     if variant not in _VARIANTS:
         raise ValueError(f"variant must be one of {', '.join(_VARIANTS)}; got {variant!r}")
     raw = _load_raw(split)
+    texts = raw["hard_text"]
+    if variant == "scrubbed":
+        texts = texts.map(scrub)
     return pd.DataFrame(
         {
             "id": [f"{split}-{i}" for i in range(len(raw))],
-            "text": raw["hard_text"],
+            "text": texts,
             "occupation": [OCCUPATIONS[code] for code in raw["profession"]],
             "gender": ["female" if code == 1 else "male" for code in raw["gender"]],
         }
