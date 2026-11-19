@@ -37,10 +37,6 @@ def _predict(model: DebertaModel, texts) -> list[str]:
     return [model.labels[i] for i in model.logits(list(texts)).argmax(axis=1)]
 
 
-def _share_women(frame) -> dict:
-    return (frame["gender"] == "female").groupby(frame["occupation"]).mean().to_dict()
-
-
 def _length_report(texts) -> dict:
     """Token lengths of the bios before any cutting, and the share `MAX_LENGTH` would cut."""
     tokenizer = DebertaModel.pretrained(MAX_LENGTH, EVAL_BATCH_SIZE).tokenizer
@@ -130,7 +126,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         predictions / "deberta_test.csv", index=False
     )
     report = fairness.evaluate(
-        test_frame["occupation"], predicted, test_frame["gender"], _share_women(train_frame)
+        test_frame["occupation"], predicted, test_frame["gender"], data.share_women(train_frame)
     )
     train_f1 = float(
         f1_score(train_frame["occupation"], _predict(model, train_frame["text"]), average="macro")
