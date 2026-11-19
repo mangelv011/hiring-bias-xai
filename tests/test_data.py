@@ -166,3 +166,15 @@ def test_train_is_a_60000_bio_subsample_with_stratified_quotas(fake_raw):
         ("architect", "male"): 12001,
         ("architect", "female"): 11999,
     }
+
+
+def test_dev_is_a_10000_bio_subsample_and_ties_go_to_the_first_group_in_sorted_order(fake_raw):
+    # Three equal groups: floor(10000 / 3) = 3333 each, one leftover, all remainders tie.
+    # Sorted (occupation, gender) order starts with accountant female.
+    fake_raw(dev=_synthetic({(1, 0): 5000, (0, 0): 5000, (0, 1): 5000}))
+    df = data.load_split("dev")
+    assert _counts(df) == {
+        ("accountant", "female"): 3334,
+        ("accountant", "male"): 3333,
+        ("architect", "male"): 3333,
+    }
