@@ -73,13 +73,21 @@ class DebertaModel:
 
     labels = data.OCCUPATIONS
 
-    def __init__(self, network, tokenizer):
+    def __init__(self, network, tokenizer, batch_size: int = 32):
         self.network = network
         self.tokenizer = tokenizer
+        self.batch_size = batch_size
+
+    def logits(self, texts: Sequence[str]) -> np.ndarray:
+        """Float32 logits of shape (n, n_labels), in eval mode without gradients."""
+        self.network.eval()
+        batches = []
+        for start in range(0, len(texts), self.batch_size):
+            batch = list(texts[start : start + self.batch_size])
+            inputs = self.tokenizer(batch, padding=True, return_tensors="pt")
+            with torch.inference_mode():
+                batches.append(self.network(**inputs.to(self.network.device)).logits.float())
+        return torch.cat(batches).numpy()
 
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
-        self.network.eval()
-        inputs = self.tokenizer(list(texts), padding=True, return_tensors="pt")
-        with torch.inference_mode():
-            logits = self.network(**inputs.to(self.network.device)).logits
-        return torch.softmax(logits.float(), dim=-1).numpy()
+        return torch.softmax(torch.from_numpy(self.logits(texts)), dim=-1).numpy()
