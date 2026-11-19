@@ -15,10 +15,6 @@ MODELS = {"baseline_model": "baseline", "main_model": "deberta"}
 TOLERANCE = 1e-9
 
 
-def _share_women(frame) -> dict:
-    return (frame["gender"] == "female").groupby(frame["occupation"]).mean().to_dict()
-
-
 def _check_against_metrics(name: str, statistics: dict, test_metrics: dict) -> None:
     """Fail if a point value here differs from the one `fairness.evaluate` stored."""
     expected = {
@@ -39,7 +35,7 @@ def _check_against_metrics(name: str, statistics: dict, test_metrics: dict) -> N
 
 def main(results_dir: Path = RESULTS_DIR) -> None:
     results_dir.mkdir(parents=True, exist_ok=True)
-    share_women = _share_women(data.load_split("train"))
+    share_women = data.share_women(data.load_split("train"))
     test = data.load_split("test")
     output = {}
     for name, file in MODELS.items():

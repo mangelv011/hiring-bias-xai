@@ -43,10 +43,6 @@ def _fit_and_score(C: float, min_df: int, train, dev) -> tuple[BaselineModel, fl
     return model, _macro_f1(model, dev)
 
 
-def _share_women(frame) -> dict:
-    return (frame["gender"] == "female").groupby(frame["occupation"]).mean().to_dict()
-
-
 def main(results_dir: Path = RESULTS_DIR) -> None:
     started = time.perf_counter()
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -72,7 +68,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         test["occupation"],
         predicted,
         test["gender"],
-        _share_women(train),
+        data.share_women(train),
     )
     train_f1 = _macro_f1(best, train)
     _write_json(

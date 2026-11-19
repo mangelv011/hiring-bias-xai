@@ -38,8 +38,8 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             "bios": {name: len(df) for name, df in frames.items()},
             "counts": counts,
             "share_women_train": {
-                occupation: round(women["female"] / (women["female"] + women["male"]), 4)
-                for occupation, women in counts["train"].items()
+                occupation: round(share, 4)
+                for occupation, share in data.share_women(frames["train"]).items()
             },
         },
     )
