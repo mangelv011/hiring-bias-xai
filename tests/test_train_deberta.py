@@ -25,6 +25,7 @@ def run(tmp_path_factory, tiny_network, tiny_tokenizer):
     """Run the script's main() once on synthetic splits and a tiny network; give the paths."""
     root = tmp_path_factory.mktemp("deberta")
     splits = {"train": _split("train", 8), "dev": _split("dev", 2), "test": _split("test", 2)}
+    splits["test"].loc[2, "occupation"] = "surgeon"  # a male nurse bio the model gets wrong
 
     def pretrained(cls, max_length, batch_size=32):
         return cls(tiny_network(), tiny_tokenizer(max_length), batch_size)
@@ -81,10 +82,12 @@ def test_the_training_log_has_one_row_per_evaluation_of_every_run(run):
 
 
 def test_the_test_report_scores_the_chosen_model_once_with_the_fairness_module(run):
-    # The toy test split is 4 nurse bios then 4 surgeon bios, all easy.
+    # The toy test split is 4 nurse bios then 4 surgeon bios, all easy, but bio 2 is labelled
+    # surgeon: 7 of 8 right. Nurse: 3 hits, 4 predicted, 3 true, F1 = 6/7. Surgeon: 4 hits,
+    # 4 predicted, 5 true, F1 = 8/9.
     test = _metrics(run)["test"]
-    assert test["macro_f1"]["value"] == 1.0
-    assert test["accuracy"] == {"value": 1.0, "ci_low": 1.0, "ci_high": 1.0}
+    assert test["macro_f1"]["value"] == pytest.approx((6 / 7 + 8 / 9) / 2)
+    assert test["accuracy"]["value"] == 7 / 8
     assert sorted(test["per_occupation"]) == ["nurse", "surgeon"]
     assert test["per_occupation"]["nurse"]["n_female"] == 2
 
@@ -94,3 +97,12 @@ def test_the_test_predictions_are_saved_outside_the_repo(run):
     assert list(predictions.columns) == ["id", "predicted_occupation"]
     assert predictions["id"].tolist() == [f"test-{i}" for i in range(8)]
     assert predictions["predicted_occupation"].tolist() == ["nurse"] * 4 + ["surgeon"] * 4
+
+
+def test_the_overfitting_check_compares_train_and_test_macro_f1(run):
+    # The toy network gets every train bio right (F1 1) and the test macro-F1 is (6/7 + 8/9) / 2.
+    check = _metrics(run)["overfitting_check"]
+    test_f1 = (6 / 7 + 8 / 9) / 2
+    assert check["train_macro_f1"] == 1.0
+    assert check["test_macro_f1"] == pytest.approx(test_f1)
+    assert check["gap"] == pytest.approx(1 - test_f1)
