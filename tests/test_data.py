@@ -213,6 +213,38 @@ def test_xai_subset_is_a_2000_bio_stratified_sample_of_the_full_test_split(fake_
     assert positions == sorted(positions)
 
 
+def test_raw_split_is_downloaded_from_the_pinned_revision_into_the_artifacts_dir(
+    monkeypatch, tmp_path
+):
+    calls = []
+
+    class FakeDataset:
+        def to_pandas(self):
+            return pd.DataFrame(
+                {"hard_text": ["a bio"], "profession": [13], "gender": [1], "extra": ["x"]}
+            )
+
+    def fake_load_dataset(*args, **kwargs):
+        calls.append((args, kwargs))
+        return FakeDataset()
+
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    monkeypatch.setattr("datasets.load_dataset", fake_load_dataset)
+    raw = data._load_raw("dev")
+    assert calls == [
+        (
+            ("LabHC/bias_in_bios",),
+            {
+                "revision": "052f01de644dba841176e0449528b41f27d94a61",
+                "split": "dev",
+                "cache_dir": str(tmp_path / "hf"),
+            },
+        )
+    ]
+    assert list(raw.columns) == ["hard_text", "profession", "gender"]
+    assert raw.to_dict("records") == [{"hard_text": "a bio", "profession": 13, "gender": 1}]
+
+
 def _bios(per_occupation):
     """Frame with `occupation` and `gender` columns from {occupation: (n_women, n_bios)}."""
     return pd.DataFrame(
