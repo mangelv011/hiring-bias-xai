@@ -230,7 +230,9 @@ def test_values_for_another_occupation_on_nonlinear_scores_match_a_run_with_that
 def test_efficiency_error_is_the_gap_between_the_sum_of_the_values_and_the_score_difference():
     (result,) = attribution.shapley(Hashed(), ["a b c d e"], ["nurse"], 3, "delete", seed=0)
     assert result.efficiency_error() < 1e-9
-    wrong = dataclasses.replace(result, orders=np.zeros_like(result.orders))
+    index = result.index.copy()
+    index[0, -1] = index[0, 0]  # the first order now ends on the empty bio
+    wrong = dataclasses.replace(result, index=index)
     assert wrong.efficiency_error() > 0.01
 
 
