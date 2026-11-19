@@ -1,7 +1,7 @@
 """Models and the Classifier interface that every screener satisfies."""
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import NamedTuple, Protocol
 
 import joblib
 import numpy as np
@@ -68,6 +68,11 @@ class BaselineModel:
         return joblib.load(_baseline_file())
 
 
+class Representations(NamedTuple):
+    layers: np.ndarray
+    final: np.ndarray
+
+
 class DebertaModel:
     """DeBERTa-v3-small with a classification head over the occupations; satisfies `Classifier`."""
 
@@ -78,16 +83,35 @@ class DebertaModel:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
 
-    def logits(self, texts: Sequence[str]) -> np.ndarray:
-        """Float32 logits of shape (n, n_labels), in eval mode without gradients."""
+    def _batches(self, texts: Sequence[str]):
+        """Tokenized batches on the network's device; puts the network in eval mode."""
         self.network.eval()
-        batches = []
         for start in range(0, len(texts), self.batch_size):
             batch = list(texts[start : start + self.batch_size])
             inputs = self.tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
-            with torch.inference_mode():
-                batches.append(self.network(**inputs.to(self.network.device)).logits.float())
+            yield inputs.to(self.network.device)
+
+    def logits(self, texts: Sequence[str]) -> np.ndarray:
+        """Float32 logits of shape (n, n_labels), in eval mode without gradients."""
+        with torch.inference_mode():
+            batches = [self.network(**inputs).logits.float() for inputs in self._batches(texts)]
         return torch.cat(batches).numpy()
 
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
         return torch.softmax(torch.from_numpy(self.logits(texts)), dim=-1).numpy()
+
+    def representations(self, texts: Sequence[str]) -> Representations:
+        """The [CLS] state after the embeddings and after each transformer layer, and the
+        final vector the classification head reads.
+
+        `layers` has shape (n, n_layers + 1, hidden_size), `final` (n, hidden_size). `final`
+        is the [CLS] state of the last layer passed through the head's pooler (dense layer and
+        activation); the classifier is a linear map of it.
+        """
+        layers, final = [], []
+        with torch.inference_mode():
+            for inputs in self._batches(texts):
+                states = self.network.deberta(**inputs, output_hidden_states=True)
+                layers.append(torch.stack([state[:, 0] for state in states.hidden_states], dim=1))
+                final.append(self.network.pooler(states.last_hidden_state))
+        return Representations(torch.cat(layers).float().numpy(), torch.cat(final).float().numpy())
