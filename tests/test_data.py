@@ -260,6 +260,13 @@ def _bios(per_occupation):
     )
 
 
+def test_share_women_is_the_fraction_of_female_bios_in_each_occupation():
+    frame = _bios({"nurse": (2, 3), "surgeon": (0, 4), "model": (5, 5)})
+    shares = data.share_women(frame)
+    assert shares == {"model": 1.0, "nurse": 2 / 3, "surgeon": 0.0}
+    assert all(type(share) is float for share in shares.values())
+
+
 def test_showcase_occupations_take_the_three_most_imbalanced_each_way_among_large_ones():
     # Women's share in train: rapper .05, software_engineer .1, surgeon .2, dj 1/3, painter .4,
     # teacher .5, dietitian 2/3, paralegal .8, nurse .9. Comedian (share 0) and model (share 1)
