@@ -100,7 +100,8 @@ def test_a_saved_model_loads_back_from_the_artifacts_directory(
     model.save()
     folder = tmp_path / "models" / "deberta"
     assert (folder / "config.json").is_file()
-    loaded = DebertaModel.load()
+    loaded = DebertaModel.load(batch_size=7)
+    assert loaded.batch_size == 7
     texts = ["alpha beta gamma delta epsilon", "zeta eta"]
     np.testing.assert_array_equal(loaded.predict_proba(texts), model.predict_proba(texts))
 
@@ -151,8 +152,9 @@ def test_pretrained_downloads_the_pinned_revision_into_the_artifacts_directory_w
     monkeypatch.setattr(
         transformers.AutoTokenizer, "from_pretrained", fake("tokenizer", tiny_tokenizer(64))
     )
-    model = DebertaModel.pretrained(max_length=256)
+    model = DebertaModel.pretrained(max_length=256, batch_size=7)
     assert isinstance(model, DebertaModel)
+    assert model.batch_size == 7
     assert re.fullmatch(r"[0-9a-f]{40}", models.DEBERTA_REVISION)
     for kind in ("model", "tokenizer"):
         name, kwargs = calls[kind]
@@ -161,6 +163,7 @@ def test_pretrained_downloads_the_pinned_revision_into_the_artifacts_directory_w
         assert kwargs["cache_dir"] == str(tmp_path / "hf")
         assert not kwargs.get("trust_remote_code")
     assert calls["model"][1]["num_labels"] == 28
+    assert calls["model"][1]["label2id"] == {name: i for i, name in enumerate(data.OCCUPATIONS)}
     # The published checkpoint is float16 and transformers keeps that unless told otherwise;
     # training needs float32 master weights (float16 ones turn into NaN at the first step).
     assert calls["model"][1]["dtype"] == torch.float32
