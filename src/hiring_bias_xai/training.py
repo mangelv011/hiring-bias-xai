@@ -1,12 +1,15 @@
 """Fine-tuning loop for `DebertaModel`."""
 
 import math
+import random
 from collections.abc import Sequence
 
+import numpy as np
 import torch
 from sklearn.metrics import f1_score
 from transformers import get_linear_schedule_with_warmup
 
+from hiring_bias_xai.config import SEED
 from hiring_bias_xai.models import DebertaModel
 
 WARMUP_RATIO = 0.06
@@ -40,8 +43,12 @@ def train(
     """Fine-tune `model` and return one row per evaluation on the dev bios.
 
     Training stops after `patience` evaluations in a row without a higher dev macro-F1, and
-    the model ends with the weights of the evaluation that had the highest one.
+    the model ends with the weights of the evaluation that had the highest one. The global
+    random generators (python, numpy, torch) are seeded with `SEED` first.
     """
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
     network = model.network
     targets = torch.tensor([model.labels.index(label) for label in train_labels])
     optimizer = torch.optim.AdamW(network.parameters(), lr=learning_rate)
