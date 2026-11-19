@@ -65,3 +65,8 @@ def test_a_model_that_misses_more_women_than_men_has_a_negative_gap():
         {N: 0.5},
     )
     assert report["per_occupation"][N]["tpr_gap"]["value"] == pytest.approx(-0.5)
+
+
+def test_rms_tpr_gap_is_the_root_mean_square_of_the_gaps():
+    # Gaps are +1/4 (nurse) and -1/2 (surgeon): sqrt((1/16 + 1/4) / 2) = sqrt(5/32).
+    assert _report()["rms_tpr_gap"]["value"] == pytest.approx((5 / 32) ** 0.5)
