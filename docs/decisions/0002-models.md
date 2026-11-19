@@ -8,7 +8,7 @@ The audit compares what different screeners do and explains why. Explanations ne
 
 ## Decision
 
-Three screeners, all behind the `Classifier` interface:
+Three screeners. The first two satisfy the `Classifier` interface; the LLM answers yes/no and is queried directly.
 
 - **Baseline model**: TF-IDF (1-2 grams) with logistic regression. Its coefficients can be read directly, and it anchors the comparison.
 - **Main model**: DeBERTa-v3-small fine-tuned on a stratified subsample of about 60k bios. It supplies gradients and hidden states.
@@ -24,4 +24,4 @@ Three screeners, all behind the `Classifier` interface:
 
 - The subsample caps accuracy below what the full 396k bios would give. The comparison across models still holds because all are scored on the same test split.
 - Expensive explanations run on the XAI subset, not on the whole test set.
-- A new screener only needs `labels` and `predict_proba`; fairness code and counterfactual code do not change.
+- A new classifier, such as a mitigated variant, only needs `labels` and `predict_proba`; fairness and counterfactual code do not change.

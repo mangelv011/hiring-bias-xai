@@ -31,7 +31,7 @@ _Avoid_: sample, explanation set
 ## Models
 
 **Classifier**:
-Anything that maps bios to occupation probabilities, with `labels` and `predict_proba`; every model and mitigated variant satisfies it.
+Anything that maps bios to occupation probabilities, with `labels` and `predict_proba`; the baseline model, the main model and their mitigated variants satisfy it, the local LLM does not.
 _Avoid_: model (when the interface is meant), predictor
 
 **Baseline model**:
@@ -75,7 +75,7 @@ A simple classifier trained on a model's internal representations to read off th
 _Avoid_: detector
 
 **Control task**:
-A probe task with random labels, used to tell what a probe learns from what it memorises.
+The same probe trained on random labels, to separate what the representation encodes from what the probe can memorise.
 _Avoid_: random baseline
 
 **Concept erasure**:
@@ -83,5 +83,5 @@ Removing the linear direction that encodes a protected attribute from a represen
 _Avoid_: debiasing
 
 **Deletion curve**:
-Model confidence as the highest-attribution words are removed one by one; a faithful attribution makes it fall fast.
+Model confidence as words are masked in order of attribution; a faithful attribution makes it fall faster than a random order.
 _Avoid_: ablation curve
