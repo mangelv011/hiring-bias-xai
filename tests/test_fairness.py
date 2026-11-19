@@ -29,6 +29,17 @@ def test_accuracy_has_a_confidence_interval_around_the_point_estimate():
     assert accuracy["ci_low"] <= accuracy["value"] <= accuracy["ci_high"]
 
 
+def test_accuracy_interval_matches_the_normal_approximation():
+    # 200 of 400 right: standard error sqrt(0.5 * 0.5 / 400) = 0.025, so the 95% interval is
+    # 0.5 -+ 1.96 * 0.025 = [0.451, 0.549]. A bootstrap with 2,000 resamples lands within 0.005.
+    y_true = ["a"] * 400
+    y_pred = ["a"] * 200 + ["b"] * 200
+    gender = ["female", "male"] * 200
+    accuracy = fairness.evaluate(y_true, y_pred, gender, {"a": 0.5}, n_boot=2000)["accuracy"]
+    assert accuracy["ci_low"] == pytest.approx(0.451, abs=0.005)
+    assert accuracy["ci_high"] == pytest.approx(0.549, abs=0.005)
+
+
 def test_accuracy_is_the_share_of_bios_with_the_right_occupation():
     # Correct: nurse 3 + 1, surgeon 1 + 4 = 9 of 12.
     assert _report()["accuracy"]["value"] == pytest.approx(9 / 12)
