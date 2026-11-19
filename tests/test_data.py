@@ -199,21 +199,69 @@ def test_subsample_draws_per_group_from_one_seeded_generator_and_keeps_input_ord
     assert df.equals(data.load_split("train"))
 
 
-def test_xai_subset_is_a_2000_bio_stratified_sample_of_the_full_test_split(fake_raw):
-    # n / total = 2000 / 8000 = 1/4: floors 1000, 499, 250, 250 sum to 1999; the leftover goes
-    # to the largest remainder (accountant male, 6000 of 8000).
-    fake_raw(test=_synthetic({(0, 1): 4001, (0, 0): 1999, (1, 0): 1000, (1, 1): 1000}))
-    subset = data.xai_subset()
-    assert _counts(subset) == {
-        ("accountant", "female"): 1000,
-        ("accountant", "male"): 500,
-        ("architect", "male"): 250,
-        ("architect", "female"): 250,
-    }
+def _showcase_raw():
+    """Test split: accountant 10 female (positions 0-9) and 6 male (10-15), architect 8 female
+    (16-23) and 3 male (24-26), attorney 5 female (27-31)."""
+    rows = (
+        [(f"bio {i}", 0, 1) for i in range(10)]
+        + [(f"bio {i}", 0, 0) for i in range(10, 16)]
+        + [(f"bio {i}", 1, 1) for i in range(16, 24)]
+        + [(f"bio {i}", 1, 0) for i in range(24, 27)]
+        + [(f"bio {i}", 2, 1) for i in range(27, 32)]
+    )
+    return _raw(rows)
+
+
+def test_showcase_subset_draws_per_group_from_one_seeded_generator_in_sorted_group_order(
+    fake_raw, monkeypatch
+):
+    # per_group = 3. With rng = default_rng(42), choice(arange(10), 3, replace=False) gives
+    # [9, 0, 6], then choice(arange(10, 16), 3, replace=False) gives [10, 14, 13] and
+    # choice(arange(16, 24), 3, replace=False) gives [19, 22, 21]. Architect men are 3 bios: all
+    # of them. Attorney is not a showcase occupation. Groups run (accountant, female), (accountant,
+    # male), (architect, female), (architect, male).
+    monkeypatch.setattr(data, "_SHOWCASE_PER_GROUP", 3)
+    fake_raw(test=_showcase_raw())
+    subset = data.showcase_subset(data.load_split("test"), ["architect", "accountant"])
+    positions = [0, 6, 9, 10, 13, 14, 19, 21, 22, 24, 25, 26]
+    assert list(subset["id"]) == [f"test-{i}" for i in positions]
+    assert list(subset.index) == list(range(12))
     test = data.load_split("test").set_index("id")
     assert subset.set_index("id").equals(test.loc[subset["id"]])
-    positions = [int(i.split("-")[1]) for i in subset["id"]]
-    assert positions == sorted(positions)
+
+
+def test_showcase_subset_has_the_same_number_of_bios_of_each_gender_in_each_occupation(
+    fake_raw, monkeypatch
+):
+    monkeypatch.setattr(data, "_SHOWCASE_PER_GROUP", 3)
+    fake_raw(test=_showcase_raw())
+    subset = data.showcase_subset(data.load_split("test"), ["accountant", "architect"])
+    assert _counts(subset) == {
+        ("accountant", "female"): 3,
+        ("accountant", "male"): 3,
+        ("architect", "female"): 3,
+        ("architect", "male"): 3,
+    }
+
+
+def test_showcase_subset_is_150_bios_per_occupation_and_gender_by_default():
+    assert data._SHOWCASE_PER_GROUP == 150
+
+
+def test_showcase_subset_is_the_same_whatever_the_order_of_the_occupations(fake_raw, monkeypatch):
+    monkeypatch.setattr(data, "_SHOWCASE_PER_GROUP", 3)
+    fake_raw(test=_showcase_raw())
+    test = data.load_split("test")
+    one = data.showcase_subset(test, ["accountant", "architect"])
+    other = data.showcase_subset(test, ["architect", "accountant"])
+    assert one.equals(other)
+
+
+def test_showcase_subset_stops_when_a_group_has_too_few_bios(fake_raw, monkeypatch):
+    monkeypatch.setattr(data, "_SHOWCASE_PER_GROUP", 4)
+    fake_raw(test=_showcase_raw())
+    with pytest.raises(ValueError, match="architect.*male.*3.*4"):
+        data.showcase_subset(data.load_split("test"), ["accountant", "architect"])
 
 
 def test_raw_split_is_downloaded_from_the_pinned_revision_into_the_artifacts_dir(
@@ -306,7 +354,6 @@ def test_real_data_has_the_official_split_sizes_and_the_subsample_sizes():
     assert len(data.load_split("train")) == 60_000
     assert len(data.load_split("dev")) == 10_000
     assert len(data.load_split("test")) == 99_069
-    assert len(data.xai_subset()) == 2_000
 
 
 @pytest.mark.slow

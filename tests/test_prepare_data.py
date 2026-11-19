@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -16,11 +17,12 @@ def _raw(groups):
     return pd.DataFrame(rows, columns=["hard_text", "profession", "gender"])
 
 
-def _script_runner(monkeypatch, results_dir, raw, sizes, xai_size):
+def _script_runner(monkeypatch, results_dir, raw, sizes, per_group, min_test_bios=500):
     """Return run(): the script's main() on synthetic data, giving the results directory."""
     monkeypatch.setattr(data, "_load_raw", lambda split: raw[split])
     monkeypatch.setattr(data, "_SUBSAMPLE_SIZES", sizes)
-    monkeypatch.setattr(data, "_XAI_SUBSET_SIZE", xai_size)
+    monkeypatch.setattr(data, "_SHOWCASE_PER_GROUP", per_group)
+    monkeypatch.setattr(data, "_SHOWCASE_MIN_TEST_BIOS", min_test_bios)
     spec = importlib.util.spec_from_file_location("prepare_data", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -37,17 +39,26 @@ def prepare(monkeypatch, tmp_path):
     raw = {
         "train": _raw({(0, 0): 40, (0, 1): 20, (1, 0): 30, (1, 1): 10}),
         "dev": _raw({(0, 0): 6, (0, 1): 6}),
-        "test": _raw({(0, 0): 8, (0, 1): 4}),
+        "test": _raw({(0, 0): 8, (0, 1): 4, (1, 0): 6, (1, 1): 6}),
     }
-    return _script_runner(monkeypatch, tmp_path, raw, {"train": 50, "dev": 6}, 6)
+    return _script_runner(monkeypatch, tmp_path, raw, {"train": 50, "dev": 6}, 2, min_test_bios=1)
 
 
-def test_prepare_data_writes_the_xai_subset_ids_as_a_single_column_csv_with_lf(prepare):
+def test_prepare_data_writes_the_showcase_subset_ids_as_a_single_column_csv_with_lf(prepare):
+    # Both occupations are showcase occupations (the cut-off is 1 test bio here), 2 bios per
+    # occupation and gender, drawn from the test split.
     results = prepare()
-    ids = list(data.xai_subset()["id"])
-    assert len(ids) == 6
-    expected = "id\n" + "".join(f"{i}\n" for i in ids)
-    assert (results / "xai_subset_ids.csv").read_bytes() == expected.encode()
+    ids = (results / "showcase_subset_ids.csv").read_bytes().decode()
+    assert ids.startswith("id\n")
+    assert ids.endswith("\n")
+    assert "\r" not in ids
+    chosen = ids.split("\n")[1:-1]
+    assert len(chosen) == 8
+    assert all(re.fullmatch(r"test-\d+", bio_id) for bio_id in chosen)
+    test = data.load_split("test").set_index("id")
+    counts = test.loc[chosen].groupby(["occupation", "gender"]).size()
+    assert counts.tolist() == [2, 2, 2, 2]
+    assert not (results / "xai_subset_ids.csv").exists()
 
 
 def test_prepare_data_writes_the_showcase_occupations_file(monkeypatch, tmp_path):
@@ -59,7 +70,7 @@ def test_prepare_data_writes_the_showcase_occupations_file(monkeypatch, tmp_path
         "dev": _raw({(0, 0): 6, (0, 1): 6}),
         "test": _raw({(p, g): 250 for p in range(6) for g in (0, 1)}),
     }
-    run = _script_runner(monkeypatch, tmp_path, raw, {"train": 60, "dev": 6}, 30)
+    run = _script_runner(monkeypatch, tmp_path, raw, {"train": 60, "dev": 6}, 10)
     raw_file = (run() / "showcase_occupations.json").read_bytes()
     assert json.loads(raw_file) == {
         "rule": (
@@ -83,7 +94,7 @@ def test_prepare_data_writes_the_showcase_occupations_file(monkeypatch, tmp_path
 
 def test_prepare_data_twice_gives_byte_identical_files(prepare):
     results = prepare()
-    names = ["xai_subset_ids.csv", "data_summary.json", "showcase_occupations.json"]
+    names = ["showcase_subset_ids.csv", "data_summary.json", "showcase_occupations.json"]
     first = {name: (results / name).read_bytes() for name in names}
     prepare()
     assert {name: (results / name).read_bytes() for name in names} == first
@@ -91,20 +102,26 @@ def test_prepare_data_twice_gives_byte_identical_files(prepare):
 
 def test_prepare_data_writes_the_summary_counts_and_training_shares_of_women(prepare):
     # Train: 100 bios, n = 50 gives exactly half of every group. Dev: 12 bios, n = 6, half.
-    # XAI subset: 12 test bios, n = 6, half. Share of women in the train subsample: accountant
-    # 10 / 30 = 0.3333, architect 5 / 20.
+    # Showcase subset: 2 bios per occupation and gender from the 24 test bios. Share of women in
+    # the train subsample: accountant 10 / 30 = 0.3333, architect 5 / 20.
     results = prepare()
     raw = (results / "data_summary.json").read_bytes()
     assert json.loads(raw) == {
-        "bios": {"train": 50, "dev": 6, "test": 12, "xai_subset": 6},
+        "bios": {"train": 50, "dev": 6, "test": 24, "showcase_subset": 8},
         "counts": {
             "train": {
                 "accountant": {"female": 10, "male": 20},
                 "architect": {"female": 5, "male": 15},
             },
             "dev": {"accountant": {"female": 3, "male": 3}},
-            "test": {"accountant": {"female": 4, "male": 8}},
-            "xai_subset": {"accountant": {"female": 2, "male": 4}},
+            "test": {
+                "accountant": {"female": 4, "male": 8},
+                "architect": {"female": 6, "male": 6},
+            },
+            "showcase_subset": {
+                "accountant": {"female": 2, "male": 2},
+                "architect": {"female": 2, "male": 2},
+            },
         },
         "share_women_train": {"accountant": 0.3333, "architect": 0.25},
     }
