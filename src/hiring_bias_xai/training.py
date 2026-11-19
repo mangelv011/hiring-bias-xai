@@ -62,7 +62,7 @@ def train(
             optimizer.zero_grad()
             losses.append(float(loss))
             step += 1
-            if step % eval_every == 0:
+            if step % eval_every == 0 or step == total_steps:
                 rows.append(
                     {
                         "step": step,
