@@ -22,3 +22,8 @@ GENDERED_WORDS = [
 @pytest.mark.parametrize("style", [str.lower, str.capitalize, str.upper])
 def test_scrub_removes_each_gendered_word_in_any_case(word, style):
     assert data.scrub(f"a {style(word)} b") == "a b"
+
+
+def test_scrub_strips_the_ends():
+    assert data.scrub("She is a nurse. ") == "is a nurse."
+
