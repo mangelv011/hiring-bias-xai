@@ -95,3 +95,13 @@ def test_scrub_is_linear_on_hostile_input(unit):
     t_large = time.perf_counter() - start
     assert t_large < 5.0
     assert t_large < 100 * max(t_small, 0.01)
+
+
+def test_load_split_rejects_an_unknown_split_naming_the_allowed_ones():
+    with pytest.raises(ValueError, match="train.*dev.*test"):
+        data.load_split("validation")
+
+
+def test_load_split_rejects_an_unknown_variant_naming_the_allowed_ones():
+    with pytest.raises(ValueError, match="original.*scrubbed"):
+        data.load_split("test", variant="masked")
