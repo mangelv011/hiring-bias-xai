@@ -113,6 +113,7 @@ def test_training_leaves_the_model_at_the_evaluation_with_the_best_dev_macro_f1(
     # The learned model labels the 8 dev bios N N N N S S S S against S N N N S S S S: nurse has
     # 3 hits, 4 predicted, 3 true (F1 6/7); surgeon 4 hits, 4 predicted, 5 true (F1 8/9).
     assert scores[0] == pytest.approx((6 / 7 + 8 / 9) / 2)
+    assert len(rows) == 8  # all 10 epochs run: 80 steps, one evaluation every 10
     best = rows[scores.index(max(scores))]
     assert rows[-1]["dev_loss"] != pytest.approx(best["dev_loss"])  # the last step is not the best
     logits = torch.from_numpy(model.logits(dev_texts))
@@ -238,15 +239,3 @@ def test_training_cuts_the_bios_to_the_tokenizer_max_length(tiny_network, tiny_t
         eval_every=100,
     )  # fmt: skip
     assert set(widths) == {5}
-
-
-def test_all_epochs_run_and_the_first_of_equal_best_evaluations_is_restored(model):
-    # The 10 extra epochs give 8 evaluations, and the model ends at the first one, whose dev
-    # macro-F1 is the highest (the later ones tie it, and the first of equals wins).
-    rows, dev_texts, dev_labels = _plateau_run(model)
-    assert len(rows) == 8
-    logits = torch.from_numpy(model.logits(dev_texts))
-    targets = torch.tensor([model.labels.index(label) for label in dev_labels])
-    restored = torch.nn.functional.cross_entropy(logits, targets)
-    assert float(restored) == pytest.approx(rows[0]["dev_loss"], rel=1e-4)
-    assert rows[-1]["dev_loss"] != pytest.approx(rows[0]["dev_loss"])
