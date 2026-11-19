@@ -1,5 +1,6 @@
 import time
 
+import pandas as pd
 import pytest
 
 from hiring_bias_xai import data
@@ -105,3 +106,28 @@ def test_load_split_rejects_an_unknown_split_naming_the_allowed_ones():
 def test_load_split_rejects_an_unknown_variant_naming_the_allowed_ones():
     with pytest.raises(ValueError, match="original.*scrubbed"):
         data.load_split("test", variant="masked")
+
+
+def _raw(rows):
+    """Raw split as the dataset delivers it: (text, profession code, gender code) rows."""
+    return pd.DataFrame(rows, columns=["hard_text", "profession", "gender"])
+
+
+@pytest.fixture
+def fake_raw(monkeypatch):
+    def install(**splits):
+        monkeypatch.setattr(data, "_load_raw", lambda split: splits[split])
+
+    return install
+
+
+def test_load_split_test_returns_the_full_split_with_named_labels_and_ids(fake_raw):
+    fake_raw(test=_raw([("first bio", 13, 1), ("second bio", 24, 0), ("third bio", 0, 1)]))
+    df = data.load_split("test")
+    assert list(df.columns) == ["id", "text", "occupation", "gender"]
+    assert df.to_dict("list") == {
+        "id": ["test-0", "test-1", "test-2"],
+        "text": ["first bio", "second bio", "third bio"],
+        "occupation": ["nurse", "software_engineer", "accountant"],
+        "gender": ["female", "male", "female"],
+    }
