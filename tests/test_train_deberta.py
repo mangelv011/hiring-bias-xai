@@ -36,7 +36,7 @@ def run(tmp_path_factory, tiny_network, tiny_tokenizer):
         spec = importlib.util.spec_from_file_location("train_deberta", SCRIPT)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        patch.setattr(module, "LEARNING_RATES", (1e-5, 3e-3))
+        patch.setattr(module, "LEARNING_RATES", (3e-3, 1e-5))
         patch.setattr(module, "EPOCHS", 30)
         patch.setattr(module, "BATCH_SIZE", 4)
         patch.setattr(module, "ACCUMULATION", 1)
@@ -52,5 +52,12 @@ def _metrics(run):
 
 
 def test_the_learning_rate_with_the_best_dev_macro_f1_is_chosen(run):
-    # 1e-5 barely moves the toy network in 240 steps; 3e-3 learns the task.
+    # 1e-5 barely moves the toy network in 240 steps; 3e-3 learns the task. The better rate
+    # comes first, so a script that kept the last model would fail the next test.
     assert _metrics(run)["hyperparameters"]["learning_rate"] == 3e-3
+
+
+def test_the_saved_checkpoint_is_the_one_of_the_chosen_learning_rate(run, monkeypatch):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(run / "artifacts"))
+    probabilities = DebertaModel.load().predict_proba(list(WORDS.values()))
+    assert [data.OCCUPATIONS[i] for i in probabilities.argmax(axis=1)] == list(WORDS)
