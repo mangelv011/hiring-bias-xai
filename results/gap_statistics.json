@@ -11,6 +11,7 @@
         "r": 0.8774018833004018
       }
     },
+    "n_bootstrap": 1000,
     "n_occupations": 28,
     "n_significant_holm": 11,
     "occupations": {
@@ -215,6 +216,7 @@
         "r": 0.8381680945829757
       }
     },
+    "n_bootstrap": 1000,
     "n_occupations": 28,
     "n_significant_holm": 10,
     "occupations": {
