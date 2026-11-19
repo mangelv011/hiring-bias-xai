@@ -55,3 +55,12 @@ def test_texts_are_cut_to_the_tokenizer_max_length_including_the_two_special_tok
     model = _model(tiny_network, tiny_tokenizer, max_length=5)
     cut = model.predict_proba(["alpha beta gamma delta epsilon zeta"])
     np.testing.assert_allclose(cut, model.predict_proba(["alpha beta gamma"]), atol=1e-6)
+
+
+def test_representations_hold_the_cls_state_of_the_embeddings_and_of_each_layer_and_the_final_vector(
+    tiny_network, tiny_tokenizer
+):
+    # The tiny network has 2 transformer layers and hidden size 32.
+    layers, final = _model(tiny_network, tiny_tokenizer).representations(TEXTS)
+    assert layers.shape == (4, 3, 32)
+    assert final.shape == (4, 32)
