@@ -10,10 +10,44 @@ from hiring_bias_xai.config import RESULTS_DIR
 
 HEIGHT_INCHES = 3.2
 DARK = "#333333"
+LABEL_DX_PT = 5
+LABEL_GAP_PT = 9
+MALE_RAISE_PT = 10
 
 
 def _read(results_dir: Path, name: str):
     return json.loads((results_dir / name).read_text())
+
+
+def _label(fig, ax, points: dict, sides: dict) -> None:
+    """Label the showcase occupations to the right of their dots, with no two labels overlapping.
+
+    Male-dominated labels start above their dots, clear of the zero line and the grey dots near
+    it. Within a side, labels are pushed up until they are `LABEL_GAP_PT` apart; a label that is
+    not level with its dot gets a leader line.
+    """
+    fig.canvas.draw()  # fixes the axes position so data units can be converted to points
+    points_per_pixel = 72 / fig.dpi
+    placed = {}
+    for side in ("male_dominated", "female_dominated"):
+        names = sorted((n for n in sides if sides[n] == side), key=lambda n: points[n][1])
+        label_y = -np.inf
+        for name in names:
+            dot_y = ax.transData.transform(points[name])[1] * points_per_pixel
+            label_y = max(dot_y + (MALE_RAISE_PT if side == "male_dominated" else 0), label_y + LABEL_GAP_PT)
+            placed[name] = label_y - dot_y
+    for name, raise_pt in placed.items():
+        ax.annotate(
+            name.replace("_", " "),
+            points[name],
+            xytext=(LABEL_DX_PT, raise_pt),
+            textcoords="offset points",
+            ha="left",
+            va="center",
+            arrowprops={"arrowstyle": "-", "lw": 0.4, "color": DARK, "shrinkA": 0, "shrinkB": 2}
+            if raise_pt
+            else None,
+        )
 
 
 def build(results_dir: Path):
@@ -36,17 +70,6 @@ def build(results_dir: Path):
     is_showcase = np.array([name in labelled for name in names])
     ax.scatter(x[~is_showcase], gap[~is_showcase], s=12, color=plotting.NEUTRAL, zorder=3)
     ax.scatter(x[is_showcase], gap[is_showcase], s=16, color=plotting.HIGHLIGHT, zorder=4)
-    for name, xi, yi in zip(names, x, gap, strict=True):
-        if name in labelled:
-            right = labelled[name] == "male_dominated"
-            ax.annotate(
-                name.replace("_", " "),
-                (xi, yi),
-                xytext=(4 if right else -4, 0),
-                textcoords="offset points",
-                ha="left" if right else "right",
-                va="center",
-            )
     ax.axhline(0, color=DARK, lw=0.6, zorder=1)
     slope, intercept = np.polyfit(x, gap, 1)
     ax.plot([x.min(), x.max()], [intercept + slope * x.min(), intercept + slope * x.max()], color=DARK, lw=1)
@@ -67,6 +90,9 @@ def build(results_dir: Path):
     )
     ax.set_xlabel("Share of women in the training subsample")
     ax.set_ylabel("TPR gap (women minus men)")
+    ax.set_xlim(right=1.15)  # room for the labels of the female-dominated showcase occupations
+    ax.set_xticks([0.2, 0.4, 0.6, 0.8, 1.0])
+    _label(fig, ax, {name: (xi, yi) for name, xi, yi in zip(names, x, gap, strict=True)}, labelled)
     return fig
 
 
