@@ -49,3 +49,9 @@ def test_per_occupation_counts_the_true_bios_of_each_gender():
     per_occupation = _report()["per_occupation"]
     assert [per_occupation[N]["n_female"], per_occupation[N]["n_male"]] == [4, 2]
     assert [per_occupation[S]["n_female"], per_occupation[S]["n_male"]] == [2, 4]
+
+
+def test_tpr_gap_is_the_female_tpr_minus_the_male_tpr():
+    per_occupation = _report()["per_occupation"]
+    assert per_occupation[N]["tpr_gap"]["value"] == pytest.approx(3 / 4 - 1 / 2)
+    assert per_occupation[S]["tpr_gap"]["value"] == pytest.approx(1 / 2 - 4 / 4)
