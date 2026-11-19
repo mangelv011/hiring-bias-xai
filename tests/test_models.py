@@ -1,7 +1,10 @@
 import inspect
+import random
+import warnings
 
 import numpy as np
 import pytest
+from sklearn.exceptions import ConvergenceWarning
 
 from hiring_bias_xai import data
 from hiring_bias_xai.models import BaselineModel
@@ -17,6 +20,7 @@ TEXTS = [
     "surgeon surgery theatre",
 ]
 OCCUPATIONS = [NURSE] * 3 + [SURGEON] * 3
+WORD_POOL = [f"word{i}" for i in range(20)]
 
 
 def _fitted(**kwargs):
@@ -88,3 +92,14 @@ def test_load_takes_no_path_so_only_the_project_file_in_the_artifacts_directory_
     # joblib uses pickle, which can run code. `load` has no path argument: callers cannot point
     # it at a file from another source.
     assert not inspect.signature(BaselineModel.load).parameters
+
+
+def test_fit_runs_until_the_solver_converges():
+    # 3,000 word salads from 20 words with random labels cannot be separated, so lbfgs needs
+    # more than 100 iterations at this C. A fit that stops early is an under-trained model.
+    rng = random.Random(0)
+    texts = [" ".join(rng.choices(WORD_POOL, k=10)) for _ in range(3000)]
+    labels = rng.choices(data.OCCUPATIONS, k=3000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ConvergenceWarning)
+        BaselineModel(C=1e3, min_df=1).fit(texts, labels)
