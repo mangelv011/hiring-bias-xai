@@ -34,7 +34,7 @@ def _tokenizer(max_length):
 def tiny_network():
     """Return make(): a random DeBERTa-v2 with 2 layers and 28 labels, built offline."""
 
-    def make(seed=0, dropout=0.1):
+    def make(seed=0, dropout=0.1, spread=None):
         torch.manual_seed(seed)
         config = DebertaV2Config(
             vocab_size=len(SPECIAL + WORDS),
@@ -48,7 +48,10 @@ def tiny_network():
             attention_probs_dropout_prob=dropout,
             num_labels=len(data.OCCUPATIONS),
         )
-        return DebertaV2ForSequenceClassification(config)
+        network = DebertaV2ForSequenceClassification(config)
+        if spread:  # a wide head makes the outputs of different texts clearly different
+            torch.nn.init.normal_(network.classifier.weight, std=spread)
+        return network
 
     return make
 
