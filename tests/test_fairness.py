@@ -1,3 +1,7 @@
+import json
+import time
+
+import numpy as np
 import pytest
 
 from hiring_bias_xai import fairness
@@ -146,3 +150,20 @@ def test_gap_share_pearson_follows_the_gaps_and_shares_of_every_occupation():
     gender = ["female", "female", "male", "male"] * 3
     report = fairness.evaluate(y_true, y_pred, gender, {"a": 0.2, "b": 0.5, "c": 0.9})
     assert report["gap_share_pearson"]["value"] == pytest.approx(-7 / 20 / (37 / 300) ** 0.5)
+
+
+def test_the_report_is_json_ready():
+    report = _report(copies=10, n_boot=50)
+    assert json.loads(json.dumps(report, allow_nan=False)) == report
+
+
+def test_a_thousand_resamples_of_a_full_test_split_take_well_under_a_minute():
+    rng = np.random.default_rng(0)
+    n, k = 99_069, 28
+    occupations = np.array([f"occ{i:02d}" for i in range(k)])
+    y_true = occupations[rng.integers(0, k, n)]
+    y_pred = np.where(rng.random(n) < 0.8, y_true, occupations[rng.integers(0, k, n)])
+    gender = np.where(rng.random(n) < 0.46, "female", "male")
+    started = time.perf_counter()
+    fairness.evaluate(y_true, y_pred, gender, dict.fromkeys(occupations, 0.5), n_boot=1000)
+    assert time.perf_counter() - started < 60
