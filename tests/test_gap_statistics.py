@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from scipy import stats
 
 from hiring_bias_xai import fairness, gap_statistics
 
@@ -28,7 +29,8 @@ def test_holm_adjusts_a_hand_checked_list():
 
 
 def test_holm_caps_at_one():
-    assert gap_statistics.holm([0.5, 0.6]) == pytest.approx([1.0, 1.0])
+    # 0.6 * 2 = 1.2 and 0.7 * 1 = 0.7, which the running maximum lifts to 1.2; both cap at 1.
+    assert gap_statistics.holm([0.6, 0.7]) == pytest.approx([1.0, 1.0])
 
 
 def test_two_proportion_p_of_90_against_80_hits_in_100_each():
@@ -231,3 +233,42 @@ def test_occupation_tests_report_raw_and_holm_adjusted_p_and_the_gap():
     assert out["c"]["tpr_gap"] == pytest.approx(-0.4)
     assert out["c"]["p_raw"] < 1e-9
     assert out["c"]["p_holm"] == pytest.approx(3 * out["c"]["p_raw"])
+
+
+def test_the_null_percentile_is_the_95th_not_the_90th():
+    # 2 women and 4 men with 2 hits. Shuffling puts 2, 1 or 0 hits on women with probability
+    # 1/15, 8/15, 6/15, so the null rms is 1, 0.25 or 0.5 with those probabilities: mean 0.4,
+    # and the top value (1) holds 6.7% of the mass, which the 95th percentile reaches and the
+    # 90th does not.
+    y_true, y_pred, gender = _bios({"a": (1, 2, 1, 4)})
+    out = gap_statistics.rms_permutation_test(y_true, y_pred, gender, n_perm=4000)
+    assert out["null_mean"] == pytest.approx(0.4, abs=0.02)
+    assert out["null_p95"] == 1.0
+
+
+def test_the_bootstrap_intervals_are_the_percentiles_of_occupation_resamples_by_the_seed():
+    # Reference: the documented procedure written as a plain loop with np.corrcoef and scipy.
+    rng = np.random.default_rng(5)
+    share = np.linspace(0.1, 0.9, 12)
+    gap = share + rng.normal(0, 0.4, 12)
+    out = gap_statistics.correlations(gap, share, n_boot=300, seed=11)
+    draws = np.random.default_rng(11).integers(0, 12, size=(300, 12))
+    pearson = [np.corrcoef(gap[i], share[i])[0, 1] for i in draws]
+    spearman = [stats.spearmanr(gap[i], share[i])[0] for i in draws]
+    low, high = np.nanpercentile(pearson, [2.5, 97.5])
+    assert (out["pearson"]["bootstrap_ci_low"], out["pearson"]["bootstrap_ci_high"]) == (
+        pytest.approx((low, high))
+    )
+    low, high = np.nanpercentile(spearman, [2.5, 97.5])
+    assert (out["spearman"]["ci_low"], out["spearman"]["ci_high"]) == pytest.approx((low, high))
+
+
+def test_holm_not_the_raw_p_decides_how_many_occupations_are_significant():
+    # a: raw p 0.048, Holm 0.095 (not significant); c: Holm 3 * raw p < 1e-9 (significant).
+    spec = {"a": (90, 100, 80, 100), "b": (5, 10, 50, 100), "c": (0, 100, 40, 100)}
+    y_true, y_pred, gender = _bios(spec)
+    out = gap_statistics.compute(
+        y_true, y_pred, gender, dict.fromkeys(spec, 0.5), n_boot=10, n_perm=10
+    )
+    assert out["alpha"] == 0.05
+    assert out["n_significant_holm"] == 1
