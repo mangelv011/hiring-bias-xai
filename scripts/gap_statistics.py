@@ -32,7 +32,9 @@ def _check_against_metrics(name: str, statistics: dict, test_metrics: dict) -> N
         )
     for metric, (here, stored) in expected.items():
         if not np.isclose(here, stored["value"], rtol=0, atol=TOLERANCE):
-            raise ValueError(f"{name}: {metric} is {here} here and {stored['value']} in the metrics")
+            raise ValueError(
+                f"{name}: {metric} is {here} here and {stored['value']} in the metrics"
+            )
 
 
 def main(results_dir: Path = RESULTS_DIR) -> None:
