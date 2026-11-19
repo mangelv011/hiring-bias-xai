@@ -30,7 +30,7 @@ def test_training_on_a_separable_task_brings_the_dev_loss_far_below_chance(model
         dev_texts,
         dev_labels,
         learning_rate=1e-2,
-        epochs=3,
+        epochs=8,
         batch_size=8,
         eval_every=2,
     )

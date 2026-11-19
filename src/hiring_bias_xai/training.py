@@ -1,11 +1,15 @@
 """Fine-tuning loop for `DebertaModel`."""
 
+import math
 from collections.abc import Sequence
 
 import torch
 from sklearn.metrics import f1_score
+from transformers import get_linear_schedule_with_warmup
 
 from hiring_bias_xai.models import DebertaModel
+
+WARMUP_RATIO = 0.06
 
 
 def _evaluate(model: DebertaModel, texts: Sequence[str], labels: Sequence[str]) -> dict:
@@ -35,6 +39,11 @@ def train(
     network = model.network
     targets = torch.tensor([model.labels.index(label) for label in train_labels])
     optimizer = torch.optim.AdamW(network.parameters(), lr=learning_rate)
+    steps_per_epoch = len(train_texts) // batch_size
+    total_steps = epochs * steps_per_epoch
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, math.ceil(WARMUP_RATIO * total_steps), total_steps
+    )
     rows, step, losses = [], 0, []
     for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_texts))
@@ -49,12 +58,18 @@ def train(
             )
             loss.backward()
             optimizer.step()
+            scheduler.step()
             optimizer.zero_grad()
             losses.append(float(loss))
             step += 1
             if step % eval_every == 0:
                 rows.append(
-                    {"step": step, "epoch": epoch, "train_loss": sum(losses) / len(losses)}
+                    {
+                        "step": step,
+                        "epoch": epoch,
+                        "train_loss": sum(losses) / len(losses),
+                        "learning_rate": scheduler.get_last_lr()[0],
+                    }
                     | _evaluate(model, dev_texts, dev_labels)
                 )
                 losses = []
