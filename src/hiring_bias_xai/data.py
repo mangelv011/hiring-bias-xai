@@ -30,6 +30,7 @@ _SHOWCASE_RULE = (
     "the three with the highest share of women in the training subsample."
 )
 
+# One alternation with no nested quantifiers, so matching stays linear on hostile text.
 _GENDERED = re.compile(
     r"\b(?:(?:he|she|her|his|him|hers|himself|herself)(?:['\u2019](?:s|d|ll)?)?|(?:mr|mrs|ms)\.?)(?!\w)",
     re.IGNORECASE,
@@ -40,6 +41,7 @@ def scrub(text: str) -> str:
     return re.sub(" {2,}", " ", _GENDERED.sub("", text)).strip()
 
 
+# Importing datasets is slow, so only the download path pays for it.
 def _load_raw(split: str) -> pd.DataFrame:
     import datasets
 
@@ -49,11 +51,14 @@ def _load_raw(split: str) -> pd.DataFrame:
     return dataset.to_pandas()[["hard_text", "profession", "gender"]]
 
 
+# Quotas are floor(n * size / total); leftover bios go to the largest remainders, ties to
+# the first group in sorted order. Each group draws from one seeded generator, in that order.
 def _stratified_sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
     if n > len(df):
         raise ValueError(f"cannot sample {n} bios from a split of {len(df)}")
     groups = df.groupby(["occupation", "gender"])
     sizes = groups.size().to_numpy()
+    # groupby sorts its keys, so sizes, remainders and indices line up by group.
     quotas = n * sizes // len(df)
     leftover = n - quotas.sum()
     by_remainder = np.argsort(-(n * sizes % len(df)), kind="stable")
