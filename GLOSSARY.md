@@ -80,6 +80,22 @@ _Avoid_: bias correlation
 The 95% interval of a metric from resampling the test bios with replacement and reading the 2.5th and 97.5th percentiles.
 _Avoid_: error bar, confidence band
 
+**Occupation bootstrap**:
+The 95% interval of a statistic across occupations, from resampling the occupations (the 28 gap and share points) with replacement. It answers how much the gap-share correlation depends on which occupations exist; the bootstrap CI does not.
+_Avoid_: second-level bootstrap
+
+**Permutation null**:
+The RMS TPR gaps a screener would show if gender had no bearing on its hits: the gender labels are shuffled among the bios of each occupation, the screening decisions stay fixed, and the result is read 1,000 times. The permutation p-value is (1 + shuffles with an RMS TPR gap at least the observed) / (1 + shuffles).
+_Avoid_: random baseline, null model
+
+**Holm-adjusted p**:
+The p-value of one occupation's TPR gap test after Holm's correction for testing all 28 occupations. Only a Holm-adjusted p below 0.05 supports the claim that an occupation's TPR gap is not zero; the raw gaps are descriptive.
+_Avoid_: corrected p, significant gap (unqualified)
+
+**Gap statistics**:
+The statistics that put the TPR gaps in context: the gap-share correlation with its Fisher-z and occupation bootstrap intervals, Spearman's rho, the leave-one-occupation-out range, the RMS TPR gap against its permutation null, and the per-occupation Holm-adjusted p.
+_Avoid_: bias statistics
+
 **Counterfactual swap**:
 An edit of a bio that changes only the protected attribute signal (pronouns or a name header), used to see whether the screening decision flips.
 _Avoid_: perturbation, augmentation
