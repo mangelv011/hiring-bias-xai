@@ -1,3 +1,4 @@
+import dataclasses
 import zlib
 
 import numpy as np
@@ -224,3 +225,154 @@ def test_values_for_another_occupation_on_nonlinear_scores_match_a_run_with_that
     surgeon = attribution.shapley(classifier, texts, ["surgeon"] * 2, 4, "unk", seed=2)
     for as_nurse, as_surgeon in zip(nurse, surgeon, strict=True):
         np.testing.assert_allclose(as_nurse.values_for(SURGEON), as_surgeon.values, atol=1e-9)
+
+
+def test_efficiency_error_is_the_gap_between_the_sum_of_the_values_and_the_score_difference():
+    (result,) = attribution.shapley(Hashed(), ["a b c d e"], ["nurse"], 3, "delete", seed=0)
+    assert result.efficiency_error() < 1e-9
+    wrong = dataclasses.replace(result, orders=np.zeros_like(result.orders))
+    assert wrong.efficiency_error() > 0.01
+
+
+@pytest.fixture
+def artifacts(monkeypatch, tmp_path):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    return tmp_path
+
+
+def _one(text="alpha beta gamma delta", removal="unk", target="surgeon"):
+    (result,) = attribution.shapley(Hashed(), [text], [target], 3, removal, seed=4)
+    return result
+
+
+def test_an_attribution_lives_under_the_artifacts_directory_by_screener_and_bio_id(artifacts):
+    expected = artifacts / "attributions" / "deberta" / "test-1234.npz"
+    assert attribution.path("deberta", "test-1234") == expected
+
+
+@pytest.mark.parametrize(
+    "bio_id", ["../x", "test-1/../2", "test-12.npz", "x-1", "test-", "", "test-1\n"]
+)
+def test_a_bio_id_that_is_not_split_dash_number_is_rejected_so_it_cannot_leave_the_directory(
+    artifacts, bio_id
+):
+    with pytest.raises(ValueError, match="bio ID"):
+        attribution.path("deberta", bio_id)
+
+
+@pytest.mark.parametrize("screener", ["../deberta", "a/b", "", "Deberta"])
+def test_a_screener_name_must_be_lowercase_letters(artifacts, screener):
+    with pytest.raises(ValueError, match="screener"):
+        attribution.path(screener, "test-1")
+
+
+def test_a_saved_attribution_loads_back_with_every_field_unchanged(artifacts):
+    result = _one()
+    target = attribution.path("deberta", "test-1")
+    attribution.save(target, result)
+    loaded = attribution.load(target)
+    assert loaded.words == result.words
+    assert (loaded.target, loaded.removal, loaded.seconds) == (
+        result.target,
+        result.removal,
+        result.seconds,
+    )
+    for name in ("orders", "index", "logits"):
+        np.testing.assert_array_equal(getattr(loaded, name), getattr(result, name))
+        assert getattr(loaded, name).dtype == getattr(result, name).dtype
+    np.testing.assert_array_equal(loaded.values, result.values)
+
+
+def test_words_with_accents_and_emoji_and_a_bio_without_words_survive_a_round_trip(artifacts):
+    for text in ["café señor 日本語 🙂 naïve", " "]:
+        result = _one(text)
+        attribution.save(attribution.path("baseline", "dev-3"), result)
+        loaded = attribution.load(attribution.path("baseline", "dev-3"))
+        assert loaded.words == result.words
+        assert loaded.values.shape == result.values.shape
+
+
+def test_saving_writes_through_a_temporary_file_and_leaves_only_the_final_file(artifacts):
+    target = attribution.path("deberta", "test-1")
+    attribution.save(target, _one())
+    attribution.save(target, _one("other words here"))
+    assert [file.name for file in target.parent.iterdir()] == ["test-1.npz"]
+    assert attribution.load(target).words == ["other", "words", "here"]
+
+
+def test_a_write_that_fails_halfway_leaves_the_previous_file_and_no_temporary_file(
+    artifacts, monkeypatch
+):
+    target = attribution.path("deberta", "test-1")
+    attribution.save(target, _one())
+    before = target.read_bytes()
+
+    def broken(file, **arrays):
+        file.write(b"PK partial")
+        raise OSError("disk full")
+
+    monkeypatch.setattr(np, "savez", broken)
+    with pytest.raises(OSError, match="disk full"):
+        attribution.save(target, _one("other words here"))
+    assert target.read_bytes() == before
+    assert [file.name for file in target.parent.iterdir()] == ["test-1.npz"]
+
+
+def test_a_missing_file_is_not_reported_as_corrupt(artifacts):
+    with pytest.raises(FileNotFoundError):
+        attribution.load(attribution.path("deberta", "test-9"))
+
+
+@pytest.mark.parametrize("damage", ["truncated", "garbage", "empty"])
+def test_a_damaged_file_raises_a_value_error_naming_it(artifacts, damage):
+    target = attribution.path("deberta", "test-1")
+    attribution.save(target, _one())
+    content = target.read_bytes()
+    target.write_bytes(
+        {"truncated": content[: len(content) // 2], "garbage": b"x" * 99, "empty": b""}[damage]
+    )
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(target)
+
+
+def test_a_file_with_missing_or_inconsistent_arrays_raises_a_value_error(artifacts):
+    target = attribution.path("deberta", "test-1")
+    result = _one()
+    arrays = {
+        "words": np.array(result.words),
+        "target": result.target,
+        "removal": result.removal,
+        "orders": result.orders,
+        "index": result.index,
+        "logits": result.logits,
+        "seconds": result.seconds,
+    }
+    target.parent.mkdir(parents=True)
+    np.savez(target, **{key: value for key, value in arrays.items() if key != "logits"})
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(target)
+    np.savez(target, **arrays | {"index": result.index[:, :-1]})
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(target)
+    np.savez(target, **arrays | {"index": result.index + len(result.logits)})
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(target)
+
+
+def test_a_file_that_holds_pickled_objects_is_refused_not_unpickled(artifacts):
+    # np.load(allow_pickle=True) would run code from such a file.
+    target = attribution.path("deberta", "test-1")
+    result = _one()
+    target.parent.mkdir(parents=True)
+    np.savez(
+        target,
+        words=np.array(result.words, dtype=object),
+        target=result.target,
+        removal=result.removal,
+        orders=result.orders,
+        index=result.index,
+        logits=result.logits,
+        seconds=result.seconds,
+    )
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(target)
