@@ -7,7 +7,7 @@ import pandas as pd
 import torch
 
 from hiring_bias_xai import data, fairness
-from hiring_bias_xai.config import RESULTS_DIR
+from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
 from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import seed_everything, train
 
@@ -71,6 +71,11 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     model.network.to(_device())
     test_frame = data.load_split("test")
     predicted = _predict(model, test_frame["text"])
+    predictions = artifacts_dir() / "predictions"
+    predictions.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({"id": test_frame["id"], "predicted_occupation": predicted}).to_csv(
+        predictions / "deberta_test.csv", index=False
+    )
     report = fairness.evaluate(
         test_frame["occupation"], predicted, test_frame["gender"], _share_women(train_frame)
     )
