@@ -30,7 +30,7 @@ def _tokenizer(max_length):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def tiny_network():
     """Return make(): a random DeBERTa-v2 with 2 layers and 28 labels, built offline."""
 
@@ -53,6 +53,6 @@ def tiny_network():
     return make
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def tiny_tokenizer():
     return _tokenizer
