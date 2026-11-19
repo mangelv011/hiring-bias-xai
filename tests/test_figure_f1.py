@@ -132,6 +132,37 @@ def test_showcase_dots_have_the_highlight_colour_and_the_others_are_grey(figure)
     assert {colour_of[SHARES["o4"]], colour_of[SHARES["o5"]]} == {"#999999"}
 
 
+def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
+    # o1 and o2 get almost the same share and gap, so labels placed beside their dots would collide.
+    metrics = json.loads((results / "metrics_deberta.json").read_text())
+    gap = GAPS["o1"] + 0.004
+    metrics["test"]["per_occupation"]["o2"]["tpr_gap"] = {
+        "value": gap,
+        "ci_low": gap - 0.05,
+        "ci_high": gap + 0.05,
+    }
+    (results / "metrics_deberta.json").write_text(json.dumps(metrics))
+    stats = json.loads((results / "gap_statistics.json").read_text())
+    stats["main_model"]["occupations"]["o2"]["share_women"] = SHARES["o1"] + 0.01
+    (results / "gap_statistics.json").write_text(json.dumps(stats))
+    spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fig = module.main(results)
+    try:
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        boxes = [
+            t.get_window_extent(renderer)
+            for t in fig.axes[0].texts
+            if t.get_text() in ("o1", "o2")
+        ]
+        assert len(boxes) == 2
+        assert not boxes[0].overlaps(boxes[1])
+    finally:
+        plt.close(fig)
+
+
 def test_the_title_is_the_finding_as_a_sentence_and_its_number_is_the_stored_r(figure, results):
     (ax,) = figure.axes
     title = figure.get_suptitle()
