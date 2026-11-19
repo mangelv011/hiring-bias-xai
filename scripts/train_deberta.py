@@ -9,9 +9,9 @@ import torch
 from sklearn.metrics import f1_score
 
 from hiring_bias_xai import data, fairness
-from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
+from hiring_bias_xai.config import RESULTS_DIR, SEED, artifacts_dir
 from hiring_bias_xai.models import DebertaModel
-from hiring_bias_xai.training import seed_everything, train
+from hiring_bias_xai.training import WARMUP_RATIO, seed_everything, train
 
 LEARNING_RATES = (5e-5, 3e-5)
 EPOCHS = 3
@@ -114,7 +114,20 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     _write_json(
         results_dir / "metrics_deberta.json",
         {
-            "hyperparameters": {"learning_rate": chosen["learning_rate"]},
+            "hyperparameters": {
+                "learning_rate": chosen["learning_rate"],
+                "best_step": chosen["best_step"],
+                "max_epochs": EPOCHS,
+                "batch_size": BATCH_SIZE,
+                "gradient_accumulation": ACCUMULATION,
+                "effective_batch_size": BATCH_SIZE * ACCUMULATION,
+                "warmup_ratio": WARMUP_RATIO,
+                "evaluation_every_steps": EVAL_EVERY,
+                "patience_in_evaluations": PATIENCE,
+                "max_length": MAX_LENGTH,
+                "seed": SEED,
+                "precision": "bfloat16 autocast on CUDA, float32 otherwise",
+            },
             "runs": runs,
             "max_length": max_length_report,
             "overfitting_check": {
