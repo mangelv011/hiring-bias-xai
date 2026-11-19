@@ -23,7 +23,7 @@ def _split(name, per_cell):
 
 @pytest.fixture
 def splits():
-    return {"train": _split("train", 6), "dev": _split("dev", 3), "test": _split("test", 3)}
+    return {"train": _split("train", 12), "dev": _split("dev", 3), "test": _split("test", 3)}
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def test_train_baseline_writes_the_metrics_file(train_baseline):
 
 def test_train_baseline_saves_the_model_and_the_test_predictions_outside_the_repo(train_baseline):
     artifacts = train_baseline().parent / "artifacts"
-    assert BaselineModel.load().min_df == 5
+    assert BaselineModel.load().min_df == 20
     predictions = pd.read_csv(artifacts / "predictions" / "baseline_test.csv")
     assert list(predictions.columns) == ["id", "predicted_occupation"]
     # The synthetic test split is 6 nurse bios then 6 surgeon bios, all easy.
@@ -66,7 +66,7 @@ def test_train_baseline_saves_the_model_and_the_test_predictions_outside_the_rep
 def test_ties_on_dev_go_to_the_smaller_C_and_the_larger_min_df(train_baseline):
     metrics = json.loads((train_baseline() / "metrics_baseline.json").read_text())
     assert {row["dev_macro_f1"] for row in metrics["dev_grid"]} == {1.0}
-    assert metrics["hyperparameters"] == {"C": 0.5, "min_df": 5}
+    assert metrics["hyperparameters"] == {"C": 4, "min_df": 20}
 
 
 def test_overfitting_check_is_train_macro_f1_minus_test_macro_f1(train_baseline, splits):
