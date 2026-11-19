@@ -46,9 +46,9 @@ def _by_occupation(y_true, y_pred, gender):
     y_true, y_pred = np.asarray(y_true), np.asarray(y_pred)
     female = np.asarray(gender) == "female"
     names = np.unique(y_true)
-    cells = [(y_true == name) for name in names]
+    in_occupation = [y_true == name for name in names]
     return names.tolist(), [
-        (y_pred[c] == name, female[c]) for name, c in zip(names, cells, strict=True)
+        (y_pred[c] == name, female[c]) for name, c in zip(names, in_occupation, strict=True)
     ]
 
 
@@ -96,30 +96,6 @@ def occupation_tests(y_true, y_pred, gender) -> dict:
         name: {"tpr_gap": gap, "p_raw": p, "p_holm": p_holm}
         for name, (gap, p), p_holm in zip(names, rows, adjusted, strict=True)
     }
-
-
-def compute(y_true, y_pred, gender, share_women, *, n_boot=1000, n_perm=1000, seed=SEED) -> dict:
-    """Every gap statistic of one screener, from its predictions on the test bios.
-
-    `share_women` maps each occupation to its share of women in the training subsample.
-    """
-    tests = occupation_tests(y_true, y_pred, gender)
-    names = list(tests)
-    gap = [tests[name]["tpr_gap"] for name in names]
-    share = [share_women[name] for name in names]
-    return (
-        {"n_occupations": len(names)}
-        | correlations(gap, share, n_boot=n_boot, seed=seed)
-        | {
-            "leave_one_out": leave_one_out(gap, share, names),
-            "rms_tpr_gap": rms_permutation_test(y_true, y_pred, gender, n_perm=n_perm, seed=seed),
-            "alpha": ALPHA,
-            "n_significant_holm": sum(row["p_holm"] < ALPHA for row in tests.values()),
-            "occupations": {
-                name: {"share_women": share_women[name]} | row for name, row in tests.items()
-            },
-        }
-    )
 
 
 def _pearson_rows(x, y):
@@ -175,3 +151,27 @@ def leave_one_out(gap, share, names) -> dict:
         "min": {"r": float(r[lowest]), "left_out": names[lowest]},
         "max": {"r": float(r[highest]), "left_out": names[highest]},
     }
+
+
+def compute(y_true, y_pred, gender, share_women, *, n_boot=1000, n_perm=1000, seed=SEED) -> dict:
+    """Every gap statistic of one screener, from its predictions on the test bios.
+
+    `share_women` maps each occupation to its share of women in the training subsample.
+    """
+    tests = occupation_tests(y_true, y_pred, gender)
+    names = list(tests)
+    gap = [tests[name]["tpr_gap"] for name in names]
+    share = [share_women[name] for name in names]
+    return (
+        {"n_occupations": len(names)}
+        | correlations(gap, share, n_boot=n_boot, seed=seed)
+        | {
+            "leave_one_out": leave_one_out(gap, share, names),
+            "rms_tpr_gap": rms_permutation_test(y_true, y_pred, gender, n_perm=n_perm, seed=seed),
+            "alpha": ALPHA,
+            "n_significant_holm": sum(row["p_holm"] < ALPHA for row in tests.values()),
+            "occupations": {
+                name: {"share_women": share_women[name]} | row for name, row in tests.items()
+            },
+        }
+    )
