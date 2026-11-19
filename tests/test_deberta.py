@@ -159,5 +159,8 @@ def test_pretrained_downloads_the_pinned_revision_into_the_artifacts_directory_w
         assert kwargs["cache_dir"] == str(tmp_path / "hf")
         assert not kwargs.get("trust_remote_code")
     assert calls["model"][1]["num_labels"] == 28
+    # The published checkpoint is float16 and transformers keeps that unless told otherwise;
+    # training needs float32 master weights (float16 ones turn into NaN at the first step).
+    assert calls["model"][1]["dtype"] == torch.float32
     assert calls["model"][1]["id2label"] == dict(enumerate(data.OCCUPATIONS))
     assert calls["tokenizer"][1]["model_max_length"] == 256
