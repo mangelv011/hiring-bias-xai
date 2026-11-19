@@ -289,6 +289,28 @@ def test_showcase_occupations_take_the_three_most_imbalanced_each_way_among_larg
     }
 
 
+@pytest.mark.slow
+def test_real_data_has_the_official_split_sizes_and_the_subsample_sizes():
+    sizes = {split: len(data._load_raw(split)) for split in ("train", "dev", "test")}
+    assert sizes == {"train": 257_478, "dev": 39_642, "test": 99_069}
+    assert len(data.load_split("train")) == 60_000
+    assert len(data.load_split("dev")) == 10_000
+    assert len(data.load_split("test")) == 99_069
+    assert len(data.xai_subset()) == 2_000
+
+
+@pytest.mark.slow
+def test_real_gender_code_1_is_female_and_0_is_male():
+    raw = data._load_raw("dev")
+    feminine = raw["hard_text"].str.contains(r"\b(?:she|her|hers|herself)\b", case=False)
+    masculine = raw["hard_text"].str.contains(r"\b(?:he|his|him|himself)\b", case=False)
+    code_1, code_0 = raw["gender"] == 1, raw["gender"] == 0
+    assert feminine[code_1].mean() > 0.9
+    assert not masculine[code_1].any()
+    assert masculine[code_0].mean() > 0.9
+    assert not feminine[code_0].any()
+
+
 def test_subsample_larger_than_the_split_raises(fake_raw, monkeypatch):
     monkeypatch.setitem(data._SUBSAMPLE_SIZES, "dev", 7)
     fake_raw(dev=_raw([(f"bio {i}", 0, 1) for i in range(6)]))
