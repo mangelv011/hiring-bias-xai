@@ -1,10 +1,11 @@
 import inspect
+import re
 
 import numpy as np
 import pytest
 import torch
 
-from hiring_bias_xai import data
+from hiring_bias_xai import data, models
 from hiring_bias_xai.models import DebertaModel
 
 TEXTS = ["alpha beta", "gamma delta epsilon", "zeta", "eta theta alpha beta gamma"]
@@ -121,3 +122,42 @@ def test_the_checkpoint_is_safetensors_and_pickle_weights_are_refused(
     torch.save(model.network.state_dict(), folder / "pytorch_model.bin")
     with pytest.raises(OSError):
         DebertaModel.load()
+
+
+def test_pretrained_downloads_the_pinned_revision_into_the_artifacts_directory_with_28_labels(
+    monkeypatch, tmp_path, tiny_network, tiny_tokenizer
+):
+    # The download is the trust boundary: weights and tokenizer come from one pinned commit of
+    # microsoft/deberta-v3-small, are cached under artifacts_dir() and never run repository code.
+    import transformers
+
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    calls = {}
+
+    def fake(kind, result):
+        def from_pretrained(name, **kwargs):
+            calls[kind] = (name, kwargs)
+            return result
+
+        return from_pretrained
+
+    monkeypatch.setattr(
+        transformers.AutoModelForSequenceClassification,
+        "from_pretrained",
+        fake("model", tiny_network()),
+    )
+    monkeypatch.setattr(
+        transformers.AutoTokenizer, "from_pretrained", fake("tokenizer", tiny_tokenizer(64))
+    )
+    model = DebertaModel.pretrained(max_length=256)
+    assert isinstance(model, DebertaModel)
+    assert re.fullmatch(r"[0-9a-f]{40}", models.DEBERTA_REVISION)
+    for kind in ("model", "tokenizer"):
+        name, kwargs = calls[kind]
+        assert name == "microsoft/deberta-v3-small"
+        assert kwargs["revision"] == models.DEBERTA_REVISION
+        assert kwargs["cache_dir"] == str(tmp_path / "hf")
+        assert not kwargs.get("trust_remote_code")
+    assert calls["model"][1]["num_labels"] == 28
+    assert calls["model"][1]["id2label"] == dict(enumerate(data.OCCUPATIONS))
+    assert calls["tokenizer"][1]["model_max_length"] == 256
