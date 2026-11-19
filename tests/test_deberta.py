@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from hiring_bias_xai import data
 from hiring_bias_xai.models import DebertaModel
@@ -64,3 +65,22 @@ def test_representations_hold_the_cls_state_of_the_embeddings_and_of_each_layer_
     layers, final = _model(tiny_network, tiny_tokenizer).representations(TEXTS)
     assert layers.shape == (4, 3, 32)
     assert final.shape == (4, 32)
+
+
+def test_the_classifier_reads_the_final_vector(tiny_network, tiny_tokenizer):
+    model = _model(tiny_network, tiny_tokenizer)
+    _, final = model.representations(TEXTS)
+    with torch.no_grad():
+        logits = model.network.classifier(torch.from_numpy(final))
+    np.testing.assert_allclose(
+        torch.softmax(logits, dim=-1).numpy(), model.predict_proba(TEXTS), atol=1e-5
+    )
+
+
+def test_the_final_vector_is_the_pooled_cls_state_of_the_last_layer(tiny_network, tiny_tokenizer):
+    model = _model(tiny_network, tiny_tokenizer)
+    layers, final = model.representations(TEXTS)
+    model.network.eval()
+    with torch.no_grad():
+        pooled = model.network.pooler(torch.from_numpy(layers[:, -1])[:, None, :])
+    np.testing.assert_allclose(pooled.numpy(), final, atol=1e-5)
