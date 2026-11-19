@@ -22,6 +22,7 @@ def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> 
             of_group = (y_true == occupation) & (gender == group)
             tpr[f"tpr_{group}"] = {"value": float(np.mean(y_pred[of_group] == occupation))}
             tpr[f"n_{group}"] = int(of_group.sum())
+        tpr["tpr_gap"] = {"value": tpr["tpr_female"]["value"] - tpr["tpr_male"]["value"]}
         per_occupation[str(occupation)] = tpr
     return {
         "per_occupation": per_occupation,
