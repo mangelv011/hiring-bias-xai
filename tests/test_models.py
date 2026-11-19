@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 import pytest
 
@@ -80,3 +82,9 @@ def test_a_saved_model_loads_back_from_the_artifacts_directory(monkeypatch, tmp_
     assert (loaded.C, loaded.min_df) == (3.0, 1)
     texts = ["the patient ward", "operating scalpel"]
     np.testing.assert_array_equal(loaded.predict_proba(texts), model.predict_proba(texts))
+
+
+def test_load_takes_no_path_so_only_the_project_file_in_the_artifacts_directory_is_read():
+    # joblib uses pickle, which can run code. `load` has no path argument: callers cannot point
+    # it at a file from another source.
+    assert not inspect.signature(BaselineModel.load).parameters
