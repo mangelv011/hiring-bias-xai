@@ -153,7 +153,7 @@ def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
         boxes = [
-            t.get_window_extent(renderer)
+            matplotlib.text.Text.get_window_extent(t, renderer)  # the text, not its leader line
             for t in fig.axes[0].texts
             if t.get_text() in ("o1", "o2")
         ]
