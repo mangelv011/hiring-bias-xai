@@ -194,3 +194,10 @@ def test_subsample_draws_per_group_from_one_seeded_generator_and_keeps_input_ord
     assert list(df["text"]) == ["bio 0", "bio 6", "bio 9", "bio 10", "bio 14"]
     assert list(df.index) == [0, 1, 2, 3, 4]
     assert df.equals(data.load_split("train"))
+
+
+def test_subsample_larger_than_the_split_raises(fake_raw, monkeypatch):
+    monkeypatch.setitem(data._SUBSAMPLE_SIZES, "dev", 7)
+    fake_raw(dev=_raw([(f"bio {i}", 0, 1) for i in range(6)]))
+    with pytest.raises(ValueError, match="7.*6"):
+        data.load_split("dev")
