@@ -212,7 +212,7 @@ def test_compute_agrees_with_the_fairness_module_and_holds_every_statistic():
     assert out["n_significant_holm"] == sum(
         row["p_holm"] < 0.05 for row in out["occupations"].values()
     )
-    assert 0 < out["n_significant_holm"] < 4  # the planted gaps of "c" and "d" differ in size
+    assert 0 < out["n_significant_holm"] < 4  # some gaps survive Holm, not all
 
 
 def test_occupation_tests_report_raw_and_holm_adjusted_p_and_the_gap():
