@@ -131,3 +131,12 @@ def test_load_split_test_returns_the_full_split_with_named_labels_and_ids(fake_r
         "occupation": ["nurse", "software_engineer", "accountant"],
         "gender": ["female", "male", "female"],
     }
+
+
+def test_load_split_scrubbed_variant_scrubs_the_text_and_keeps_the_rest(fake_raw):
+    fake_raw(test=_raw([("She is a nurse.", 13, 1), ("Mr. Lee builds code", 24, 0)]))
+    original = data.load_split("test")
+    scrubbed = data.load_split("test", variant="scrubbed")
+    assert list(scrubbed["text"]) == ["is a nurse.", "Lee builds code"]
+    assert list(original["text"]) == ["She is a nurse.", "Mr. Lee builds code"]
+    assert scrubbed.drop(columns="text").equals(original.drop(columns="text"))
