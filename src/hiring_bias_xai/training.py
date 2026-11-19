@@ -59,7 +59,8 @@ def train(
     network = model.network
     targets = torch.tensor([model.labels.index(label) for label in train_labels])
     optimizer = torch.optim.AdamW(network.parameters(), lr=learning_rate)
-    steps_per_epoch = len(train_texts) // (batch_size * accumulation)
+    bios_per_step = batch_size * accumulation
+    steps_per_epoch = len(train_texts) // bios_per_step
     total_steps = epochs * steps_per_epoch
     scheduler = get_linear_schedule_with_warmup(
         optimizer, math.ceil(WARMUP_RATIO * total_steps), total_steps
@@ -68,11 +69,9 @@ def train(
     stopped = False
     for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_texts))
-        for first in range(
-            0, steps_per_epoch * batch_size * accumulation, batch_size * accumulation
-        ):
+        for first in range(0, steps_per_epoch * bios_per_step, bios_per_step):
             network.train()
-            for start in range(first, first + batch_size * accumulation, batch_size):
+            for start in range(first, first + bios_per_step, batch_size):
                 chosen = order[start : start + batch_size]
                 inputs = model.tokenizer(
                     [train_texts[i] for i in chosen],
