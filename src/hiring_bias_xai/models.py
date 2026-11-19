@@ -113,6 +113,7 @@ class DebertaModel:
             DEBERTA_NAME,
             revision=DEBERTA_REVISION,
             cache_dir=cache_dir,
+            dtype=torch.float32,
             num_labels=len(cls.labels),
             id2label=dict(enumerate(cls.labels)),
             label2id={name: i for i, name in enumerate(cls.labels)},
