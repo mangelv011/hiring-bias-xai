@@ -46,3 +46,12 @@ def test_batches_keep_input_order_and_padding_does_not_change_a_text_probabiliti
     model = _model(tiny_network, tiny_tokenizer, batch_size=3)
     alone = np.stack([model.predict_proba([text])[0] for text in TEXTS])
     np.testing.assert_allclose(model.predict_proba(TEXTS), alone, atol=1e-5)
+
+
+def test_texts_are_cut_to_the_tokenizer_max_length_including_the_two_special_tokens(
+    tiny_network, tiny_tokenizer
+):
+    # max_length 5 = [CLS], three words, [SEP].
+    model = _model(tiny_network, tiny_tokenizer, max_length=5)
+    cut = model.predict_proba(["alpha beta gamma delta epsilon zeta"])
+    np.testing.assert_allclose(cut, model.predict_proba(["alpha beta gamma"]), atol=1e-6)
