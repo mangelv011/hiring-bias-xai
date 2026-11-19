@@ -38,3 +38,11 @@ def test_predict_proba_is_deterministic_even_if_the_network_was_left_in_training
     model = _model(tiny_network, tiny_tokenizer)
     model.network.train()
     np.testing.assert_array_equal(model.predict_proba(TEXTS), model.predict_proba(TEXTS))
+
+
+def test_batches_keep_input_order_and_padding_does_not_change_a_text_probabilities(
+    tiny_network, tiny_tokenizer
+):
+    model = _model(tiny_network, tiny_tokenizer, batch_size=3)
+    alone = np.stack([model.predict_proba([text])[0] for text in TEXTS])
+    np.testing.assert_allclose(model.predict_proba(TEXTS), alone, atol=1e-5)
