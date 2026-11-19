@@ -16,4 +16,4 @@ _GENDERED = re.compile(
 
 
 def scrub(text: str) -> str:
-    return re.sub(" {2,}", " ", _GENDERED.sub("", text))
+    return re.sub(" {2,}", " ", _GENDERED.sub("", text)).strip()
