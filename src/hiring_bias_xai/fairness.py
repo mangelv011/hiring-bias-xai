@@ -15,6 +15,7 @@ def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> 
         fn = np.sum((y_true == occupation) & (y_pred != occupation))
         f1.append(2 * tp / (2 * tp + fp + fn))
     gender = np.asarray(gender)
+    accuracy = float(np.mean(y_true == y_pred))
     per_occupation = {}
     for occupation in np.unique(y_true):
         tpr = {}
@@ -30,6 +31,6 @@ def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> 
         "per_occupation": per_occupation,
         "gap_share_pearson": {"value": float(np.corrcoef(gaps, shares)[0, 1])},
         "rms_tpr_gap": {"value": float(np.sqrt(np.mean(np.square(gaps))))},
-        "accuracy": {"value": float(np.mean(y_true == y_pred))},
+        "accuracy": {"value": accuracy, "ci_low": accuracy, "ci_high": accuracy},
         "macro_f1": {"value": float(np.mean(f1))},
     }
