@@ -133,3 +133,10 @@ def test_no_font_size_in_the_style_is_below_7_pt():
     sizes = {key: value for key, value in plotting.STYLE.items() if "size" in key}
     assert sizes
     assert all(value >= 7 for value in sizes.values())
+
+
+def test_deuteranopia_simulation_of_very_dark_colours_uses_the_linear_srgb_segment_both_ways():
+    # Inputs at or below 10/255 decode with the linear segment; the outputs of (10, 10, 2) fall
+    # below 0.0031 and encode with it. Expected values worked out in plain Python.
+    image = np.array([[[10, 10, 2], [8, 10, 6]]], dtype=np.uint8)
+    assert plotting.simulate_deuteranopia(image).tolist() == [[[12, 10, 2], [10, 9, 6]]]
