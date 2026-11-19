@@ -196,6 +196,23 @@ def test_subsample_draws_per_group_from_one_seeded_generator_and_keeps_input_ord
     assert df.equals(data.load_split("train"))
 
 
+def test_xai_subset_is_a_2000_bio_stratified_sample_of_the_full_test_split(fake_raw):
+    # n / total = 2000 / 8000 = 1/4: floors 1000, 499, 250, 250 sum to 1999; the leftover goes
+    # to the largest remainder (accountant male, 6000 of 8000).
+    fake_raw(test=_synthetic({(0, 1): 4001, (0, 0): 1999, (1, 0): 1000, (1, 1): 1000}))
+    subset = data.xai_subset()
+    assert _counts(subset) == {
+        ("accountant", "female"): 1000,
+        ("accountant", "male"): 500,
+        ("architect", "male"): 250,
+        ("architect", "female"): 250,
+    }
+    test = data.load_split("test").set_index("id")
+    assert subset.set_index("id").equals(test.loc[subset["id"]])
+    positions = [int(i.split("-")[1]) for i in subset["id"]]
+    assert positions == sorted(positions)
+
+
 def test_subsample_larger_than_the_split_raises(fake_raw, monkeypatch):
     monkeypatch.setitem(data._SUBSAMPLE_SIZES, "dev", 7)
     fake_raw(dev=_raw([(f"bio {i}", 0, 1) for i in range(6)]))
