@@ -269,3 +269,21 @@ def test_male_dominated_labels_start_above_their_dots_and_only_raised_labels_hav
     assert labels["o6"].xyann[1] == 0
     assert labels["o6"].arrow_patch is None
     assert all((t.xyann[1] != 0) == (t.arrow_patch is not None) for t in labels.values())
+
+
+def test_underscores_in_occupation_names_become_spaces_in_the_labels(results):
+    for name in ("metrics_deberta.json", "gap_statistics.json", "showcase_occupations.json"):
+        path = results / name
+        path.write_text(path.read_text().replace('"o1"', '"software_engineer"'))
+    fig = _render(results)
+    try:
+        assert "software engineer" in [t.get_text() for t in fig.axes[0].texts]
+    finally:
+        plt.close(fig)
+
+
+def test_the_axes_are_labelled_with_the_quantities_and_ticked_in_shares(figure):
+    (ax,) = figure.axes
+    assert ax.get_xlabel() == "Share of women in the training subsample"
+    assert ax.get_ylabel() == "TPR gap (women minus men)"
+    assert list(ax.get_xticks()) == [0.2, 0.4, 0.6, 0.8, 1.0]

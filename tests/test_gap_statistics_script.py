@@ -116,3 +116,39 @@ def test_the_script_stops_when_a_bio_has_two_predictions(run, tmp_path):
     path.write_text("\n".join([*lines, lines[1]]) + "\n")
     with pytest.raises(pd.errors.MergeError):
         run()
+
+
+def test_each_model_entry_comes_from_its_own_predictions(run):
+    out = run()
+    for entry, file in (("baseline_model", "baseline"), ("main_model", "deberta")):
+        stored = json.loads((run.results / f"metrics_{file}.json").read_text())["test"]
+        assert out[entry]["rms_tpr_gap"]["observed"] == pytest.approx(
+            stored["rms_tpr_gap"]["value"]
+        )
+    assert (
+        out["baseline_model"]["rms_tpr_gap"]["observed"]
+        != out["main_model"]["rms_tpr_gap"]["observed"]
+    )
+
+
+def test_the_script_stops_when_a_stored_per_occupation_gap_differs(run):
+    path = run.results / "metrics_deberta.json"
+    metrics = json.loads(path.read_text())
+    metrics["test"]["per_occupation"]["c"]["tpr_gap"]["value"] += 0.01
+    path.write_text(json.dumps(metrics))
+    with pytest.raises(ValueError, match="tpr_gap of c"):
+        run()
+
+
+def test_the_script_stops_when_a_test_bio_has_no_prediction(run, tmp_path):
+    run()
+    path = tmp_path / "artifacts" / "predictions" / "deberta_test.csv"
+    lines = path.read_text().splitlines()
+    path.write_text("\n".join(lines[:-1]) + "\n")
+    with pytest.raises(ValueError, match="no prediction"):
+        run()
+
+
+def test_the_script_can_rerun_into_an_existing_results_directory(run):
+    first = run()
+    assert run() == first

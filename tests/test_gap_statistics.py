@@ -103,8 +103,10 @@ def test_the_fisher_interval_uses_the_number_of_occupations():
     gap = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     share = np.array([1.0, 3.0, 2.0, 5.0, 4.0, 6.0])
     out = gap_statistics.correlations(gap, share, n_boot=10)["pearson"]
-    low, high = gap_statistics.fisher_ci(31 / 35, 6)
-    assert (out["fisher_ci_low"], out["fisher_ci_high"]) == pytest.approx((low, high))
+    # atanh(31/35) -+ 1.959964 / sqrt(6 - 3), back through tanh
+    assert (out["fisher_ci_low"], out["fisher_ci_high"]) == pytest.approx(
+        (0.26371, 0.98747), abs=1e-5
+    )
 
 
 def test_leave_one_out_finds_the_influential_occupation():
@@ -272,3 +274,46 @@ def test_holm_not_the_raw_p_decides_how_many_occupations_are_significant():
     )
     assert out["alpha"] == 0.05
     assert out["n_significant_holm"] == 1
+
+
+def test_two_proportion_p_pools_unequal_groups_by_their_sizes():
+    # 30 of 40 against 10 of 20: pooled rate 40/60, se = sqrt(2/3 * 1/3 * (1/40 + 1/20)) = 0.1291,
+    # z = 0.25 / 0.1291 = 1.936.
+    assert gap_statistics.two_proportion_p(30, 40, 10, 20) == pytest.approx(0.05281, abs=1e-5)
+
+
+def test_the_null_percentile_is_the_95th_not_the_99th():
+    # 2 women and 6 men with 2 hits: shuffled, both hits land on women with probability 1/28,
+    # giving a null rms of 1; otherwise it is 1/3. The top value holds 3.6% of the mass, so the
+    # 95th percentile is 1/3 and the 99th is 1.
+    y_true, y_pred, gender = _bios({"a": (1, 2, 1, 6)})
+    out = gap_statistics.rms_permutation_test(y_true, y_pred, gender, n_perm=4000)
+    assert out["null_p95"] == pytest.approx(1 / 3)
+    assert out["null_mean"] == pytest.approx(10 / 28, abs=0.02)
+
+
+def test_compute_passes_its_seed_to_the_bootstrap_and_the_permutation_null():
+    y_true, y_pred, gender = _bios(SPEC)
+    out = gap_statistics.compute(y_true, y_pred, gender, SHARES, n_boot=50, n_perm=50, seed=7)
+    assert out["rms_tpr_gap"] == gap_statistics.rms_permutation_test(
+        y_true, y_pred, gender, n_perm=50, seed=7
+    )
+    gap = [out["occupations"][o]["tpr_gap"] for o in sorted(SHARES)]
+    share = [SHARES[o] for o in sorted(SHARES)]
+    expected = gap_statistics.correlations(gap, share, n_boot=50, seed=7)
+    assert out["pearson"] == expected["pearson"]
+    assert out["spearman"] == expected["spearman"]
+
+
+def test_bootstrap_resamples_whose_points_are_all_equal_are_ignored():
+    # With 3 occupations, 3 of the 27 resamples draw one point three times, so r is undefined
+    # there; the interval comes from the others and is finite.
+    out = gap_statistics.correlations([0.0, 1.0, 3.0], [0.2, 0.5, 0.6], n_boot=300)
+    assert np.isfinite(
+        [
+            out["pearson"]["bootstrap_ci_low"],
+            out["pearson"]["bootstrap_ci_high"],
+            out["spearman"]["ci_low"],
+            out["spearman"]["ci_high"],
+        ]
+    ).all()
