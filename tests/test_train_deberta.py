@@ -224,3 +224,11 @@ def test_the_comparison_with_the_baseline_says_whether_the_confidence_intervals_
     assert comparison["rms_tpr_gap"]["baseline"] == rms_tpr_gap
     assert comparison["rms_tpr_gap"]["deberta"] == metrics["test"]["rms_tpr_gap"]
     assert comparison["rms_tpr_gap"]["cis_overlap"] is True
+
+
+def test_the_script_prints_one_progress_line_per_evaluation(execute, capsys):
+    # One epoch is 8 steps and the evaluation interval is 40, so only the last step is evaluated.
+    execute(LEARNING_RATES=(3e-3,), EPOCHS=1)
+    lines = [line for line in capsys.readouterr().out.splitlines() if "dev_macro_f1" in line]
+    assert len(lines) == 1
+    assert "lr=0.003" in lines[0] and "step=8" in lines[0] and "epoch=1" in lines[0]
