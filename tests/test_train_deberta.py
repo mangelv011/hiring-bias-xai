@@ -191,3 +191,15 @@ def test_training_seconds_add_up_the_wall_clock_time_of_the_runs(run):
     seconds = [entry["training_seconds"] for entry in metrics["runs"]]
     assert all(0 < value < 600 for value in seconds)
     assert metrics["training_seconds"] == pytest.approx(sum(seconds), abs=0.1)
+
+
+def test_peak_gpu_memory_is_null_when_training_on_the_cpu(run):
+    assert _metrics(run)["peak_gpu_memory_mb"] is None
+
+
+@pytest.mark.gpu
+def test_peak_gpu_memory_is_the_most_memory_torch_allocated_during_training(execute):
+    root = execute(DEVICE="cuda", LEARNING_RATES=(3e-3,), EPOCHS=1)
+    peak = json.loads((root / "results" / "metrics_deberta.json").read_text())["peak_gpu_memory_mb"]
+    # The tiny network holds about 0.2 MB of weights, plus gradients and Adam state.
+    assert 0.5 < peak < 100
