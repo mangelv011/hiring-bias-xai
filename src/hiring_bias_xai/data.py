@@ -37,6 +37,8 @@ _SUBSAMPLE_SIZES = {"train": 60_000, "dev": 10_000}
 
 
 def _stratified_sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
+    if n > len(df):
+        raise ValueError(f"cannot sample {n} bios from a split of {len(df)}")
     groups = df.groupby(["occupation", "gender"])
     sizes = groups.size().to_numpy()
     quotas = n * sizes // len(df)
