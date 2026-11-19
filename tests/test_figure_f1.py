@@ -81,9 +81,9 @@ def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
 
 def test_there_is_one_dot_per_occupation_at_its_share_and_gap(figure):
     (ax,) = figure.axes
-    offsets = np.concatenate([c.get_offsets() for c in ax.collections if len(c.get_offsets())])
+    offsets = np.concatenate([c.get_offsets() for c in ax.collections if isinstance(c, matplotlib.collections.PathCollection)])
     expected = sorted((SHARES[o], GAPS[o]) for o in SHARES)
-    assert sorted(map(tuple, offsets)) == pytest.approx(expected)
+    assert np.array(sorted(map(tuple, offsets))) == pytest.approx(np.array(expected))
 
 
 def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
@@ -96,4 +96,4 @@ def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
     ]
     found = sorted((s[0][0], s[0][1], s[1][1]) for s in bars)
     expected = sorted((SHARES[o], GAPS[o] - 0.05, GAPS[o] + 0.05) for o in SHARES)
-    assert found == pytest.approx(expected)
+    assert np.array(found) == pytest.approx(np.array(expected))
