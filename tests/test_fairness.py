@@ -40,6 +40,19 @@ def test_accuracy_interval_matches_the_normal_approximation():
     assert accuracy["ci_high"] == pytest.approx(0.549, abs=0.005)
 
 
+def test_the_same_seed_gives_the_same_report_and_another_seed_another_interval():
+    y_true = ["a"] * 400
+    y_pred = ["a"] * 200 + ["b"] * 200
+    gender = ["female", "male"] * 200
+
+    def accuracy(seed):
+        report = fairness.evaluate(y_true, y_pred, gender, {"a": 0.5}, n_boot=200, seed=seed)
+        return report["accuracy"]
+
+    assert accuracy(1) == accuracy(1)
+    assert accuracy(1)["ci_low"] != accuracy(2)["ci_low"]
+
+
 def test_accuracy_is_the_share_of_bios_with_the_right_occupation():
     # Correct: nurse 3 + 1, surgeon 1 + 4 = 9 of 12.
     assert _report()["accuracy"]["value"] == pytest.approx(9 / 12)
