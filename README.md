@@ -24,7 +24,7 @@ Expensive explanations run on a fixed, stratified XAI subset of the test bios. T
 
 ## Status
 
-Scaffolding only: package layout, environment, CI, glossary and the first two decision records. No data loading, training or analysis code yet.
+Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). No training or analysis code yet.
 
 ## How to run
 
@@ -47,7 +47,7 @@ pip install -e . --no-deps
 
 Data and model weights live outside the repository, in the directory named by the `HBX_ARTIFACTS` environment variable (default `~/.cache/hiring-bias-xai`).
 
-Experiment entry points will live in `scripts/` and write small JSON/CSV files and figures to `results/`.
+Experiment entry points live in `scripts/` and write small JSON/CSV files and figures to `results/`. `uv run python scripts/prepare_data.py` downloads the dataset at a pinned revision into `HBX_ARTIFACTS` and writes `results/data_summary.json`, `results/showcase_occupations.json` and `results/xai_subset_ids.csv`; running it twice gives byte-identical files. `uv run pytest -m "not slow"` skips the tests that need the real dataset.
 
 ## License
 
