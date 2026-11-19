@@ -18,3 +18,14 @@ _GENDERED = re.compile(
 
 def scrub(text: str) -> str:
     return re.sub(" {2,}", " ", _GENDERED.sub("", text)).strip()
+
+
+_SPLITS = ("train", "dev", "test")
+_VARIANTS = ("original", "scrubbed")
+
+
+def load_split(split: str, variant: str = "original"):
+    if split not in _SPLITS:
+        raise ValueError(f"split must be one of {', '.join(_SPLITS)}; got {split!r}")
+    if variant not in _VARIANTS:
+        raise ValueError(f"variant must be one of {', '.join(_VARIANTS)}; got {variant!r}")
