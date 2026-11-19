@@ -62,6 +62,14 @@ def test_prepare_data_writes_the_showcase_occupations_file(prepare):
     assert b"\r" not in raw
 
 
+def test_prepare_data_twice_gives_byte_identical_files(prepare):
+    results = prepare()
+    names = ["xai_subset_ids.csv", "data_summary.json", "showcase_occupations.json"]
+    first = {name: (results / name).read_bytes() for name in names}
+    prepare()
+    assert {name: (results / name).read_bytes() for name in names} == first
+
+
 def test_prepare_data_writes_the_summary_counts_and_training_shares_of_women(prepare):
     # Train: 80 bios, n = 40 gives exactly half of every group. Dev: 12 bios, n = 6, half.
     # XAI subset: 12 test bios, n = 6, half. Share of women in the train subsample: accountant
