@@ -1,11 +1,9 @@
-import math
 import random
 
 import numpy as np
 import pytest
 import torch
 
-from hiring_bias_xai import training
 from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import seed_everything, train
 
@@ -94,7 +92,7 @@ def test_each_evaluation_gets_a_row_and_the_last_step_is_always_evaluated(model)
     }
 
 
-def _plateau_run(model, patience):
+def _plateau_run(model):
     """Learn the task, then train 10 more epochs on a dev set whose F1 cannot rise.
 
     One nurse dev bio carries the surgeon label, so the F1 of a model that has learned the
@@ -105,25 +103,16 @@ def _plateau_run(model, patience):
     dev_labels[0] = SURGEON
     args = (model, texts, labels, dev_texts, dev_labels)
     train(*args, learning_rate=3e-3, epochs=30, batch_size=4, eval_every=240)
-    rows = train(
-        *args, learning_rate=1e-4, epochs=10, batch_size=4, eval_every=10, patience=patience
-    )
+    rows = train(*args, learning_rate=1e-4, epochs=10, batch_size=4, eval_every=10)
     return rows, dev_texts, dev_labels
 
 
-def test_training_stops_after_patience_evaluations_without_a_better_dev_macro_f1(model):
-    rows, _, _ = _plateau_run(model, patience=3)
+def test_training_leaves_the_model_at_the_evaluation_with_the_best_dev_macro_f1(model):
+    rows, dev_texts, dev_labels = _plateau_run(model)
     scores = [row["dev_macro_f1"] for row in rows]
     # The learned model labels the 8 dev bios N N N N S S S S against S N N N S S S S: nurse has
     # 3 hits, 4 predicted, 3 true (F1 6/7); surgeon 4 hits, 4 predicted, 5 true (F1 8/9).
     assert scores[0] == pytest.approx((6 / 7 + 8 / 9) / 2)
-    assert len(rows) == scores.index(max(scores)) + 1 + 3
-    assert len(rows) < 8
-
-
-def test_training_leaves_the_model_at_the_evaluation_with_the_best_dev_macro_f1(model):
-    rows, dev_texts, dev_labels = _plateau_run(model, patience=3)
-    scores = [row["dev_macro_f1"] for row in rows]
     best = rows[scores.index(max(scores))]
     assert rows[-1]["dev_loss"] != pytest.approx(best["dev_loss"])  # the last step is not the best
     logits = torch.from_numpy(model.logits(dev_texts))
@@ -226,22 +215,6 @@ def test_train_loss_is_the_mean_loss_of_the_steps_since_the_last_evaluation(
     )
 
 
-def test_the_patience_counts_evaluations_in_a_row_without_improvement(model, monkeypatch):
-    # Scripted dev macro-F1s: 0.5, 0.4 (1 stale), 0.6 (reset), 0.5 and 0.5 (2 stale in a row).
-    # Training stops after the fifth evaluation. Without the reset it would stop after the
-    # fourth, when the stale evaluations 0.4 and 0.5 add up to 2.
-    scores = iter([0.5, 0.4, 0.6, 0.5, 0.5, 0.5, 0.5])
-    monkeypatch.setattr(
-        training, "_evaluate", lambda *args: {"dev_loss": 1.0, "dev_macro_f1": next(scores)}
-    )
-    texts, labels = _bios(8)
-    rows = train(
-        model, texts, labels, texts, labels, learning_rate=1e-3, epochs=3, batch_size=4,
-        eval_every=1, patience=2,
-    )  # fmt: skip
-    assert [row["dev_macro_f1"] for row in rows] == [0.5, 0.4, 0.6, 0.5, 0.5]
-
-
 def test_the_bios_that_do_not_fill_a_whole_step_are_left_out_of_each_epoch(model):
     # 18 bios in batches of 4 fill 4 steps (16 bios); the other 2 wait for the next shuffle.
     texts, labels = _bios(9)
@@ -267,10 +240,10 @@ def test_training_cuts_the_bios_to_the_tokenizer_max_length(tiny_network, tiny_t
     assert set(widths) == {5}
 
 
-def test_without_early_stopping_all_epochs_run_and_the_best_evaluation_is_still_restored(model):
-    # No patience: the 10 extra epochs give 8 evaluations, and the model ends at the first one,
-    # whose dev macro-F1 is the highest (the later ones tie it, and the first of equals wins).
-    rows, dev_texts, dev_labels = _plateau_run(model, patience=math.inf)
+def test_all_epochs_run_and_the_first_of_equal_best_evaluations_is_restored(model):
+    # The 10 extra epochs give 8 evaluations, and the model ends at the first one, whose dev
+    # macro-F1 is the highest (the later ones tie it, and the first of equals wins).
+    rows, dev_texts, dev_labels = _plateau_run(model)
     assert len(rows) == 8
     logits = torch.from_numpy(model.logits(dev_texts))
     targets = torch.tensor([model.labels.index(label) for label in dev_labels])

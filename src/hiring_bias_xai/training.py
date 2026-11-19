@@ -45,15 +45,13 @@ def train(
     batch_size: int,
     eval_every: int,
     accumulation: int = 1,
-    patience: float = math.inf,
     on_evaluation: Callable[[dict], None] = lambda row: None,
 ) -> list[dict]:
     """Fine-tune `model` and return one row per evaluation on the dev bios.
 
-    `on_evaluation` receives each row as it is logged. Training stops after `patience`
-    evaluations in a row without a higher dev macro-F1, and the model ends with the weights of
-    the evaluation that had the highest one. The global random generators (python, numpy,
-    torch) are seeded with `SEED` first.
+    `on_evaluation` receives each row as it is logged. Training runs all epochs, and the model
+    ends with the weights of the evaluation that had the highest dev macro-F1 (the first of equal
+    ones). The global random generators (python, numpy, torch) are seeded with `SEED` first.
     """
     seed_everything()
     network = model.network
@@ -65,8 +63,7 @@ def train(
     scheduler = get_linear_schedule_with_warmup(
         optimizer, math.ceil(WARMUP_RATIO * total_steps), total_steps
     )
-    rows, step, losses, best_f1, best_weights, stale = [], 0, [], -1.0, None, 0
-    stopped = False
+    rows, step, losses, best_f1, best_weights = [], 0, [], -1.0, None
     for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_texts))
         for first in range(0, steps_per_epoch * bios_per_step, bios_per_step):
@@ -103,17 +100,10 @@ def train(
                 losses = []
                 on_evaluation(rows[-1])
                 if rows[-1]["dev_macro_f1"] > best_f1:
-                    best_f1, stale = rows[-1]["dev_macro_f1"], 0
+                    best_f1 = rows[-1]["dev_macro_f1"]
                     best_weights = {
                         name: tensor.to("cpu", copy=True)
                         for name, tensor in network.state_dict().items()
                     }
-                else:
-                    stale += 1
-                stopped = stale >= patience
-                if stopped:
-                    break
-        if stopped:
-            break
     network.load_state_dict(best_weights)
     return rows
