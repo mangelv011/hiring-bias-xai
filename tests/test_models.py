@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from hiring_bias_xai import data
 from hiring_bias_xai.models import BaselineModel
@@ -37,3 +38,17 @@ def test_probability_lands_in_the_column_of_the_learned_occupation_and_none_else
     assert proba[1, 25] > 0.5
     others = np.delete(proba, [13, 25], axis=1)
     assert not others.any()
+
+
+def test_min_df_drops_words_found_in_fewer_bios():
+    # "quokka" is in one surgeon bio only. With min_df=1 it is a feature and points to surgeon;
+    # with min_df=2 it is unknown, the text is empty and the two classes (3 bios each) stay
+    # near 1/2.
+    texts = [TEXTS[0], TEXTS[1], TEXTS[2], TEXTS[3] + " quokka", TEXTS[4], TEXTS[5]]
+
+    def surgeon_probability(min_df):
+        model = BaselineModel(C=10.0, min_df=min_df).fit(texts, OCCUPATIONS)
+        return model.predict_proba(["quokka"])[0, 25]
+
+    assert surgeon_probability(1) > 0.65
+    assert surgeon_probability(2) == pytest.approx(0.5, abs=0.1)
