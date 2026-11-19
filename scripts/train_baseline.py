@@ -6,10 +6,11 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import f1_score
 
 from hiring_bias_xai import data, fairness
-from hiring_bias_xai.config import RESULTS_DIR
+from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
 from hiring_bias_xai.models import BaselineModel
 
 C_GRID = (0.5, 1, 2, 4)
@@ -46,9 +47,16 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         key = (dev_f1, -C, min_df)  # ties go to the smaller C, then the larger min_df
         if best_key is None or key > best_key:
             best, best_key = model, key
+    predicted = _predict(best, test["text"])
+    best.save()
+    predictions = artifacts_dir() / "predictions"
+    predictions.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({"id": test["id"], "predicted_occupation": predicted}).to_csv(
+        predictions / "baseline_test.csv", index=False
+    )
     report = fairness.evaluate(
         test["occupation"],
-        _predict(best, test["text"]),
+        predicted,
         test["gender"],
         _share_women(train),
     )
