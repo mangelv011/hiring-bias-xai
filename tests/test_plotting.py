@@ -117,3 +117,19 @@ def test_axis_labels_stay_inside_the_figure():
 def test_the_pdf_carries_no_creation_date_so_reruns_are_byte_identical(fig, tmp_path):
     plotting.save(fig, "demo", tmp_path)
     assert b"/CreationDate" not in (tmp_path / "demo.pdf").read_bytes()
+
+
+def test_deuteranopia_simulation_of_colours_that_saturate_or_sit_in_the_dark_segment():
+    # Yellow saturates the red channel before clipping (1.228); (40, 20, 90) is dark enough to use
+    # the linear sRGB segment; the third is an ordinary orange. Expected values were worked out
+    # with the Machado matrix in plain Python.
+    image = np.array([[[255, 255, 0], [40, 20, 90], [200, 100, 50]]], dtype=np.uint8)
+    assert plotting.simulate_deuteranopia(image).tolist() == [
+        [[255, 250, 49], [0, 33, 89], [152, 137, 48]]
+    ]
+
+
+def test_no_font_size_in_the_style_is_below_7_pt():
+    sizes = {key: value for key, value in plotting.STYLE.items() if "size" in key}
+    assert sizes
+    assert all(value >= 7 for value in sizes.values())
