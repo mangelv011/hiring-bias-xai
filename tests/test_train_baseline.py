@@ -51,6 +51,7 @@ def test_train_baseline_writes_the_metrics_file(train_baseline):
         "runtime_seconds",
         "test",
     ]
+    assert metrics["runtime_seconds"] > 0
 
 
 def test_train_baseline_saves_the_model_and_the_test_predictions_outside_the_repo(train_baseline):
@@ -80,3 +81,39 @@ def test_overfitting_check_is_train_macro_f1_minus_test_macro_f1(train_baseline,
         "overfitting_check"
     ]
     assert check == pytest.approx({"train_macro_f1": 1.0, "test_macro_f1": 5 / 6, "gap": 1 / 6})
+
+
+def test_hyperparameters_are_chosen_by_macro_f1_on_dev(train_baseline, splits):
+    # Six surgeon bios of train say "scalpel theatre rare" (6 bios: kept by min_df=5, dropped by
+    # min_df=20) and 20 more nurse bios make nurse the majority. Three surgeon bios of dev say only
+    # "rare". With min_df=5 they are found: macro-F1 1. With min_df=20 the text is empty and the
+    # model answers with the majority, nurse: nurse TP 6, FP 3 -> F1 12/15; surgeon TP 3, FN 3
+    # -> F1 6/9; macro-F1 11/15.
+    train, dev = splits["train"], splits["dev"]
+    train.loc[train.index[train["occupation"] == "surgeon"][:6], "text"] = "scalpel theatre rare"
+    nurses = _split("extra", 5).query("occupation == 'nurse'")
+    splits["train"] = pd.concat([train, nurses.assign(id="extra")], ignore_index=True)
+    dev.loc[dev.index[dev["occupation"] == "surgeon"][:3], "text"] = "rare"
+    metrics = json.loads((train_baseline() / "metrics_baseline.json").read_text())
+    assert metrics["hyperparameters"] == {"C": 4, "min_df": 5}
+    by_min_df = {row["min_df"]: row["dev_macro_f1"] for row in metrics["dev_grid"]}
+    assert by_min_df == pytest.approx({5: 1.0, 20: 11 / 15})
+
+
+def test_test_metrics_come_from_the_test_split_with_the_training_shares_of_women(
+    train_baseline, splits
+):
+    # Test bio 3 (a male nurse) and bio 6 (a female surgeon) get the other occupation's words, so
+    # nurse TPR is 3/3 women and 2/3 men (gap +1/3) and surgeon 2/3 and 3/3 (gap -1/3): accuracy
+    # 10/12, RMS gap 1/3. Train has 12 female and 4 male nurses (share 3/4) and 12 and 12 surgeons
+    # (1/2), so the gap rises with the share: r = 1. Test shares (1/2, 1/2) would give NaN.
+    train = splits["train"]
+    splits["train"] = train.drop(
+        index=train.index[(train["occupation"] == "nurse") & (train["gender"] == "male")][:8]
+    )
+    splits["dev"] = _split("dev", 2)  # a layout unlike test, so dev cannot stand in for it
+    splits["test"].loc[[3, 6], "text"] = ["scalpel theatre bio", "ward patient bio"]
+    test = json.loads((train_baseline() / "metrics_baseline.json").read_text())["test"]
+    assert test["accuracy"]["value"] == pytest.approx(10 / 12)
+    assert test["rms_tpr_gap"]["value"] == pytest.approx(1 / 3)
+    assert test["gap_share_pearson"]["value"] == pytest.approx(1.0)
