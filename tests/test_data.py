@@ -36,3 +36,18 @@ def test_scrub_strips_the_ends():
 def test_scrub_keeps_words_that_contain_a_pronoun(word):
     text = f"the {word} was here"
     assert data.scrub(text) == text
+
+
+@pytest.mark.parametrize("apostrophe", ["'", "\u2019"])
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("she's a nurse", "a nurse"),
+        ("He'd say so", "say so"),
+        ("she'll go", "go"),
+        ("his' book", "book"),
+        ("the nurse and her's", "the nurse and"),
+    ],
+)
+def test_scrub_removes_attached_pronoun_suffixes(text, expected, apostrophe):
+    assert data.scrub(text.replace("'", apostrophe)) == expected
