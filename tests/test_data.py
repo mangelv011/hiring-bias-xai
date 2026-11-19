@@ -1,0 +1,11 @@
+from hiring_bias_xai import data
+
+
+def test_occupations_are_the_28_names_in_code_order():
+    assert data.OCCUPATIONS == (
+        "accountant", "architect", "attorney", "chiropractor", "comedian", "composer",
+        "dentist", "dietitian", "dj", "filmmaker", "interior_designer", "journalist",
+        "model", "nurse", "painter", "paralegal", "pastor", "personal_trainer",
+        "photographer", "physician", "poet", "professor", "psychologist", "rapper",
+        "software_engineer", "surgeon", "teacher", "yoga_teacher",
+    )  # fmt: skip
