@@ -36,6 +36,7 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
     """
 
     draws = []
+    batch_sizes = []
 
     def execute(**constants):
         root = tmp_path_factory.mktemp("deberta")
@@ -53,6 +54,7 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
 
         def pretrained(cls, max_length, batch_size=32):
             draws.append(torch.rand(1).item())
+            batch_sizes.append(batch_size)
             return cls(tiny_network(), tiny_tokenizer(max_length), batch_size)
 
         defaults = {
@@ -62,11 +64,19 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
             "ACCUMULATION": 1,
             "EVAL_EVERY": 40,
             "MAX_LENGTH": 64,
+            "EVAL_BATCH_SIZE": 8,
             "DEVICE": "cpu",
         }
         with pytest.MonkeyPatch.context() as patch:
             patch.setattr(data, "load_split", lambda split, variant="original": splits[split])
             patch.setattr(DebertaModel, "pretrained", classmethod(pretrained))
+            real_load = DebertaModel.load.__func__
+
+            def load(cls, batch_size=32):
+                batch_sizes.append(batch_size)
+                return real_load(cls, batch_size)
+
+            patch.setattr(DebertaModel, "load", classmethod(load))
             patch.setenv("HBX_ARTIFACTS", str(root / "artifacts"))
             module = _load_script()
             for name, value in (defaults | constants).items():
@@ -75,6 +85,7 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
         return root
 
     execute.draws = draws
+    execute.batch_sizes = batch_sizes
     return execute
 
 
@@ -198,6 +209,7 @@ def test_the_hyperparameters_name_the_chosen_run_and_every_fixed_setting(run):
         "gradient_accumulation": 1,
         "effective_batch_size": 4,
         "warmup_ratio": 0.06,
+        "evaluation_batch_size": 8,
         "evaluation_every_steps": 40,
         "early_stopping": False,
         "max_length": 64,
@@ -332,3 +344,11 @@ def test_share_above_counts_bios_with_more_than_n_tokens(tiny_tokenizer, monkeyp
     )
     report = module._length_report(["alpha " * 126, "alpha " * 127])
     assert report["share_above"] == {"128": 0.5, "256": 0.0, "512": 0.0}
+
+
+def test_dev_and_test_scoring_use_the_evaluation_batch_size(execute):
+    # Scoring batches are as small as training batches: a large one fills the 4 GB GPU.
+    execute.batch_sizes.clear()
+    execute(LEARNING_RATES=(3e-3,), EPOCHS=1, EVAL_BATCH_SIZE=3)
+    assert set(execute.batch_sizes) == {3}
+    assert len(execute.batch_sizes) == 3  # the model of the run, the length report, the final load
