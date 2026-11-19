@@ -44,7 +44,9 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     output = {}
     for name, file in MODELS.items():
         predictions = pd.read_csv(artifacts_dir() / "predictions" / f"{file}_test.csv")
-        predicted = test[["id"]].merge(predictions, on="id", validate="one_to_one")
+        predicted = test[["id"]].merge(predictions, on="id", how="left", validate="one_to_one")
+        if predicted["predicted_occupation"].isna().any():
+            raise ValueError(f"{name}: some test bios have no prediction")
         statistics = gap_statistics.compute(
             test["occupation"],
             predicted["predicted_occupation"],
