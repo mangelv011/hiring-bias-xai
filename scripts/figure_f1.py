@@ -51,6 +51,13 @@ def build(results_dir: Path):
     slope, intercept = np.polyfit(x, gap, 1)
     ax.plot([x.min(), x.max()], [intercept + slope * x.min(), intercept + slope * x.max()], color=DARK, lw=1)
     pearson = _read(results_dir, "gap_statistics.json")["main_model"]["pearson"]
+    fig.suptitle(
+        f"In male-dominated occupations the main model misses more women (r = {pearson['value']:.2f}).",
+        wrap=True,
+        x=0.02,
+        ha="left",
+        fontweight="bold",
+    )
     ax.text(
         0.03,
         0.97,
