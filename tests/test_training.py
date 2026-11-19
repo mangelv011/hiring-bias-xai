@@ -162,3 +162,14 @@ def test_training_seeds_the_global_generators_so_two_runs_give_the_same_log(
         )  # fmt: skip
 
     assert run(outside_seed=5) == run(outside_seed=99)
+
+
+def test_each_evaluation_row_is_handed_to_the_callback_as_it_is_logged(model):
+    texts, labels = _bios(8)
+    seen = []
+    rows = train(
+        model, texts, labels, texts, labels, learning_rate=1e-3, epochs=2, batch_size=4,
+        eval_every=3, on_evaluation=seen.append,
+    )  # fmt: skip
+    assert seen == rows
+    assert len(rows) == 3  # steps 3, 6 and the last, 8
