@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 from sklearn.metrics import f1_score
@@ -37,6 +38,19 @@ def _share_women(frame) -> dict:
     return (frame["gender"] == "female").groupby(frame["occupation"]).mean().to_dict()
 
 
+def _length_report(texts) -> dict:
+    """Token lengths of the bios before any cutting, and the share `MAX_LENGTH` would cut."""
+    tokenizer = DebertaModel.pretrained(MAX_LENGTH).tokenizer
+    lengths = np.array([len(ids) for ids in tokenizer(list(texts), truncation=False)["input_ids"]])
+    percentiles = {f"p{q:g}": float(np.percentile(lengths, q)) for q in (50, 90, 95, 99, 99.9)}
+    return {
+        "value": MAX_LENGTH,
+        "token_length_percentiles": percentiles | {"max": int(lengths.max())},
+        "share_above": {str(n): float(np.mean(lengths > n)) for n in (128, 256, 512)},
+        "share_truncated": float(np.mean(lengths > MAX_LENGTH)),
+    }
+
+
 def _fit(learning_rate: float, train_frame, dev_frame):
     seed_everything()
     model = DebertaModel.pretrained(MAX_LENGTH)
@@ -60,6 +74,7 @@ def _fit(learning_rate: float, train_frame, dev_frame):
 def main(results_dir: Path = RESULTS_DIR) -> None:
     results_dir.mkdir(parents=True, exist_ok=True)
     train_frame, dev_frame = data.load_split("train"), data.load_split("dev")
+    max_length_report = _length_report(train_frame["text"])
     best_f1, best_learning_rate, log = -1.0, None, []
     for learning_rate in LEARNING_RATES:
         model, rows = _fit(learning_rate, train_frame, dev_frame)
@@ -91,6 +106,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         results_dir / "metrics_deberta.json",
         {
             "hyperparameters": {"learning_rate": best_learning_rate},
+            "max_length": max_length_report,
             "overfitting_check": {
                 "train_macro_f1": train_f1,
                 "test_macro_f1": report["macro_f1"]["value"],
