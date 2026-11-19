@@ -390,3 +390,24 @@ def test_subsample_larger_than_the_split_raises(fake_raw, monkeypatch):
     fake_raw(dev=_raw([(f"bio {i}", 0, 1) for i in range(6)]))
     with pytest.raises(ValueError, match="7.*6"):
         data.load_split("dev")
+
+
+def test_load_showcase_subset_reads_the_ids_file_and_returns_those_test_bios_in_file_order(
+    fake_raw, tmp_path
+):
+    fake_raw(test=_showcase_raw())
+    ids_file = tmp_path / "ids.csv"
+    ids_file.write_bytes(b"id\ntest-26\ntest-3\ntest-12\n")
+    subset = data.load_showcase_subset(ids_file)
+    assert list(subset["id"]) == ["test-26", "test-3", "test-12"]
+    assert list(subset["text"]) == ["bio 26", "bio 3", "bio 12"]
+    assert list(subset["occupation"]) == ["architect", "accountant", "accountant"]
+    assert list(subset.index) == [0, 1, 2]
+
+
+def test_load_showcase_subset_stops_on_an_id_that_is_not_in_the_test_split(fake_raw, tmp_path):
+    fake_raw(test=_showcase_raw())
+    ids_file = tmp_path / "ids.csv"
+    ids_file.write_bytes(b"id\ntest-3\ntest-999\n")
+    with pytest.raises(ValueError, match="test-999"):
+        data.load_showcase_subset(ids_file)
