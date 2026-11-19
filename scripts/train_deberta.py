@@ -95,6 +95,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         if best["dev_macro_f1"] > best_f1:
             best_f1, chosen = best["dev_macro_f1"], runs[-1]
             model.save()
+        del model  # frees the GPU before the next run, so the peak is that of one run
     peak_memory = round(torch.cuda.max_memory_allocated() / 2**20, 1) if on_gpu else None
     model = DebertaModel.load()
     model.network.to(DEVICE)
