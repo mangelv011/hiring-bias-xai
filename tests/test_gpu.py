@@ -60,3 +60,17 @@ def test_the_trained_checkpoint_predicts_ten_real_bios_twice_with_identical_outp
     assert next(model.network.parameters()).dtype == torch.float32
     np.testing.assert_array_equal(first, second)
     np.testing.assert_allclose(first.sum(axis=1), 1.0, rtol=1e-5)
+
+
+@pytest.mark.gpu
+def test_representations_run_in_bfloat16_on_the_gpu_and_come_back_as_float32(
+    tiny_network, tiny_tokenizer
+):
+    from hiring_bias_xai.models import DebertaModel
+
+    model = DebertaModel(tiny_network().to("cuda"), tiny_tokenizer(64))
+    seen = []
+    model.network.pooler.dense.register_forward_hook(lambda _m, _i, out: seen.append(out.dtype))
+    layers, final = model.representations(["alpha beta", "gamma delta"])
+    assert set(seen) == {torch.bfloat16}
+    assert layers.dtype == final.dtype == np.float32
