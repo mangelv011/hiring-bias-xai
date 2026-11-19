@@ -24,6 +24,11 @@ def _report(**kwargs):
     return fairness.evaluate(y_true, y_pred, gender, SHARE_WOMEN, **kwargs)
 
 
+def test_accuracy_has_a_confidence_interval_around_the_point_estimate():
+    accuracy = _report(n_boot=200)["accuracy"]
+    assert accuracy["ci_low"] <= accuracy["value"] <= accuracy["ci_high"]
+
+
 def test_accuracy_is_the_share_of_bios_with_the_right_occupation():
     # Correct: nurse 3 + 1, surgeon 1 + 4 = 9 of 12.
     assert _report()["accuracy"]["value"] == pytest.approx(9 / 12)
