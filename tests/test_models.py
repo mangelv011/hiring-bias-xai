@@ -109,3 +109,54 @@ def test_fit_works_in_single_precision():
     # The solver is memory-bound: float32 features and weights run 1.6 times faster with six
     # fits at once on the 60,000-bio training subsample.
     assert _fitted().pipeline[-1].coef_.dtype == np.float32
+
+
+def test_logits_are_float64_decision_scores_whose_softmax_is_predict_proba():
+    model = _fitted()
+    texts = ["the patient ward", "operating scalpel", "something else"]
+    logits = model.logits(texts)
+    assert logits.shape == (3, 28)
+    assert logits.dtype == np.float64
+    shifted = np.exp(logits - logits.max(axis=1, keepdims=True))
+    expected = shifted / shifted.sum(axis=1, keepdims=True)
+    np.testing.assert_allclose(expected, model.predict_proba(texts))
+
+
+def test_logits_of_occupations_the_model_never_saw_are_minus_infinity():
+    logits = _fitted().logits(["the patient ward"])
+    seen = [13, 25]
+    assert np.isfinite(logits[0, seen]).all()
+    assert np.isneginf(np.delete(logits, seen, axis=1)).all()
+
+
+def _three_occupations():
+    texts = TEXTS + ["dental drill tooth", "drill tooth dentist", "dentist tooth"]
+    return BaselineModel(C=10.0, min_df=1).fit(texts, OCCUPATIONS + ["dentist"] * 3)
+
+
+def test_logits_follow_dataset_order_when_the_model_saw_three_occupations():
+    model = _three_occupations()
+    assert model.logits(["dental drill tooth"])[0].argmax() == data.OCCUPATIONS.index("dentist")
+    assert model.logits(["operating scalpel"])[0].argmax() == 25
+
+
+def test_predict_returns_the_occupation_name_with_the_highest_probability():
+    assert list(_fitted().predict(["the patient ward", "operating scalpel"])) == [NURSE, SURGEON]
+
+
+def test_class_log_odds_is_the_class_logit_minus_the_log_sum_of_exponentials_of_the_others():
+    model = _fitted()
+    texts = ["the patient ward", "operating scalpel"]
+    z = model.logits(texts)
+    expected = z[:, 13] - z[:, 25]  # the 26 unseen columns are -inf and add nothing
+    np.testing.assert_allclose(model.class_log_odds(texts, NURSE), expected)
+    np.testing.assert_allclose(model.class_log_odds(texts, SURGEON), -expected)
+
+
+def test_class_log_odds_is_the_log_of_the_odds_of_the_probabilities():
+    # With a third occupation the others sum over two columns.
+    model = _three_occupations()
+    proba = model.predict_proba(["patient scalpel drill"])[0, 13]
+    np.testing.assert_allclose(
+        model.class_log_odds(["patient scalpel drill"], NURSE), np.log(proba / (1 - proba))
+    )
