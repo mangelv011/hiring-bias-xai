@@ -1,6 +1,7 @@
 """Fine-tune DeBERTa-v3-small, pick the learning rate on dev, and evaluate once on test."""
 
 import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -52,6 +53,7 @@ def _fit(learning_rate: float, train_frame, dev_frame):
     seed_everything()
     model = DebertaModel.pretrained(MAX_LENGTH)
     model.network.to(DEVICE)
+    started = time.perf_counter()
     rows = train(
         model,
         list(train_frame["text"]),
@@ -65,7 +67,7 @@ def _fit(learning_rate: float, train_frame, dev_frame):
         eval_every=EVAL_EVERY,
         patience=PATIENCE,
     )
-    return model, rows
+    return model, rows, time.perf_counter() - started
 
 
 def main(results_dir: Path = RESULTS_DIR) -> None:
@@ -74,7 +76,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     max_length_report = _length_report(train_frame["text"])
     runs, log, best_f1 = [], [], -1.0
     for learning_rate in LEARNING_RATES:
-        model, rows = _fit(learning_rate, train_frame, dev_frame)
+        model, rows, seconds = _fit(learning_rate, train_frame, dev_frame)
         log += [{"base_learning_rate": learning_rate} | row for row in rows]
         best = max(rows, key=lambda row: row["dev_macro_f1"])  # the first of equal rows
         runs.append(
@@ -84,6 +86,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
                 "best_step": best["step"],
                 "best_epoch": best["epoch"],
                 "evaluations": len(rows),
+                "training_seconds": round(seconds, 1),
             }
         )
         if best["dev_macro_f1"] > best_f1:
@@ -133,6 +136,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
                 "gap": train_f1 - report["macro_f1"]["value"],
             },
             "test": report,
+            "training_seconds": round(sum(run["training_seconds"] for run in runs), 1),
         },
     )
 
