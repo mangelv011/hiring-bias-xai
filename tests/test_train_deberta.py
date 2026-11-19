@@ -61,7 +61,6 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
             "BATCH_SIZE": 4,
             "ACCUMULATION": 1,
             "EVAL_EVERY": 40,
-            "PATIENCE": 100,
             "MAX_LENGTH": 64,
             "DEVICE": "cpu",
         }
@@ -200,7 +199,7 @@ def test_the_hyperparameters_name_the_chosen_run_and_every_fixed_setting(run):
         "effective_batch_size": 4,
         "warmup_ratio": 0.06,
         "evaluation_every_steps": 40,
-        "patience_in_evaluations": 100,
+        "early_stopping": False,
         "max_length": 64,
         "seed": 42,
         "precision": "bfloat16 autocast on CUDA, float32 otherwise",
@@ -309,11 +308,12 @@ def test_the_effective_batch_is_batch_size_times_accumulation_and_both_reach_tra
     assert log["epoch"].tolist() == [5, 10, 15, 20, 25, 30]
 
 
-def test_the_patience_reaches_training(execute):
-    # With a patience of one evaluation the toy run stops at the first one without a better
-    # dev macro-F1; the full run has six evaluations.
-    root = execute(PATIENCE=1, LEARNING_RATES=(1e-5,))
-    assert len(pd.read_csv(root / "results" / "training_log.csv")) < 6
+def test_every_epoch_runs_even_when_the_dev_macro_f1_stops_improving(execute):
+    # No early stopping: a noisy dev macro-F1 stopped an earlier run after 0.6 of an epoch. The
+    # 1e-9 toy run cannot learn, so its dev macro-F1 never improves, and it still logs all 6
+    # evaluations.
+    root = execute(LEARNING_RATES=(1e-9,))
+    assert len(pd.read_csv(root / "results" / "training_log.csv")) == 6
 
 
 def test_the_head_is_initialised_after_seeding_the_global_generators(execute):
