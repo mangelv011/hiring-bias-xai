@@ -146,3 +146,19 @@ def test_gradient_accumulation_gives_the_same_updates_as_the_batch_it_adds_up_to
     assert [row["dev_loss"] for row in split] == pytest.approx(
         [row["dev_loss"] for row in whole], rel=1e-4
     )
+
+
+def test_training_seeds_the_global_generators_so_two_runs_give_the_same_log(
+    tiny_network, tiny_tokenizer
+):
+    texts, labels = _bios(8)
+
+    def run(outside_seed):
+        model = DebertaModel(tiny_network(), tiny_tokenizer(64))
+        torch.manual_seed(outside_seed)
+        return train(
+            model, texts, labels, texts, labels, learning_rate=1e-3, epochs=2, batch_size=4,
+            eval_every=1,
+        )  # fmt: skip
+
+    assert run(outside_seed=5) == run(outside_seed=99)
