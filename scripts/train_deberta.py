@@ -74,6 +74,9 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     results_dir.mkdir(parents=True, exist_ok=True)
     train_frame, dev_frame = data.load_split("train"), data.load_split("dev")
     max_length_report = _length_report(train_frame["text"])
+    on_gpu = DEVICE == "cuda"
+    if on_gpu:
+        torch.cuda.reset_peak_memory_stats()
     runs, log, best_f1 = [], [], -1.0
     for learning_rate in LEARNING_RATES:
         model, rows, seconds = _fit(learning_rate, train_frame, dev_frame)
@@ -92,6 +95,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         if best["dev_macro_f1"] > best_f1:
             best_f1, chosen = best["dev_macro_f1"], runs[-1]
             model.save()
+    peak_memory = round(torch.cuda.max_memory_allocated() / 2**20, 1) if on_gpu else None
     model = DebertaModel.load()
     model.network.to(DEVICE)
     test_frame = data.load_split("test")
@@ -128,6 +132,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
                 "seed": SEED,
                 "precision": "bfloat16 autocast on CUDA, float32 otherwise",
             },
+            "peak_gpu_memory_mb": peak_memory,
             "runs": runs,
             "max_length": max_length_report,
             "overfitting_check": {
