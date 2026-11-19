@@ -5,6 +5,7 @@ from typing import Protocol
 
 import joblib
 import numpy as np
+import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
@@ -75,3 +76,8 @@ class DebertaModel:
     def __init__(self, network, tokenizer):
         self.network = network
         self.tokenizer = tokenizer
+
+    def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
+        inputs = self.tokenizer(list(texts), padding=True, return_tensors="pt")
+        logits = self.network(**inputs.to(self.network.device)).logits
+        return torch.softmax(logits.float(), dim=-1).detach().numpy()
