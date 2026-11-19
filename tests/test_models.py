@@ -52,3 +52,10 @@ def test_min_df_drops_words_found_in_fewer_bios():
 
     assert surgeon_probability(1) > 0.65
     assert surgeon_probability(2) == pytest.approx(0.5, abs=0.1)
+
+
+def test_a_smaller_C_regularises_more_so_predictions_are_less_confident():
+    def confidence(C):
+        return _fitted(C=C).predict_proba(["operating scalpel"])[0, 25]
+
+    assert confidence(0.01) < confidence(100.0)
