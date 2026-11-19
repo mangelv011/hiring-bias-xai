@@ -40,6 +40,16 @@ def test_probability_lands_in_the_column_of_the_learned_occupation_and_none_else
     assert not others.any()
 
 
+def test_word_pairs_are_features():
+    # Both occupations use the words "alpha" and "beta" equally often; only their order differs,
+    # so a model without two-word features cannot tell them apart and stays at 1/2.
+    texts = ["alpha beta"] * 3 + ["beta alpha"] * 3
+    model = BaselineModel(C=10.0, min_df=1).fit(texts, OCCUPATIONS)
+    proba = model.predict_proba(["alpha beta", "beta alpha"])
+    assert proba[0, 13] > 0.7
+    assert proba[1, 25] > 0.7
+
+
 def test_min_df_drops_words_found_in_fewer_bios():
     # "quokka" is in one surgeon bio only. With min_df=1 it is a feature and points to surgeon;
     # with min_df=2 it is unknown, the text is empty and the two classes (3 bios each) stay
