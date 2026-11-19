@@ -1,4 +1,5 @@
 import pytest
+import torch
 
 from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import train
@@ -86,3 +87,35 @@ def test_each_evaluation_gets_a_row_and_the_last_step_is_always_evaluated(model)
         "dev_loss",
         "dev_macro_f1",
     }
+
+
+def _plateau_run(model, patience):
+    """Train 20 epochs (40 evaluations at most) on a dev set whose F1 stops rising at once.
+
+    One nurse dev bio carries the surgeon label, so no model reaches an F1 of 1; once the
+    task is learned the F1 stays flat while the dev loss keeps falling.
+    """
+    texts, labels = _bios(16)
+    dev_texts, dev_labels = _bios(4)
+    dev_labels[0] = SURGEON
+    rows = train(
+        model,
+        texts,
+        labels,
+        dev_texts,
+        dev_labels,
+        learning_rate=1e-2,
+        epochs=20,
+        batch_size=8,
+        eval_every=2,
+        patience=patience,
+    )
+    return rows, dev_texts, dev_labels
+
+
+def test_training_stops_after_patience_evaluations_without_a_better_dev_macro_f1(model):
+    rows, _, _ = _plateau_run(model, patience=2)
+    scores = [row["dev_macro_f1"] for row in rows]
+    first_best = scores.index(max(scores))
+    assert len(rows) == first_best + 1 + 2
+    assert len(rows) < 40
