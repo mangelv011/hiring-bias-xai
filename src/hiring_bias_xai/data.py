@@ -104,21 +104,26 @@ def xai_subset() -> pd.DataFrame:
     return _stratified_sample(load_split("test"), _XAI_SUBSET_SIZE)
 
 
+def share_women(frame: pd.DataFrame) -> dict:
+    """Share of female bios in each occupation of `frame`, keyed by occupation."""
+    return (frame["gender"] == "female").groupby(frame["occupation"]).mean().to_dict()
+
+
 def showcase_occupations(train: pd.DataFrame, test: pd.DataFrame) -> dict:
     """The rule and the three most male- and female-dominated eligible occupations, JSON-ready."""
     test_bios = test["occupation"].value_counts()
     large = test_bios.index[test_bios >= _SHOWCASE_MIN_TEST_BIOS]
-    share_women = (train["gender"] == "female").groupby(train["occupation"]).mean()
-    share_women = share_women[share_women.index.isin(large)].sort_values(kind="stable")
+    shares = pd.Series(share_women(train))
+    shares = shares[shares.index.isin(large)].sort_values(kind="stable")
 
-    def entries(shares: pd.Series) -> list[dict]:
+    def entries(picked: pd.Series) -> list[dict]:
         return [
             {"occupation": occupation, "share_women": round(float(share), 4)}
-            for occupation, share in shares.items()
+            for occupation, share in picked.items()
         ]
 
     return {
         "rule": _SHOWCASE_RULE,
-        "male_dominated": entries(share_women.head(3)),
-        "female_dominated": entries(share_women.tail(3).iloc[::-1]),
+        "male_dominated": entries(shares.head(3)),
+        "female_dominated": entries(shares.tail(3).iloc[::-1]),
     }
