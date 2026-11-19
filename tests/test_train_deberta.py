@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import torch
 
 from hiring_bias_xai import data
 from hiring_bias_xai.models import DebertaModel
@@ -34,6 +35,8 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
     The result is the directory that holds `results/` and `artifacts/`.
     """
 
+    draws = []
+
     def execute(**constants):
         root = tmp_path_factory.mktemp("deberta")
         splits = {"train": _split("train", 8), "dev": _split("dev", 2), "test": _split("test", 2)}
@@ -43,8 +46,13 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
         splits["train"].loc[0:3, "gender"] = "male"
         splits["train"].loc[24:27, "gender"] = "female"
         splits["test"].loc[2, "occupation"] = "surgeon"  # a male nurse bio the model gets wrong
+        # The dev split has a different F1 and longer bios than the train split, so a script
+        # that mixed the two up would report other numbers.
+        splits["dev"].loc[0, "occupation"] = "surgeon"
+        splits["dev"]["text"] = splits["dev"]["text"] + " " + splits["dev"]["text"].str[:5]
 
         def pretrained(cls, max_length, batch_size=32):
+            draws.append(torch.rand(1).item())
             return cls(tiny_network(), tiny_tokenizer(max_length), batch_size)
 
         defaults = {
@@ -67,6 +75,7 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
             module.main(root / "results")
         return root
 
+    execute.draws = draws
     return execute
 
 
@@ -174,8 +183,10 @@ def test_every_run_records_its_best_dev_evaluation(run):
         assert entry["best_dev_macro_f1"] == best["dev_macro_f1"]
         assert (entry["best_step"], entry["best_epoch"]) == (best["step"], best["epoch"])
         assert entry["evaluations"] == 6
-    assert runs[0]["best_dev_macro_f1"] == 1.0
-    assert runs[1]["best_dev_macro_f1"] < 1.0
+    # The learned toy model gets 7 of 8 dev bios right (dev bio 0 is labelled surgeon): nurse
+    # F1 6/7, surgeon F1 8/9.
+    assert runs[0]["best_dev_macro_f1"] == pytest.approx((6 / 7 + 8 / 9) / 2)
+    assert runs[1]["best_dev_macro_f1"] < runs[0]["best_dev_macro_f1"]
 
 
 def test_the_hyperparameters_name_the_chosen_run_and_every_fixed_setting(run):
@@ -270,15 +281,6 @@ def test_length_report_percentiles_follow_numpy_linear_interpolation(tiny_tokeni
     assert report["share_truncated"] == 0.4
 
 
-def test_a_bio_of_exactly_max_length_tokens_is_not_truncated(tiny_tokenizer, monkeypatch):
-    module = _load_script()
-    monkeypatch.setattr(module, "MAX_LENGTH", 5)
-    monkeypatch.setattr(
-        DebertaModel, "pretrained", classmethod(lambda cls, n: cls(None, tiny_tokenizer(n)))
-    )
-    assert module._length_report(["alpha alpha alpha"])["share_truncated"] == 0.0
-
-
 def test_confidence_intervals_that_touch_overlap():
     module = _load_script()
 
@@ -295,3 +297,38 @@ def test_confidence_intervals_that_touch_overlap():
     assert overlap(interval(0.5, 0.9), interval(0.1, 0.5)) is True
     assert overlap(interval(0.1, 0.4), interval(0.5, 0.9)) is False
     assert overlap(interval(0.5, 0.9), interval(0.1, 0.4)) is False
+
+
+def test_the_effective_batch_is_batch_size_times_accumulation_and_both_reach_training(execute):
+    # Batches of 2 bios, 2 per step: 4 bios per step, 8 steps per epoch of 32 bios. Step 40 is
+    # then the end of epoch 5; without accumulation it would be epoch 3 (16 steps per epoch).
+    root = execute(BATCH_SIZE=2, ACCUMULATION=2, LEARNING_RATES=(3e-3,))
+    metrics = json.loads((root / "results" / "metrics_deberta.json").read_text())
+    log = pd.read_csv(root / "results" / "training_log.csv")
+    assert metrics["hyperparameters"]["effective_batch_size"] == 4
+    assert log["epoch"].tolist() == [5, 10, 15, 20, 25, 30]
+
+
+def test_the_patience_reaches_training(execute):
+    # With a patience of one evaluation the toy run stops at the first one without a better
+    # dev macro-F1; the full run has six evaluations.
+    root = execute(PATIENCE=1, LEARNING_RATES=(1e-5,))
+    assert len(pd.read_csv(root / "results" / "training_log.csv")) < 6
+
+
+def test_the_head_is_initialised_after_seeding_the_global_generators(execute):
+    execute.draws.clear()
+    execute(LEARNING_RATES=(3e-3, 1e-5), EPOCHS=1)
+    expected = torch.rand(1, generator=torch.Generator().manual_seed(42)).item()
+    # One draw for the length report, then one per run, each taken right after seeding.
+    assert execute.draws[1:] == [expected, expected]
+
+
+def test_share_above_counts_bios_with_more_than_n_tokens(tiny_tokenizer, monkeypatch):
+    # 126 words are 128 tokens with [CLS] and [SEP]: not above 128. 127 words are 129: above.
+    module = _load_script()
+    monkeypatch.setattr(
+        DebertaModel, "pretrained", classmethod(lambda cls, n: cls(None, tiny_tokenizer(n)))
+    )
+    report = module._length_report(["alpha " * 126, "alpha " * 127])
+    assert report["share_above"] == {"128": 0.5, "256": 0.0, "512": 0.0}

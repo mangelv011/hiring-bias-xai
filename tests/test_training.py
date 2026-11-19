@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import torch
 
+from hiring_bias_xai import training
 from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import seed_everything, train
 
@@ -222,3 +223,44 @@ def test_train_loss_is_the_mean_loss_of_the_steps_since_the_last_evaluation(
     assert every_two == pytest.approx(
         [(a + b) / 2 for a, b in zip(every_step[::2], every_step[1::2], strict=True)], rel=1e-4
     )
+
+
+def test_the_patience_counts_evaluations_in_a_row_without_improvement(model, monkeypatch):
+    # Scripted dev macro-F1s: 0.5, 0.4 (1 stale), 0.6 (reset), 0.5 and 0.5 (2 stale in a row).
+    # Training stops after the fifth evaluation. Without the reset it would stop after the
+    # fourth, when the stale evaluations 0.4 and 0.5 add up to 2.
+    scores = iter([0.5, 0.4, 0.6, 0.5, 0.5, 0.5, 0.5])
+    monkeypatch.setattr(
+        training, "_evaluate", lambda *args: {"dev_loss": 1.0, "dev_macro_f1": next(scores)}
+    )
+    texts, labels = _bios(8)
+    rows = train(
+        model, texts, labels, texts, labels, learning_rate=1e-3, epochs=3, batch_size=4,
+        eval_every=1, patience=2,
+    )  # fmt: skip
+    assert [row["dev_macro_f1"] for row in rows] == [0.5, 0.4, 0.6, 0.5, 0.5]
+
+
+def test_the_bios_that_do_not_fill_a_whole_step_are_left_out_of_each_epoch(model):
+    # 18 bios in batches of 4 fill 4 steps (16 bios); the other 2 wait for the next shuffle.
+    texts, labels = _bios(9)
+    rows = train(
+        model, texts, labels, texts[:4], labels[:4], learning_rate=1e-3, epochs=2, batch_size=4,
+        eval_every=100,
+    )  # fmt: skip
+    assert [row["step"] for row in rows] == [8]
+
+
+def test_training_cuts_the_bios_to_the_tokenizer_max_length(tiny_network, tiny_tokenizer):
+    # max_length 5 leaves 3 words; the 6-word bios must reach the network with 5 tokens.
+    model = DebertaModel(tiny_network(), tiny_tokenizer(5))
+    widths = []
+    model.network.register_forward_pre_hook(
+        lambda module, args, kwargs: widths.append(kwargs["input_ids"].shape[1]), with_kwargs=True
+    )
+    texts, labels = ["alpha " * 6] * 4 + ["gamma " * 6] * 4, [NURSE] * 4 + [SURGEON] * 4
+    train(
+        model, texts, labels, texts[:1], labels[:1], learning_rate=1e-3, epochs=1, batch_size=4,
+        eval_every=100,
+    )  # fmt: skip
+    assert set(widths) == {5}
