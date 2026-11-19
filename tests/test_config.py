@@ -3,6 +3,11 @@ from pathlib import Path
 from hiring_bias_xai import config
 
 
+def test_seed_is_42():
+    # Published subsamples and the XAI subset depend on this value.
+    assert config.SEED == 42
+
+
 def test_artifacts_dir_defaults_to_user_cache(monkeypatch):
     monkeypatch.delenv("HBX_ARTIFACTS", raising=False)
     assert config.artifacts_dir() == Path.home() / ".cache" / "hiring-bias-xai"

@@ -1,7 +1,18 @@
+import math
+import re
+import time
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from hiring_bias_xai import data
+
+GOLDEN_DEV_IDS = ["dev-x-46", "dev-x-64", "dev-x-66", "dev-x-83", "dev-x-90"]
+GOLDEN_XAI_IDS = [
+    "test-x-92", "test-x-97", "test-x-202", "test-x-432",
+    "test-x-653", "test-x-694", "test-x-773", "test-x-864",
+]  # fmt: skip
 
 
 @pytest.mark.parametrize(
@@ -20,10 +31,49 @@ from hiring_bias_xai import data
         ("Her’s and he’d", "and"),
         ("Ask him. Then she left.", "Ask . Then left."),
         ("line one\nshe line two", "line one\nline two"),
+        ("She'll go and he'd stay", "go and stay"),
+        ("a  she b", "a b"),
+        ("It ended with her", "It ended with"),
+        ("x\tshe\tleft", "x\tleft"),
     ],
 )
 def test_scrub_removes_gendered_words_only(text, expected):
     assert data.scrub(text) == expected
+
+
+def test_scrub_runs_in_linear_time_on_hostile_input():
+    # Bios come from third-party web data: long runs of spaces or near-matches must not stall.
+    hostile = "he" * 200_000 + " " * 200_000 + "she's " * 50_000
+    start = time.perf_counter()
+    data.scrub(hostile)
+    assert time.perf_counter() - start < 5
+
+
+def test_download_is_pinned_to_a_revision_and_cached_under_artifacts(monkeypatch, tmp_path):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    calls = []
+
+    class FakeDataset:
+        def to_pandas(self):
+            return pd.DataFrame({"hard_text": ["a", "b"], "profession": [13, 0], "gender": [1, 0]})
+
+    def fake_load_dataset(*args, **kwargs):
+        calls.append((args, kwargs))
+        return FakeDataset()
+
+    monkeypatch.setattr("datasets.load_dataset", fake_load_dataset)
+    raw = data._load_raw("dev")
+    ((args, kwargs),) = calls
+    assert args == ("LabHC/bias_in_bios",)
+    assert re.fullmatch(r"[0-9a-f]{40}", kwargs["revision"])
+    assert kwargs["split"] == "dev"
+    assert Path(kwargs["cache_dir"]).is_relative_to(tmp_path)
+    assert raw.to_dict("list") == {
+        "id": ["dev-0", "dev-1"],
+        "text": ["a", "b"],
+        "occupation": ["nurse", "accountant"],
+        "gender": ["female", "male"],
+    }
 
 
 def _synthetic_raw(n_rows=1000):
@@ -64,6 +114,35 @@ def test_subsample_is_deterministic_and_has_no_duplicate_ids(synthetic):
     second = data.load_split("train")
     pd.testing.assert_frame_equal(first, second)
     assert first["id"].is_unique
+    original_order = [
+        i for i in synthetic.pipe(lambda d: "train-" + d["id"]) if i in set(first["id"])
+    ]
+    assert list(first["id"]) == original_order
+
+
+def test_samples_are_pinned_to_the_global_seed(synthetic, monkeypatch):
+    # Regression pin on the numpy Generator stream: a change here means every
+    # downstream result built on these samples changes too.
+    assert list(data.load_split("dev")["id"][:5]) == GOLDEN_DEV_IDS
+    monkeypatch.setattr(data, "_XAI_SIZE", 8)
+    assert list(data.xai_subset()["id"]) == GOLDEN_XAI_IDS
+
+
+@pytest.mark.parametrize("n", range(1, 40))
+def test_sample_size_is_exact_and_groups_are_rounded_not_skewed(synthetic, monkeypatch, n):
+    monkeypatch.setattr(data, "_XAI_SIZE", n)
+    test = data.load_split("test")
+    subset = data.xai_subset()
+    full = test.groupby(["occupation", "gender"]).size()
+    got = subset.groupby(["occupation", "gender"]).size().reindex(full.index, fill_value=0)
+    exact = full * n / len(test)
+    assert len(subset) == n
+    assert ((got == exact.apply(math.floor)) | (got == exact.apply(math.ceil))).all()
+
+
+def test_xai_subset_can_be_the_whole_test_split(synthetic, monkeypatch):
+    monkeypatch.setattr(data, "_XAI_SIZE", len(synthetic))
+    assert len(data.xai_subset()) == len(synthetic)
 
 
 def test_subsample_follows_occupation_by_gender_proportions(synthetic):
@@ -118,6 +197,8 @@ def test_real_data_sizes_labels_and_gender_coding():
     assert set(train["occupation"]) == set(data.OCCUPATIONS)
     assert set(train["gender"]) == {"female", "male"}
     assert train["id"].str.startswith("train-").all()
+    test_ids = data.load_split("test")["id"]
+    assert (test_ids.iloc[0], test_ids.iloc[-1]) == ("test-0", "test-99068")
     # Gender coding: female bios use she/her, male bios use he/his.
     female_text = train.loc[train["gender"] == "female", "text"].str.lower()
     assert female_text.str.contains(r"\b(?:she|her)\b").mean() > 0.85
@@ -144,15 +225,28 @@ def _frame(counts):
 
 
 def test_showcase_picks_three_per_side_among_occupations_with_enough_test_bios():
-    shares = {"a": 5, "b": 10, "c": 20, "d": 50, "e": 80, "f": 90, "g": 95}  # women per 100
+    # (women, men) in the training subsample; names are not in share order.
+    train_counts = {
+        "d": (5, 95),
+        "b": (1, 9),
+        "f": (1, 2),
+        "a": (20, 80),
+        "e": (50, 50),
+        "g": (80, 20),
+        "c": (90, 10),
+    }
     train = _frame(
-        {(o, g): n for o, w in shares.items() for g, n in (("female", w), ("male", 100 - w))}
+        {
+            (o, g): n
+            for o, wm in train_counts.items()
+            for g, n in zip(("female", "male"), wm, strict=True)
+        }
     )
-    test_counts = {o: 500 for o in shares}
-    test_counts["a"] = 499  # the most male-dominated occupation is too small
+    test_counts = {o: 500 for o in train_counts}
+    test_counts["d"] = 499  # the most male-dominated occupation is too small
     test = _frame({(o, "male"): n for o, n in test_counts.items()})
     result = data.showcase_occupations(train, test)
-    assert [e["occupation"] for e in result["male_dominated"]] == ["b", "c", "d"]
-    assert [e["occupation"] for e in result["female_dominated"]] == ["g", "f", "e"]
-    assert result["male_dominated"][0]["share_women"] == 0.1
+    assert [e["occupation"] for e in result["male_dominated"]] == ["b", "a", "f"]
+    assert [e["occupation"] for e in result["female_dominated"]] == ["c", "g", "e"]
+    assert result["male_dominated"][2]["share_women"] == 0.3333
     assert "500" in result["rule"]
