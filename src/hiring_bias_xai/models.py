@@ -102,9 +102,9 @@ class DebertaModel:
     def pretrained(cls, max_length: int, batch_size: int = 32) -> "DebertaModel":
         """DeBERTa-v3-small at the pinned revision with a new head over the occupations.
 
-        Downloads into `artifacts_dir()/hf`. The repository ships pickle weights only
-        (`pytorch_model.bin`); transformers loads them with `torch.load(weights_only=True)`,
-        and `save` writes safetensors. `max_length` is the token limit, kept in the tokenizer.
+        Downloads into `artifacts_dir()/hf`. The repository ships pickle weights only, which
+        transformers loads with `weights_only=True`; `save` writes safetensors. `max_length`
+        is kept in the tokenizer.
         """
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
