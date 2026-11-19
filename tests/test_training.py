@@ -123,3 +123,26 @@ def test_training_leaves_the_model_at_the_evaluation_with_the_best_dev_macro_f1(
     targets = torch.tensor([model.labels.index(label) for label in dev_labels])
     restored = torch.nn.functional.cross_entropy(logits, targets)
     assert float(restored) == pytest.approx(best["dev_loss"], rel=1e-4)
+
+
+def test_gradient_accumulation_gives_the_same_updates_as_the_batch_it_adds_up_to(
+    tiny_network, tiny_tokenizer
+):
+    # Two micro-batches of 4 bios are one batch of 8: the same weights after every step. The
+    # networks have no dropout, which would draw different random numbers in the two runs.
+    texts, labels = _bios(16)
+
+    def run(**sizes):
+        model = DebertaModel(tiny_network(dropout=0.0), tiny_tokenizer(64))
+        torch.manual_seed(1)
+        return train(
+            model, texts, labels, texts[::4], labels[::4],
+            learning_rate=1e-3, epochs=2, eval_every=1, **sizes,
+        )  # fmt: skip
+
+    whole = run(batch_size=8)
+    split = run(batch_size=4, accumulation=2)
+    assert [row["step"] for row in split] == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert [row["dev_loss"] for row in split] == pytest.approx(
+        [row["dev_loss"] for row in whole], rel=1e-4
+    )
