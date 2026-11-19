@@ -20,14 +20,11 @@ ACCUMULATION = 4
 EVAL_EVERY = 375
 PATIENCE = 3
 MAX_LENGTH = 256
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def _write_json(path: Path, content: dict) -> None:
     path.write_bytes((json.dumps(content, indent=2, sort_keys=True) + "\n").encode())
-
-
-def _device() -> str:
-    return "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def _predict(model: DebertaModel, texts) -> list[str]:
@@ -54,7 +51,7 @@ def _length_report(texts) -> dict:
 def _fit(learning_rate: float, train_frame, dev_frame):
     seed_everything()
     model = DebertaModel.pretrained(MAX_LENGTH)
-    model.network.to(_device())
+    model.network.to(DEVICE)
     rows = train(
         model,
         list(train_frame["text"]),
@@ -93,7 +90,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             best_f1, chosen = best["dev_macro_f1"], runs[-1]
             model.save()
     model = DebertaModel.load()
-    model.network.to(_device())
+    model.network.to(DEVICE)
     test_frame = data.load_split("test")
     predicted = _predict(model, test_frame["text"])
     predictions = artifacts_dir() / "predictions"
