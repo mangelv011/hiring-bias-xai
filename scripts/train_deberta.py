@@ -15,10 +15,12 @@ from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import WARMUP_RATIO, seed_everything, train
 
 LEARNING_RATES = (5e-5, 3e-5)
-EPOCHS = 3
+# A first run capped at 3 epochs had its best dev macro-F1 at the last evaluation, so the cap is 5.
+EPOCHS = 5
 BATCH_SIZE = 8
 ACCUMULATION = 4
 EVAL_EVERY = 375
+# Evaluations in a row without a better dev macro-F1 before training stops.
 PATIENCE = 3
 MAX_LENGTH = 256
 BASELINE_METRICS = RESULTS_DIR / "metrics_baseline.json"
