@@ -15,13 +15,12 @@ from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import WARMUP_RATIO, seed_everything, train
 
 LEARNING_RATES = (5e-5, 3e-5)
-# A first run capped at 3 epochs had its best dev macro-F1 at the last evaluation, so the cap is 5.
+# Every run goes through all epochs and keeps the weights of its best dev evaluation. A first
+# run capped at 3 epochs had its best dev macro-F1 at the last evaluation, so the cap is 5.
 EPOCHS = 5
 BATCH_SIZE = 8
 ACCUMULATION = 4
 EVAL_EVERY = 375
-# Evaluations in a row without a better dev macro-F1 before training stops.
-PATIENCE = 3
 MAX_LENGTH = 256
 BASELINE_METRICS = RESULTS_DIR / "metrics_baseline.json"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -81,7 +80,6 @@ def _fit(learning_rate: float, train_frame, dev_frame):
         batch_size=BATCH_SIZE,
         accumulation=ACCUMULATION,
         eval_every=EVAL_EVERY,
-        patience=PATIENCE,
         on_evaluation=lambda row: print(
             f"lr={learning_rate:g} step={row['step']} epoch={row['epoch']} "
             f"train_loss={row['train_loss']:.4f} dev_loss={row['dev_loss']:.4f} "
@@ -153,7 +151,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
                 "effective_batch_size": BATCH_SIZE * ACCUMULATION,
                 "warmup_ratio": WARMUP_RATIO,
                 "evaluation_every_steps": EVAL_EVERY,
-                "patience_in_evaluations": PATIENCE,
+                "early_stopping": False,
                 "max_length": MAX_LENGTH,
                 "seed": SEED,
                 "precision": "bfloat16 autocast on CUDA, float32 otherwise",
