@@ -84,7 +84,7 @@ class DebertaModel:
         batches = []
         for start in range(0, len(texts), self.batch_size):
             batch = list(texts[start : start + self.batch_size])
-            inputs = self.tokenizer(batch, padding=True, return_tensors="pt")
+            inputs = self.tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
             with torch.inference_mode():
                 batches.append(self.network(**inputs.to(self.network.device)).logits.float())
         return torch.cat(batches).numpy()
