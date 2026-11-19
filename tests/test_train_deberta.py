@@ -184,3 +184,10 @@ def test_the_hyperparameters_name_the_chosen_run_and_every_fixed_setting(run):
         "seed": 42,
         "precision": "bfloat16 autocast on CUDA, float32 otherwise",
     }
+
+
+def test_training_seconds_add_up_the_wall_clock_time_of_the_runs(run):
+    metrics = _metrics(run)
+    seconds = [entry["training_seconds"] for entry in metrics["runs"]]
+    assert all(0 < value < 600 for value in seconds)
+    assert metrics["training_seconds"] == pytest.approx(sum(seconds), abs=0.1)
