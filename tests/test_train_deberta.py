@@ -138,3 +138,16 @@ def test_max_length_report_gives_the_untruncated_token_lengths_of_the_training_b
     }
     assert report["share_above"] == {"128": 0.0, "256": 0.0, "512": 0.0}
     assert report["share_truncated"] == 0.0
+
+
+def test_max_length_report_counts_the_bios_longer_than_max_length_as_truncated(execute):
+    # With max_length 4 every 5-token bio is cut, yet the lengths are measured before cutting.
+    report = json.loads(
+        (
+            execute(LEARNING_RATES=(1e-3,), EPOCHS=1, MAX_LENGTH=4)
+            / "results"
+            / "metrics_deberta.json"
+        ).read_text()
+    )["max_length"]
+    assert report["share_truncated"] == 1.0
+    assert report["token_length_percentiles"]["max"] == 5
