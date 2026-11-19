@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from hiring_bias_xai import gap_statistics
+from hiring_bias_xai import fairness, gap_statistics
 
 
 def test_fisher_ci_of_r_half_with_28_points():
@@ -115,3 +115,72 @@ def test_leave_one_out_finds_the_influential_occupation():
     assert out["max"]["r"] == pytest.approx(1.0)
     assert out["min"]["left_out"] == "d"
     assert out["min"]["r"] == pytest.approx(-0.74673, abs=1e-5)
+
+
+def _bios(spec):
+    """Bios from {occupation: (hits_women, n_women, hits_men, n_men)}; a miss predicts "other"."""
+    y_true, y_pred, gender = [], [], []
+    for occupation, (hits_f, n_f, hits_m, n_m) in spec.items():
+        for g, hits, n in (("female", hits_f, n_f), ("male", hits_m, n_m)):
+            y_true += [occupation] * n
+            y_pred += [occupation] * hits + ["other"] * (n - hits)
+            gender += [g] * n
+    return np.array(y_true), np.array(y_pred), np.array(gender)
+
+
+def test_a_planted_gap_in_every_occupation_gives_the_smallest_possible_p():
+    spec = {"a": (20, 20, 0, 20), "b": (20, 20, 0, 20), "c": (20, 20, 0, 20)}
+    out = gap_statistics.rms_permutation_test(*_bios(spec), n_perm=99)
+    assert out["observed"] == pytest.approx(1.0)
+    assert out["p_value"] == pytest.approx(1 / 100)
+    assert out["n_permutations"] == 99
+    assert out["null_mean"] < 0.4
+    assert out["null_p95"] < 0.6
+
+
+def test_hits_that_do_not_depend_on_gender_give_p_one_and_a_null_of_zero():
+    # "a" is all hits and "b" all misses; "a" is mostly women, "b" mostly men. Shuffling gender
+    # inside an occupation changes nothing; shuffling across occupations would give gaps.
+    spec = {"a": (45, 45, 5, 5), "b": (0, 5, 0, 45)}
+    out = gap_statistics.rms_permutation_test(*_bios(spec), n_perm=50)
+    assert out["observed"] == 0.0
+    assert out["null_mean"] == 0.0
+    assert out["p_value"] == 1.0
+
+
+def test_the_observed_rms_gap_matches_the_fairness_module():
+    spec = {"a": (30, 40, 10, 20), "b": (5, 10, 18, 30)}
+    y_true, y_pred, gender = _bios(spec)
+    report = fairness.evaluate(y_true, y_pred, gender, {"a": 0.5, "b": 0.5}, n_boot=2)
+    out = gap_statistics.rms_permutation_test(y_true, y_pred, gender, n_perm=10)
+    assert out["observed"] == pytest.approx(report["rms_tpr_gap"]["value"])
+
+
+def test_the_null_is_reproducible_and_depends_on_the_seed():
+    y_true, y_pred, gender = _bios({"a": (30, 40, 10, 20), "b": (5, 10, 18, 30)})
+    first = gap_statistics.rms_permutation_test(y_true, y_pred, gender, n_perm=100)
+    assert first == gap_statistics.rms_permutation_test(y_true, y_pred, gender, n_perm=100)
+    other = gap_statistics.rms_permutation_test(y_true, y_pred, gender, n_perm=100, seed=1)
+    assert other["null_mean"] != first["null_mean"]
+
+
+def test_without_a_gender_effect_p_values_are_not_concentrated_near_zero():
+    # 40 datasets with hits at 70% for both genders; p should be roughly uniform, so about 5%
+    # fall below 0.05. A p that is too small too often would show as more than a quarter here.
+    rng = np.random.default_rng(3)
+    small = 0
+    for _ in range(40):
+        spec = {o: (rng.binomial(30, 0.7), 30, rng.binomial(30, 0.7), 30) for o in "abcd"}
+        out = gap_statistics.rms_permutation_test(*_bios(spec), n_perm=200)
+        small += out["p_value"] < 0.05
+    assert small <= 10
+
+
+def test_the_null_summary_is_the_mean_and_95th_percentile_of_the_permuted_rms_gaps():
+    # One occupation with 1 hit among 2 women and 1 among 2 men. Shuffling the 2 hits over the
+    # 4 bios puts 0, 1 or 2 of them on women with probability 1/6, 4/6, 1/6, so the gap is -1, 0
+    # or 1: the null rms is 1 with probability 1/3 and 0 otherwise.
+    y_true, y_pred, gender = _bios({"a": (1, 2, 1, 2)})
+    out = gap_statistics.rms_permutation_test(y_true, y_pred, gender, n_perm=2000)
+    assert out["null_p95"] == 1.0
+    assert out["null_mean"] == pytest.approx(1 / 3, abs=0.04)
