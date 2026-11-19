@@ -12,7 +12,9 @@ TEXTS = ["alpha beta", "gamma delta epsilon", "zeta", "eta theta alpha beta gamm
 
 
 def _model(tiny_network, tiny_tokenizer, **kwargs):
-    return DebertaModel(tiny_network(), tiny_tokenizer(kwargs.pop("max_length", 64)), **kwargs)
+    return DebertaModel(
+        tiny_network(spread=3.0), tiny_tokenizer(kwargs.pop("max_length", 64)), **kwargs
+    )
 
 
 def test_labels_are_the_28_occupations_in_dataset_order(tiny_network, tiny_tokenizer):
