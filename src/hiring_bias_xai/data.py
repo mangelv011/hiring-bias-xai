@@ -2,6 +2,8 @@
 
 import re
 
+import pandas as pd
+
 OCCUPATIONS = (
     "accountant", "architect", "attorney", "chiropractor", "comedian", "composer",
     "dentist", "dietitian", "dj", "filmmaker", "interior_designer", "journalist",
@@ -24,8 +26,21 @@ _SPLITS = ("train", "dev", "test")
 _VARIANTS = ("original", "scrubbed")
 
 
-def load_split(split: str, variant: str = "original"):
+def _load_raw(split: str) -> pd.DataFrame:
+    raise NotImplementedError
+
+
+def load_split(split: str, variant: str = "original") -> pd.DataFrame:
     if split not in _SPLITS:
         raise ValueError(f"split must be one of {', '.join(_SPLITS)}; got {split!r}")
     if variant not in _VARIANTS:
         raise ValueError(f"variant must be one of {', '.join(_VARIANTS)}; got {variant!r}")
+    raw = _load_raw(split)
+    return pd.DataFrame(
+        {
+            "id": [f"{split}-{i}" for i in range(len(raw))],
+            "text": raw["hard_text"],
+            "occupation": [OCCUPATIONS[code] for code in raw["profession"]],
+            "gender": ["female" if code == 1 else "male" for code in raw["gender"]],
+        }
+    )
