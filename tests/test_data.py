@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from hiring_bias_xai import data
@@ -77,3 +79,19 @@ def test_scrub_removes_the_period_after_a_title(text, expected):
 )
 def test_scrub_handles_punctuation_next_to_the_word_and_collapses_spaces(text, expected):
     assert data.scrub(text) == expected
+
+
+@pytest.mark.parametrize(
+    "unit",
+    ["he'", "he" + "'s" * 3 + "x", " ", "m", "hee", "’he’", "Mr", "h e "],
+)
+def test_scrub_is_linear_on_hostile_input(unit):
+    small, large = unit * 2_000 + "x", unit * 40_000 + "x"
+    start = time.perf_counter()
+    data.scrub(small)
+    t_small = time.perf_counter() - start
+    start = time.perf_counter()
+    data.scrub(large)
+    t_large = time.perf_counter() - start
+    assert t_large < 5.0
+    assert t_large < 100 * max(t_small, 0.01)
