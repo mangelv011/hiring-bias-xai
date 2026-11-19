@@ -78,3 +78,13 @@ def test_the_training_log_has_one_row_per_evaluation_of_every_run(run):
     ]
     assert log["base_learning_rate"].tolist() == [3e-3] * 6 + [1e-5] * 6
     assert log["step"].tolist() == [40, 80, 120, 160, 200, 240] * 2
+
+
+def test_the_test_report_scores_the_chosen_model_once_with_the_fairness_module(run):
+    # The toy test split is 4 nurse bios then 4 surgeon bios, all easy.
+    test = _metrics(run)["test"]
+    assert test["macro_f1"]["value"] == 1.0
+    assert test["accuracy"] == {"value": 1.0, "ci_low": 1.0, "ci_high": 1.0}
+    assert sorted(test["per_occupation"]) == ["nurse", "surgeon"]
+    assert test["per_occupation"]["nurse"]["n_female"] == 2
+
