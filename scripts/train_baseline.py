@@ -14,9 +14,9 @@ from hiring_bias_xai import data, fairness
 from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
 from hiring_bias_xai.models import BaselineModel
 
-# Each fit takes 30 to 70 s (lbfgs stops at 100 iterations), so the grid stays small.
-# C below 4 underfits TF-IDF features: dev macro-F1 0.66 at C=1.
-C_GRID = (4, 16, 64)
+# Fits take 2 to 4 minutes each, so the grid stays small. Dev macro-F1 rises with C and
+# flattens (0.718, 0.726, 0.728 at C=16, 64, 256 for min_df=5); C=4 is clearly worse.
+C_GRID = (16, 64, 256)
 MIN_DF_GRID = (5, 20)
 # One process per grid point. Fits are single-threaded and memory-bound: 6 at once run at
 # 40% of the speed of one (2.4x in total).
