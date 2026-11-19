@@ -27,3 +27,12 @@ def test_scrub_removes_each_gendered_word_in_any_case(word, style):
 def test_scrub_strips_the_ends():
     assert data.scrub("She is a nurse. ") == "is a nurse."
 
+
+
+@pytest.mark.parametrize(
+    "word",
+    ["the", "shell", "heritage", "hierarchy", "there", "sheriff", "history", "ashes", "this"],
+)
+def test_scrub_keeps_words_that_contain_a_pronoun(word):
+    text = f"the {word} was here"
+    assert data.scrub(text) == text
