@@ -38,7 +38,7 @@ _PRONOUNS = ("he", "she", "her", "his", "him", "hers", "himself", "herself")
 _TITLES = ("mr", "mrs", "ms")
 # A pronoun may carry a possessive or contraction ("her's", "his'", "he'd"); a title, its period.
 _SCRUB_PATTERN = re.compile(
-    rf"\b(?:(?:{'|'.join(_PRONOUNS)})\b(?:['’](?:s|d|ll|ve)?)?|(?:{'|'.join(_TITLES)})\b\.?)[ \t]*",
+    rf"\b(?:(?:{'|'.join(_PRONOUNS)})\b(?:['’](?:s|d|ll)?)?|(?:{'|'.join(_TITLES)})\b\.?)[ \t]*",
     re.IGNORECASE,
 )
 
