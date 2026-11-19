@@ -184,3 +184,21 @@ def test_the_null_summary_is_the_mean_and_95th_percentile_of_the_permuted_rms_ga
     out = gap_statistics.rms_permutation_test(y_true, y_pred, gender, n_perm=2000)
     assert out["null_p95"] == 1.0
     assert out["null_mean"] == pytest.approx(1 / 3, abs=0.04)
+
+
+def test_occupation_tests_report_raw_and_holm_adjusted_p_and_the_gap():
+    # a: 90% of 100 women against 80% of 100 men, raw p = 0.04767. b: 5 of 10 against 50 of 100,
+    # no gap, p = 1. c: 0 of 100 against 40 of 100, p < 1e-9. Holm over 3: sorted p are c, a, b,
+    # factors 3, 2, 1, so a gets 2 * 0.04767 and b stays 1.
+    spec = {"a": (90, 100, 80, 100), "b": (5, 10, 50, 100), "c": (0, 100, 40, 100)}
+    out = gap_statistics.occupation_tests(*_bios(spec))
+    assert list(out) == ["a", "b", "c"]
+    assert out["a"]["tpr_gap"] == pytest.approx(0.1)
+    assert out["a"]["p_raw"] == pytest.approx(0.04767, abs=1e-5)
+    assert out["a"]["p_holm"] == pytest.approx(2 * 0.04767, abs=1e-4)
+    assert out["b"]["tpr_gap"] == pytest.approx(0.0)
+    assert out["b"]["p_raw"] == 1.0
+    assert out["b"]["p_holm"] == 1.0
+    assert out["c"]["tpr_gap"] == pytest.approx(-0.4)
+    assert out["c"]["p_raw"] < 1e-9
+    assert out["c"]["p_holm"] == pytest.approx(3 * out["c"]["p_raw"])
