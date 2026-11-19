@@ -59,3 +59,14 @@ def test_a_smaller_C_regularises_more_so_predictions_are_less_confident():
         return _fitted(C=C).predict_proba(["operating scalpel"])[0, 25]
 
     assert confidence(0.01) < confidence(100.0)
+
+
+def test_a_saved_model_loads_back_from_the_artifacts_directory(monkeypatch, tmp_path):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    model = _fitted(C=3.0, min_df=1)
+    model.save()
+    assert (tmp_path / "models" / "baseline.joblib").is_file()
+    loaded = BaselineModel.load()
+    assert (loaded.C, loaded.min_df) == (3.0, 1)
+    texts = ["the patient ward", "operating scalpel"]
+    np.testing.assert_array_equal(loaded.predict_proba(texts), model.predict_proba(texts))
