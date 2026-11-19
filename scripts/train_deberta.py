@@ -9,8 +9,8 @@ import pandas as pd
 import torch
 from sklearn.metrics import f1_score
 
-from hiring_bias_xai import data, fairness
-from hiring_bias_xai.config import RESULTS_DIR, SEED, artifacts_dir
+from hiring_bias_xai import data, fairness, results
+from hiring_bias_xai.config import RESULTS_DIR, SEED
 from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import WARMUP_RATIO, seed_everything, train
 
@@ -27,10 +27,6 @@ EVAL_EVERY = 375
 MAX_LENGTH = 256
 BASELINE_METRICS = RESULTS_DIR / "metrics_baseline.json"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-def _write_json(path: Path, content: dict) -> None:
-    path.write_bytes((json.dumps(content, indent=2, sort_keys=True) + "\n").encode())
 
 
 def _predict(model: DebertaModel, texts) -> list[str]:
@@ -120,11 +116,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     model.network.to(DEVICE)
     test_frame = data.load_split("test")
     predicted = _predict(model, test_frame["text"])
-    predictions = artifacts_dir() / "predictions"
-    predictions.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame({"id": test_frame["id"], "predicted_occupation": predicted}).to_csv(
-        predictions / "deberta_test.csv", index=False
-    )
+    results.save_predictions("deberta", test_frame, predicted)
     report = fairness.evaluate(
         test_frame["occupation"], predicted, test_frame["gender"], data.share_women(train_frame)
     )
@@ -135,7 +127,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     pd.DataFrame(log)[[*columns, "learning_rate"]].to_csv(
         results_dir / "training_log.csv", index=False, lineterminator="\n"
     )
-    _write_json(
+    results.write_json(
         results_dir / "metrics_deberta.json",
         {
             "comparison_with_baseline": _comparison(
