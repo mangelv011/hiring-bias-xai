@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from hiring_bias_xai import data
+from hiring_bias_xai.models import BaselineModel
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "train_baseline.py"
 
@@ -46,6 +47,16 @@ def test_train_baseline_writes_the_metrics_file(train_baseline):
         "runtime_seconds",
         "test",
     ]
+
+
+def test_train_baseline_saves_the_model_and_the_test_predictions_outside_the_repo(train_baseline):
+    artifacts = train_baseline().parent / "artifacts"
+    assert BaselineModel.load().min_df == 5
+    predictions = pd.read_csv(artifacts / "predictions" / "baseline_test.csv")
+    assert list(predictions.columns) == ["id", "predicted_occupation"]
+    # The synthetic test split is 6 nurse bios then 6 surgeon bios, all easy.
+    assert predictions["id"].tolist() == [f"test-{i}" for i in range(12)]
+    assert predictions["predicted_occupation"].tolist() == ["nurse"] * 6 + ["surgeon"] * 6
 
 
 def test_ties_on_dev_go_to_the_smaller_C_and_the_larger_min_df(train_baseline):
