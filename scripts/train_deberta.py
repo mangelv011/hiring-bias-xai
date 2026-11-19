@@ -75,13 +75,22 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     results_dir.mkdir(parents=True, exist_ok=True)
     train_frame, dev_frame = data.load_split("train"), data.load_split("dev")
     max_length_report = _length_report(train_frame["text"])
-    best_f1, best_learning_rate, log = -1.0, None, []
+    runs, log, best_f1 = [], [], -1.0
     for learning_rate in LEARNING_RATES:
         model, rows = _fit(learning_rate, train_frame, dev_frame)
         log += [{"base_learning_rate": learning_rate} | row for row in rows]
-        dev_f1 = max(row["dev_macro_f1"] for row in rows)
-        if dev_f1 > best_f1:
-            best_f1, best_learning_rate = dev_f1, learning_rate
+        best = max(rows, key=lambda row: row["dev_macro_f1"])  # the first of equal rows
+        runs.append(
+            {
+                "learning_rate": learning_rate,
+                "best_dev_macro_f1": best["dev_macro_f1"],
+                "best_step": best["step"],
+                "best_epoch": best["epoch"],
+                "evaluations": len(rows),
+            }
+        )
+        if best["dev_macro_f1"] > best_f1:
+            best_f1, chosen = best["dev_macro_f1"], runs[-1]
             model.save()
     model = DebertaModel.load()
     model.network.to(_device())
@@ -105,7 +114,8 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     _write_json(
         results_dir / "metrics_deberta.json",
         {
-            "hyperparameters": {"learning_rate": best_learning_rate},
+            "hyperparameters": {"learning_rate": chosen["learning_rate"]},
+            "runs": runs,
             "max_length": max_length_report,
             "overfitting_check": {
                 "train_macro_f1": train_f1,
