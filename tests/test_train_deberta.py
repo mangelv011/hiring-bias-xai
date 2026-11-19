@@ -61,3 +61,20 @@ def test_the_saved_checkpoint_is_the_one_of_the_chosen_learning_rate(run, monkey
     monkeypatch.setenv("HBX_ARTIFACTS", str(run / "artifacts"))
     probabilities = DebertaModel.load().predict_proba(list(WORDS.values()))
     assert [data.OCCUPATIONS[i] for i in probabilities.argmax(axis=1)] == list(WORDS)
+
+
+def test_the_training_log_has_one_row_per_evaluation_of_every_run(run):
+    # 32 train bios in batches of 4 make 8 steps per epoch, 240 in 30 epochs; an evaluation
+    # every 40 steps gives 6 rows per run, and the runs follow LEARNING_RATES.
+    log = pd.read_csv(run / "results" / "training_log.csv")
+    assert list(log.columns) == [
+        "base_learning_rate",
+        "step",
+        "epoch",
+        "train_loss",
+        "dev_loss",
+        "dev_macro_f1",
+        "learning_rate",
+    ]
+    assert log["base_learning_rate"].tolist() == [3e-3] * 6 + [1e-5] * 6
+    assert log["step"].tolist() == [40, 80, 120, 160, 200, 240] * 2
