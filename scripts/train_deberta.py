@@ -145,7 +145,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             "hyperparameters": {
                 "learning_rate": chosen["learning_rate"],
                 "best_step": chosen["best_step"],
-                "max_epochs": EPOCHS,
+                "epochs": EPOCHS,
                 "batch_size": BATCH_SIZE,
                 "gradient_accumulation": ACCUMULATION,
                 "effective_batch_size": BATCH_SIZE * ACCUMULATION,
