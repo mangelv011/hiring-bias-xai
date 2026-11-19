@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -41,4 +42,29 @@ def test_prepare_data_writes_the_xai_subset_ids_as_a_single_column_csv_with_lf(p
     results = prepare()
     ids = list(data.xai_subset()["id"])
     assert len(ids) == 6
-    assert (results / "xai_subset_ids.csv").read_bytes() == ("id\n" + "".join(f"{i}\n" for i in ids)).encode()
+    expected = "id\n" + "".join(f"{i}\n" for i in ids)
+    assert (results / "xai_subset_ids.csv").read_bytes() == expected.encode()
+
+
+def test_prepare_data_writes_the_summary_counts_and_training_shares_of_women(prepare):
+    # Train: 80 bios, n = 40 gives exactly half of every group. Dev: 12 bios, n = 6, half.
+    # XAI subset: 12 test bios, n = 6, half. Share of women in the train subsample: accountant
+    # 10 / 20, architect 5 / 20.
+    results = prepare()
+    raw = (results / "data_summary.json").read_bytes()
+    assert json.loads(raw) == {
+        "bios": {"train": 40, "dev": 6, "test": 12, "xai_subset": 6},
+        "counts": {
+            "train": {
+                "accountant": {"female": 10, "male": 10},
+                "architect": {"female": 5, "male": 15},
+            },
+            "dev": {"accountant": {"female": 3, "male": 3}},
+            "test": {"accountant": {"female": 4, "male": 8}},
+            "xai_subset": {"accountant": {"female": 2, "male": 4}},
+        },
+        "share_women_train": {"accountant": 0.5, "architect": 0.25},
+    }
+    assert raw.endswith(b"}\n")
+    assert b"\r" not in raw
+    assert raw.decode() == json.dumps(json.loads(raw), indent=2, sort_keys=True) + "\n"
