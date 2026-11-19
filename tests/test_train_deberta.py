@@ -151,3 +151,17 @@ def test_max_length_report_counts_the_bios_longer_than_max_length_as_truncated(e
     )["max_length"]
     assert report["share_truncated"] == 1.0
     assert report["token_length_percentiles"]["max"] == 5
+
+
+def test_every_run_records_its_best_dev_evaluation(run):
+    runs = _metrics(run)["runs"]
+    log = pd.read_csv(run / "results" / "training_log.csv")
+    assert [r["learning_rate"] for r in runs] == [3e-3, 1e-5]
+    for entry in runs:
+        rows = log[log["base_learning_rate"] == entry["learning_rate"]]
+        best = rows.loc[rows["dev_macro_f1"].idxmax()]  # the first row of the highest F1
+        assert entry["best_dev_macro_f1"] == best["dev_macro_f1"]
+        assert (entry["best_step"], entry["best_epoch"]) == (best["step"], best["epoch"])
+        assert entry["evaluations"] == 6
+    assert runs[0]["best_dev_macro_f1"] == 1.0
+    assert runs[1]["best_dev_macro_f1"] < 1.0
