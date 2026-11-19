@@ -146,7 +146,7 @@ class DebertaModel:
         """Float32 logits of shape (n, n_labels), in eval mode without gradients."""
         with torch.inference_mode():
             batches = [self.network(**inputs).logits.float() for inputs in self._batches(texts)]
-        return torch.cat(batches).numpy()
+        return torch.cat(batches).cpu().numpy()
 
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
         return torch.softmax(torch.from_numpy(self.logits(texts)), dim=-1).numpy()
@@ -165,4 +165,6 @@ class DebertaModel:
                 states = self.network.deberta(**inputs, output_hidden_states=True)
                 layers.append(torch.stack([state[:, 0] for state in states.hidden_states], dim=1))
                 final.append(self.network.pooler(states.last_hidden_state))
-        return Representations(torch.cat(layers).float().numpy(), torch.cat(final).float().numpy())
+        return Representations(
+            torch.cat(layers).float().cpu().numpy(), torch.cat(final).float().cpu().numpy()
+        )
