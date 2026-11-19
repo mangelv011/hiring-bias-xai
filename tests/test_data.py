@@ -213,6 +213,50 @@ def test_xai_subset_is_a_2000_bio_stratified_sample_of_the_full_test_split(fake_
     assert positions == sorted(positions)
 
 
+def _bios(per_occupation):
+    """Frame with `occupation` and `gender` columns from {occupation: (n_women, n_bios)}."""
+    return pd.DataFrame(
+        [
+            (occupation, "female" if i < women else "male")
+            for occupation, (women, total) in per_occupation.items()
+            for i in range(total)
+        ],
+        columns=["occupation", "gender"],
+    )
+
+
+def test_showcase_occupations_take_the_three_most_imbalanced_each_way_among_large_ones():
+    # Women's share in train: rapper .05, software_engineer .1, surgeon .2, dj 1/3, painter .4,
+    # teacher .5, dietitian 2/3, paralegal .8, nurse .9. Comedian (share 0) and model (share 1)
+    # have 499 test bios, one short of the cut-off; nurse has exactly 500.
+    train = _bios(
+        {
+            "rapper": (5, 100), "software_engineer": (10, 100), "surgeon": (20, 100),
+            "dj": (1, 3), "painter": (40, 100), "teacher": (50, 100), "dietitian": (2, 3),
+            "paralegal": (80, 100), "nurse": (90, 100), "comedian": (0, 100), "model": (100, 100),
+        }
+    )  # fmt: skip
+    test = _bios({occupation: (0, 500) for occupation in set(train["occupation"])})
+    test = test[~test["occupation"].isin(["comedian", "model"])]
+    test = pd.concat([test, _bios({"comedian": (0, 499), "model": (0, 499)})])
+    assert data.showcase_occupations(train, test) == {
+        "rule": (
+            "Among occupations with at least 500 test bios, the three with the lowest and "
+            "the three with the highest share of women in the training subsample."
+        ),
+        "male_dominated": [
+            {"occupation": "rapper", "share_women": 0.05},
+            {"occupation": "software_engineer", "share_women": 0.1},
+            {"occupation": "surgeon", "share_women": 0.2},
+        ],
+        "female_dominated": [
+            {"occupation": "nurse", "share_women": 0.9},
+            {"occupation": "paralegal", "share_women": 0.8},
+            {"occupation": "dietitian", "share_women": 0.6667},
+        ],
+    }
+
+
 def test_subsample_larger_than_the_split_raises(fake_raw, monkeypatch):
     monkeypatch.setitem(data._SUBSAMPLE_SIZES, "dev", 7)
     fake_raw(dev=_raw([(f"bio {i}", 0, 1) for i in range(6)]))
