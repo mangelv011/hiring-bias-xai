@@ -45,6 +45,20 @@ def test_every_metric_has_an_interval_around_its_point_estimate():
         assert metric["ci_low"] <= metric["value"] <= metric["ci_high"]
 
 
+def test_resamples_without_a_cell_are_ignored_and_counted_for_the_metrics_that_need_it():
+    # One woman among 20 "a" bios: a resample of 40 bios leaves her out with probability
+    # (39/40)^40 = 0.36, so about 72 of 200 resamples have no female "a". All predictions are
+    # right, so the interval of her TPR is exactly [1, 1] once those resamples are ignored.
+    y_true = ["a"] * 20 + ["b"] * 20
+    gender = ["female"] + ["male"] * 19 + ["female", "male"] * 10
+    report = fairness.evaluate(y_true, y_true, gender, {"a": 0.05, "b": 0.5}, n_boot=200)
+    tpr_woman = report["per_occupation"]["a"]["tpr_female"]
+    assert 20 < tpr_woman["n_dropped"] < 150
+    assert (tpr_woman["ci_low"], tpr_woman["ci_high"]) == (1.0, 1.0)
+    assert report["per_occupation"]["a"]["tpr_male"].get("n_dropped") is None
+    assert "n_dropped" not in report["accuracy"]
+
+
 def test_accuracy_interval_matches_the_normal_approximation():
     # 200 of 400 right: standard error sqrt(0.5 * 0.5 / 400) = 0.025, so the 95% interval is
     # 0.5 -+ 1.96 * 0.025 = [0.451, 0.549]. A bootstrap with 2,000 resamples lands within 0.005.
