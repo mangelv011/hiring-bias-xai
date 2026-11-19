@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-from hiring_bias_xai import data
+from hiring_bias_xai import data, fairness
 from hiring_bias_xai.config import RESULTS_DIR
 from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import seed_everything, train
@@ -24,10 +24,22 @@ def _write_json(path: Path, content: dict) -> None:
     path.write_bytes((json.dumps(content, indent=2, sort_keys=True) + "\n").encode())
 
 
+def _device() -> str:
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def _predict(model: DebertaModel, texts) -> list[str]:
+    return [model.labels[i] for i in model.logits(list(texts)).argmax(axis=1)]
+
+
+def _share_women(frame) -> dict:
+    return (frame["gender"] == "female").groupby(frame["occupation"]).mean().to_dict()
+
+
 def _fit(learning_rate: float, train_frame, dev_frame):
     seed_everything()
     model = DebertaModel.pretrained(MAX_LENGTH)
-    model.network.to("cuda" if torch.cuda.is_available() else "cpu")
+    model.network.to(_device())
     rows = train(
         model,
         list(train_frame["text"]),
@@ -55,13 +67,20 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         if dev_f1 > best_f1:
             best_f1, best_learning_rate = dev_f1, learning_rate
             model.save()
+    model = DebertaModel.load()
+    model.network.to(_device())
+    test_frame = data.load_split("test")
+    predicted = _predict(model, test_frame["text"])
+    report = fairness.evaluate(
+        test_frame["occupation"], predicted, test_frame["gender"], _share_women(train_frame)
+    )
     columns = ["base_learning_rate", "step", "epoch", "train_loss", "dev_loss", "dev_macro_f1"]
     pd.DataFrame(log)[[*columns, "learning_rate"]].to_csv(
         results_dir / "training_log.csv", index=False
     )
     _write_json(
         results_dir / "metrics_deberta.json",
-        {"hyperparameters": {"learning_rate": best_learning_rate}},
+        {"hyperparameters": {"learning_rate": best_learning_rate}, "test": report},
     )
 
 
