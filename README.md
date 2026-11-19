@@ -39,7 +39,7 @@ The main model is more accurate: the macro-F1 intervals do not overlap. Its RMS 
 
 ### F1: the gap follows the share of women
 
-![In male-dominated occupations the main model misses more women (r = 0.85).](results/figures/f1_gap_vs_share.png)
+![The main model's errors follow each occupation's gender imbalance (r = 0.85).](results/figures/f1_gap_vs_share.png)
 
 Each dot is one occupation: its share of women in the training subsample against the main model's TPR gap, with the 95% bootstrap CI of the gap. The six showcase occupations are labelled. A positive gap favours women, so the main model misses more women in male-dominated occupations and more men in female-dominated ones. Under a deuteranopia simulation the highlight and grey dots stay apart ([check](docs/figure_checks/f1_deuteranopia.png)).
 
