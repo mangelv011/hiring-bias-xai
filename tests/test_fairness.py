@@ -4,7 +4,7 @@ import time
 import numpy as np
 import pytest
 
-from hiring_bias_xai import fairness
+from hiring_bias_xai import config, fairness
 
 N, S = "nurse", "surgeon"
 
@@ -74,14 +74,22 @@ def test_resamples_without_a_cell_are_ignored_and_counted_for_the_metrics_that_n
     # One woman among 20 "a" bios: a resample of 40 bios leaves her out with probability
     # (39/40)^40 = 0.36, so about 72 of 200 resamples have no female "a". All predictions are
     # right, so the interval of her TPR is exactly [1, 1] once those resamples are ignored.
+    # The last "b" bio, a man, is predicted "a", so the gaps differ between resamples. The gap of
+    # "a" and the RMS gap are NaN exactly when her TPR is; the correlation also is when both gaps
+    # coincide. Accuracy and macro-F1 do not depend on a gender cell.
     y_true = ["a"] * 20 + ["b"] * 20
+    y_pred = ["a"] * 20 + ["b"] * 19 + ["a"]
     gender = ["female"] + ["male"] * 19 + ["female", "male"] * 10
-    report = fairness.evaluate(y_true, y_true, gender, {"a": 0.05, "b": 0.5}, n_boot=200)
+    report = fairness.evaluate(y_true, y_pred, gender, {"a": 0.05, "b": 0.5}, n_boot=200)
     tpr_woman = report["per_occupation"]["a"]["tpr_female"]
     assert 20 < tpr_woman["n_dropped"] < 150
     assert (tpr_woman["ci_low"], tpr_woman["ci_high"]) == (1.0, 1.0)
+    assert report["per_occupation"]["a"]["tpr_gap"]["n_dropped"] == tpr_woman["n_dropped"]
+    assert report["rms_tpr_gap"]["n_dropped"] == tpr_woman["n_dropped"]
+    assert report["gap_share_pearson"]["n_dropped"] >= tpr_woman["n_dropped"]
     assert report["per_occupation"]["a"]["tpr_male"].get("n_dropped") is None
     assert "n_dropped" not in report["accuracy"]
+    assert "n_dropped" not in report["macro_f1"]
 
 
 def test_accuracy_interval_matches_the_normal_approximation():
@@ -111,6 +119,26 @@ def test_the_same_seed_gives_the_same_report_and_another_seed_another_interval()
 def test_accuracy_is_the_share_of_bios_with_the_right_occupation():
     # Correct: nurse 3 + 1, surgeon 1 + 4 = 9 of 12.
     assert _report()["accuracy"]["value"] == pytest.approx(9 / 12)
+
+
+def test_accuracy_macro_f1_and_rms_gap_do_not_weight_occupations_by_their_size():
+    # "a" has 4 bios, "b" has 2: women (a, a | b), men (a, b | a). Bios 3 and 5 are wrong.
+    # accuracy 4/6 (the mean of the recalls 3/4 and 1/2 would be 5/8).
+    # F1 a = 2*3 / (2*3 + 1 + 1) = 3/4, F1 b = 2*1 / (2*1 + 1 + 1) = 1/2: macro-F1 5/8
+    # (weighted by size it would be 2/3).
+    # gaps: a = 1 - 1/2 = 1/2, b = 1 - 0 = 1: RMS sqrt((1/4 + 1) / 2) = sqrt(5/8)
+    # (weighted by size it would be sqrt(1/2)).
+    y_true = ["a"] * 4 + ["b"] * 2
+    y_pred = ["a", "a", "a", "b", "b", "a"]
+    gender = ["female", "female", "male", "male", "female", "male"]
+    report = fairness.evaluate(y_true, y_pred, gender, {"a": 0.3, "b": 0.7}, n_boot=10)
+    assert report["accuracy"]["value"] == pytest.approx(4 / 6)
+    assert report["macro_f1"]["value"] == pytest.approx(5 / 8)
+    assert report["rms_tpr_gap"]["value"] == pytest.approx((5 / 8) ** 0.5)
+
+
+def test_the_defaults_are_a_thousand_resamples_and_the_project_seed():
+    assert _report() == _report(n_boot=1000, seed=config.SEED)
 
 
 def test_macro_f1_averages_the_f1_of_each_occupation():
