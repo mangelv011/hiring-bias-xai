@@ -2,7 +2,10 @@
 
 import re
 
+import numpy as np
 import pandas as pd
+
+from hiring_bias_xai.config import SEED
 
 OCCUPATIONS = (
     "accountant", "architect", "attorney", "chiropractor", "comedian", "composer",
@@ -30,6 +33,24 @@ def _load_raw(split: str) -> pd.DataFrame:
     raise NotImplementedError
 
 
+_SUBSAMPLE_SIZES = {"train": 60_000, "dev": 10_000}
+
+
+def _stratified_sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
+    groups = df.groupby(["occupation", "gender"])
+    sizes = groups.size().to_numpy()
+    quotas = n * sizes // len(df)
+    leftover = n - quotas.sum()
+    by_remainder = np.argsort(-(n * sizes % len(df)), kind="stable")
+    quotas[by_remainder[:leftover]] += 1
+    rng = np.random.default_rng(SEED)
+    chosen = [
+        rng.choice(positions, size=quota, replace=False)
+        for positions, quota in zip(groups.indices.values(), quotas, strict=True)
+    ]
+    return df.iloc[np.sort(np.concatenate(chosen))].reset_index(drop=True)
+
+
 def load_split(split: str, variant: str = "original") -> pd.DataFrame:
     if split not in _SPLITS:
         raise ValueError(f"split must be one of {', '.join(_SPLITS)}; got {split!r}")
@@ -39,7 +60,7 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
     texts = raw["hard_text"]
     if variant == "scrubbed":
         texts = texts.map(scrub)
-    return pd.DataFrame(
+    df = pd.DataFrame(
         {
             "id": [f"{split}-{i}" for i in range(len(raw))],
             "text": texts,
@@ -47,3 +68,6 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
             "gender": ["female" if code == 1 else "male" for code in raw["gender"]],
         }
     )
+    if split in _SUBSAMPLE_SIZES:
+        df = _stratified_sample(df, _SUBSAMPLE_SIZES[split])
+    return df
