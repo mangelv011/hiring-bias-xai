@@ -4,10 +4,9 @@ import json
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
-from hiring_bias_xai import data, gap_statistics
-from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
+from hiring_bias_xai import data, gap_statistics, results
+from hiring_bias_xai.config import RESULTS_DIR
 
 N_BOOT = 1000
 N_PERM = 1000
@@ -39,13 +38,9 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     test = data.load_split("test")
     output = {}
     for name, file in MODELS.items():
-        predictions = pd.read_csv(artifacts_dir() / "predictions" / f"{file}_test.csv")
-        predicted = test[["id"]].merge(predictions, on="id", how="left", validate="one_to_one")
-        if predicted["predicted_occupation"].isna().any():
-            raise ValueError(f"{name}: some test bios have no prediction")
         statistics = gap_statistics.compute(
             test["occupation"],
-            predicted["predicted_occupation"],
+            results.load_predictions(file, test),
             test["gender"],
             share_women,
             n_boot=N_BOOT,
@@ -54,9 +49,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         metrics = json.loads((results_dir / f"metrics_{file}.json").read_text())["test"]
         _check_against_metrics(name, statistics, metrics)
         output[name] = statistics
-    (results_dir / "gap_statistics.json").write_bytes(
-        (json.dumps(output, indent=2, sort_keys=True) + "\n").encode()
-    )
+    results.write_json(results_dir / "gap_statistics.json", output)
 
 
 if __name__ == "__main__":

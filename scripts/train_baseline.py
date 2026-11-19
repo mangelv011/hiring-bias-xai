@@ -1,17 +1,15 @@
 """Train the baseline model, pick C and min_df on dev, and evaluate once on test."""
 
 import itertools
-import json
 import time
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from joblib import Parallel, delayed
 from sklearn.metrics import f1_score
 
-from hiring_bias_xai import data, fairness
-from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
+from hiring_bias_xai import data, fairness, results
+from hiring_bias_xai.config import RESULTS_DIR
 from hiring_bias_xai.models import BaselineModel
 
 # The run must fit in 10 minutes, so the grid stays small. Dev macro-F1 rises with C and
@@ -22,10 +20,6 @@ MIN_DF_GRID = (5, 20)
 # One process per grid point. Fits are single-threaded and memory-bound: 6 at once run at
 # 40% of the speed of one (2.4x in total).
 N_JOBS = 6
-
-
-def _write_json(path: Path, content: dict) -> None:
-    path.write_bytes((json.dumps(content, indent=2, sort_keys=True) + "\n").encode())
 
 
 def _predict(model: BaselineModel, texts) -> np.ndarray:
@@ -59,11 +53,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             best, best_key = model, key
     predicted = _predict(best, test["text"])
     best.save()
-    predictions = artifacts_dir() / "predictions"
-    predictions.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame({"id": test["id"], "predicted_occupation": predicted}).to_csv(
-        predictions / "baseline_test.csv", index=False
-    )
+    results.save_predictions("baseline", test, predicted)
     report = fairness.evaluate(
         test["occupation"],
         predicted,
@@ -71,7 +61,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         data.share_women(train),
     )
     train_f1 = _macro_f1(best, train)
-    _write_json(
+    results.write_json(
         results_dir / "metrics_baseline.json",
         {
             "hyperparameters": {"C": best.C, "min_df": best.min_df},
