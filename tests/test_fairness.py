@@ -42,6 +42,27 @@ def _metrics(report):
             yield from _metrics(entry)
 
 
+def test_each_resample_has_as_many_bios_as_the_data():
+    # 4 of 5 bios right. A resample of 5 gives accuracy k/5 with k ~ Binomial(5, 0.8):
+    # P(k <= 1) = 0.007 and P(k <= 2) = 0.058, so the 2.5th percentile is 2/5; k = 5 has
+    # probability 0.33, so the 97.5th is 1. Resamples of 4 bios would give multiples of 1/4.
+    y_true = ["a"] * 5
+    y_pred = ["a"] * 4 + ["b"]
+    accuracy = fairness.evaluate(y_true, y_pred, ["female", "male"] * 2 + ["male"], {"a": 0.5})[
+        "accuracy"
+    ]
+    assert (accuracy["ci_low"], accuracy["ci_high"]) == pytest.approx((0.4, 1.0))
+
+
+def test_shares_are_matched_to_occupations_by_name_not_by_dict_order():
+    # Same three occupations as the Pearson example above, with the dict in another order.
+    y_true = ["a"] * 4 + ["b"] * 4 + ["c"] * 4
+    y_pred = ["a", "a", "a", "x", "b", "x", "b", "x", "c", "x", "c", "c"]
+    gender = ["female", "female", "male", "male"] * 3
+    report = fairness.evaluate(y_true, y_pred, gender, {"c": 0.9, "a": 0.2, "b": 0.5})
+    assert report["gap_share_pearson"]["value"] == pytest.approx(-7 / 20 / (37 / 300) ** 0.5)
+
+
 def test_every_metric_has_an_interval_around_its_point_estimate():
     metrics = list(_metrics(_report(copies=10, n_boot=200)))
     assert len(metrics) == 2 + 3 * 2 + 2  # accuracy, F1, 3 per occupation x 2, RMS, Pearson
