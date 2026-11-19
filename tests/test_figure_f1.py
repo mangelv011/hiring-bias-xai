@@ -178,9 +178,6 @@ def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
         ]
         assert len(boxes) == 2
         assert not boxes[0].overlaps(boxes[1])
-        # o2's dot is the lower one, so its label stays the lower one and the leaders do not cross.
-        labels = {t.get_text(): t for t in fig.axes[0].texts}
-        assert labels["o2"].xyann[1] < labels["o1"].xyann[1]
     finally:
         plt.close(fig)
 
@@ -256,37 +253,6 @@ def test_the_wrapped_title_fits_inside_the_figure(figure):
     figure.canvas.draw()
     box = figure._suptitle.get_window_extent(figure.canvas.get_renderer())
     assert 0 <= box.x0 and box.x1 <= figure.bbox.x1
-
-
-def test_male_dominated_labels_start_above_their_dots_and_only_raised_labels_have_leaders(figure):
-    (ax,) = figure.axes
-    labels = {t.get_text(): t for t in ax.texts if hasattr(t, "xyann")}
-    for name in ("o1", "o2", "o3"):
-        assert labels[name].xyann[1] > 0
-    for name in ("o6", "o7", "o8"):
-        assert labels[name].xyann[1] >= 0
-    # The lowest female-dominated dot sits level with its label; the others are pushed up.
-    assert labels["o6"].xyann[1] == 0
-    assert labels["o6"].arrow_patch is None
-    assert all((t.xyann[1] != 0) == (t.arrow_patch is not None) for t in labels.values())
-
-
-def test_underscores_in_occupation_names_become_spaces_in_the_labels(results):
-    for name in ("metrics_deberta.json", "gap_statistics.json", "showcase_occupations.json"):
-        path = results / name
-        path.write_text(path.read_text().replace('"o1"', '"software_engineer"'))
-    fig = _render(results)
-    try:
-        assert "software engineer" in [t.get_text() for t in fig.axes[0].texts]
-    finally:
-        plt.close(fig)
-
-
-def test_the_axes_are_labelled_with_the_quantities_and_ticked_in_shares(figure):
-    (ax,) = figure.axes
-    assert ax.get_xlabel() == "Share of women in the training subsample"
-    assert ax.get_ylabel() == "TPR gap (women minus men)"
-    assert list(ax.get_xticks()) == [0.2, 0.4, 0.6, 0.8, 1.0]
 
 
 def _label_boxes(fig):

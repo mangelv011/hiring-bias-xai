@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import matplotlib.text
 import numpy as np
 
 from hiring_bias_xai import plotting
@@ -10,46 +11,93 @@ from hiring_bias_xai.config import RESULTS_DIR
 
 HEIGHT_INCHES = 3.2
 DARK = "#333333"
-LABEL_DX_PT = 5
-LABEL_GAP_PT = 9
-MALE_RAISE_PT = 10
+LABEL_RADII_PT = (6, 12, 20, 30, 42, 56)
+LEADER_FROM_PT = 9
+DISTANCE_COST = 0.05
+DOT_COST, DOT_PAD_PX, LINE_PAD_PX = 50, 4, 2
+BAR_COST, FIT_COST, ZERO_COST = 10, 40, 5
+TAKEN_COST = OUTSIDE_COST = 1000
 
 
 def _read(results_dir: Path, name: str):
     return json.loads((results_dir / name).read_text())
 
 
-def _label(fig, ax, points: dict, sides: dict) -> None:
-    """Label the showcase occupations to the right of their dots, with no two labels overlapping.
+def _inside(box, points, pad=0.0) -> int:
+    """How many of the (n, 2) pixel points lie inside the box (x0, y0, x1, y1), grown by `pad`."""
+    x, y = points[:, 0], points[:, 1]
+    return int(
+        ((x > box[0] - pad) & (x < box[2] + pad) & (y > box[1] - pad) & (y < box[3] + pad)).sum()
+    )
 
-    Male-dominated labels start above their dots, clear of the zero line and the grey dots near
-    it. Within a side, labels are pushed up until they are `LABEL_GAP_PT` apart; a label that is
-    not level with its dot gets a leader line.
+
+def _overlap(a, b) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+def _label(fig, ax, points: dict, sides: dict, obstacles: dict) -> None:
+    """Label each showcase occupation at the nearest clear spot around its dot.
+
+    Each label is tried at several distances and directions from its dot. The spot with the least
+    overlap with dots, error bars, the fitted line, the zero line, earlier labels and the axes
+    edge wins; ties go to the nearest. A label away from its dot gets a leader line.
+    `obstacles` maps "dots" to an (n, 2) array and "bars", "fit" and "zero" to lists of (n, 2)
+    arrays sampled along them, all in data coordinates.
     """
-    fig.canvas.draw()  # fixes the axes position so data units can be converted to points
-    points_per_pixel = 72 / fig.dpi
-    placed = {}
-    for side in ("male_dominated", "female_dominated"):
-        names = sorted((n for n in sides if sides[n] == side), key=lambda n: points[n][1])
-        label_y = -np.inf
-        for name in names:
-            dot_y = ax.transData.transform(points[name])[1] * points_per_pixel
-            label_y = max(
-                dot_y + (MALE_RAISE_PT if side == "male_dominated" else 0), label_y + LABEL_GAP_PT
-            )
-            placed[name] = label_y - dot_y
-    for name, raise_pt in placed.items():
-        ax.annotate(
+    fig.canvas.draw()  # fixes the axes position and gives the text renderer
+    renderer = fig.canvas.get_renderer()
+    pixels_per_point = fig.dpi / 72
+    to_px = ax.transData.transform
+    dots = to_px(obstacles["dots"])
+    lines = [
+        (cost, to_px(line))
+        for kind, cost in (("bars", BAR_COST), ("fit", FIT_COST), ("zero", ZERO_COST))
+        for line in obstacles[kind]
+    ]
+    axes = ax.get_window_extent(renderer)
+    taken, offsets = [], {}
+    for name in (n for n in points if n in sides):
+        text = ax.text(0, 0, name.replace("_", " "))
+        extent = matplotlib.text.Text.get_window_extent(text, renderer)
+        text.remove()
+        dot = to_px([points[name]])[0]
+        best = None
+        for radius in LABEL_RADII_PT:
+            for angle in np.radians(np.arange(0, 360, 30)):
+                dx, dy = radius * np.cos(angle), radius * np.sin(angle)
+                left = dot[0] + dx * pixels_per_point
+                if dx < 0:
+                    left -= extent.width
+                bottom = dot[1] + dy * pixels_per_point - extent.height / 2
+                box = (left, bottom, left + extent.width, bottom + extent.height)
+                cost = radius * DISTANCE_COST + DOT_COST * _inside(box, dots, DOT_PAD_PX)
+                cost += sum(c for c, line in lines if _inside(box, line, LINE_PAD_PX))
+                if radius > LEADER_FROM_PT:  # a leader line must not run through another dot
+                    end = (box[0] if dx >= 0 else box[2], (box[1] + box[3]) / 2)
+                    along = dot + np.linspace(0, 1, 30)[:, None] * (end - dot)
+                    gaps = np.linalg.norm(dots[:, None, :] - along[None], axis=2).min(axis=1)
+                    cost += DOT_COST * int(((gaps < DOT_PAD_PX) & (gaps > 0.5)).sum())
+                cost += TAKEN_COST * sum(_overlap(box, other) for other in taken)
+                cost += OUTSIDE_COST * (
+                    box[0] < axes.x0 or box[2] > axes.x1 or box[1] < axes.y0 or box[3] > axes.y1
+                )
+                if best is None or cost < best[0]:
+                    best = (cost, (dx, dy), box)
+        taken.append(best[2])
+        offsets[name] = best[1]
+    for name, (dx, dy) in offsets.items():
+        label = ax.annotate(
             name.replace("_", " "),
             points[name],
-            xytext=(LABEL_DX_PT, raise_pt),
+            xytext=(dx, dy),
             textcoords="offset points",
-            ha="left",
+            ha="left" if dx >= 0 else "right",
             va="center",
             arrowprops={"arrowstyle": "-", "lw": 0.4, "color": DARK, "shrinkA": 0, "shrinkB": 2}
-            if raise_pt
+            if np.hypot(dx, dy) > LEADER_FROM_PT
             else None,
         )
+        label.set_in_layout(False)  # a label must not move the axes it was placed against
 
 
 def build(results_dir: Path):
@@ -74,12 +122,8 @@ def build(results_dir: Path):
     ax.scatter(x[is_showcase], gap[is_showcase], s=16, color=plotting.HIGHLIGHT, zorder=4)
     ax.axhline(0, color=DARK, lw=0.6, zorder=1)
     slope, intercept = np.polyfit(x, gap, 1)
-    ax.plot(
-        [x.min(), x.max()],
-        [intercept + slope * x.min(), intercept + slope * x.max()],
-        color=DARK,
-        lw=1,
-    )
+    fit_x = np.linspace(x.min(), x.max(), 200)
+    ax.plot(fit_x[[0, -1]], intercept + slope * fit_x[[0, -1]], color=DARK, lw=1)
     pearson = _read(results_dir, "gap_statistics.json")["main_model"]["pearson"]
     r = pearson["value"]
     fig.suptitle(
@@ -100,7 +144,17 @@ def build(results_dir: Path):
     ax.set_ylabel("TPR gap (women minus men)")
     ax.set_xlim(right=1.15)  # room for the labels of the female-dominated showcase occupations
     ax.set_xticks([0.2, 0.4, 0.6, 0.8, 1.0])
-    _label(fig, ax, {name: (xi, yi) for name, xi, yi in zip(names, x, gap, strict=True)}, labelled)
+    obstacles = {
+        "dots": np.column_stack([x, gap]),
+        "bars": [
+            np.column_stack([np.full(20, xi), np.linspace(lo, hi, 20)])
+            for xi, lo, hi in zip(x, low, high, strict=True)
+        ],
+        "fit": [np.column_stack([fit_x, intercept + slope * fit_x])],
+        "zero": [np.column_stack([fit_x, np.zeros(len(fit_x))])],
+    }
+    points = {name: (xi, yi) for name, xi, yi in zip(names, x, gap, strict=True)}
+    _label(fig, ax, points, labelled, obstacles)
     return fig
 
 
