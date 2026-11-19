@@ -2,7 +2,7 @@
 
 import math
 import random
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import numpy as np
 import torch
@@ -46,12 +46,14 @@ def train(
     eval_every: int,
     accumulation: int = 1,
     patience: float = math.inf,
+    on_evaluation: Callable[[dict], None] = lambda row: None,
 ) -> list[dict]:
     """Fine-tune `model` and return one row per evaluation on the dev bios.
 
-    Training stops after `patience` evaluations in a row without a higher dev macro-F1, and
-    the model ends with the weights of the evaluation that had the highest one. The global
-    random generators (python, numpy, torch) are seeded with `SEED` first.
+    `on_evaluation` receives each row as it is logged. Training stops after `patience`
+    evaluations in a row without a higher dev macro-F1, and the model ends with the weights of
+    the evaluation that had the highest one. The global random generators (python, numpy,
+    torch) are seeded with `SEED` first.
     """
     seed_everything()
     network = model.network
@@ -100,6 +102,7 @@ def train(
                     | _evaluate(model, dev_texts, dev_labels)
                 )
                 losses = []
+                on_evaluation(rows[-1])
                 if rows[-1]["dev_macro_f1"] > best_f1:
                     best_f1, stale = rows[-1]["dev_macro_f1"], 0
                     best_weights = {
