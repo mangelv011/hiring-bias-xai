@@ -46,6 +46,18 @@ _Avoid_: model (when the interface is meant), predictor
 The TF-IDF plus logistic regression classifier that the transformer is compared against.
 _Avoid_: baseline (unqualified)
 
+**Main model**:
+The fine-tuned DeBERTa-v3-small classifier; the one whose decisions and internals the audit explains.
+_Avoid_: transformer, DeBERTa (unqualified), the model
+
+**Checkpoint**:
+The saved weights and tokenizer of the main model at its best dev macro-F1, kept in the artifacts directory.
+_Avoid_: snapshot, saved model
+
+**Representation**:
+A vector the main model builds for a bio: the [CLS] state after the embeddings and after each layer, and the final vector its classification head reads. Probes and concept erasure work on these.
+_Avoid_: embedding, features, hidden states (unqualified)
+
 **Screener**:
 A classifier viewed as the party making screening decisions, including the local LLM.
 _Avoid_: judge
