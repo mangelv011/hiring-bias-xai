@@ -22,9 +22,13 @@ def _split(name, per_cell):
 
 
 @pytest.fixture
-def train_baseline(monkeypatch, tmp_path):
+def splits():
+    return {"train": _split("train", 6), "dev": _split("dev", 3), "test": _split("test", 3)}
+
+
+@pytest.fixture
+def train_baseline(monkeypatch, tmp_path, splits):
     """Return run(): the script's main() on synthetic splits, giving the results directory."""
-    splits = {"train": _split("train", 6), "dev": _split("dev", 3), "test": _split("test", 3)}
     monkeypatch.setattr(data, "load_split", lambda split, variant="original": splits[split])
     monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path / "artifacts"))
     spec = importlib.util.spec_from_file_location("train_baseline", SCRIPT)
@@ -63,3 +67,16 @@ def test_ties_on_dev_go_to_the_smaller_C_and_the_larger_min_df(train_baseline):
     metrics = json.loads((train_baseline() / "metrics_baseline.json").read_text())
     assert {row["dev_macro_f1"] for row in metrics["dev_grid"]} == {1.0}
     assert metrics["hyperparameters"] == {"C": 0.5, "min_df": 5}
+
+
+def test_overfitting_check_is_train_macro_f1_minus_test_macro_f1(train_baseline, splits):
+    # Swap the text of one nurse and one surgeon in test: per occupation TP 5, FP 1, FN 1, so
+    # F1 = 10 / 12 and the test macro-F1 is 5/6. The model fits train perfectly: gap 1/6.
+    # Dev has two swaps per occupation, so reading train off dev would give 2/3 instead of 1.
+    test = splits["test"]
+    test.loc[[0, 6], "text"] = ["scalpel theatre bio", "ward patient bio"]
+    splits["dev"].loc[[0, 1, 6, 7], "text"] = ["scalpel theatre bio"] * 2 + ["ward patient bio"] * 2
+    check = json.loads((train_baseline() / "metrics_baseline.json").read_text())[
+        "overfitting_check"
+    ]
+    assert check == pytest.approx({"train_macro_f1": 1.0, "test_macro_f1": 5 / 6, "gap": 1 / 6})
