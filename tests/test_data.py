@@ -51,3 +51,16 @@ def test_scrub_keeps_words_that_contain_a_pronoun(word):
 )
 def test_scrub_removes_attached_pronoun_suffixes(text, expected, apostrophe):
     assert data.scrub(text.replace("'", apostrophe)) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Mr. Smith is a dentist", "Smith is a dentist"),
+        ("Mrs. Lee, a nurse", "Lee, a nurse"),
+        ("ms. Ray", "Ray"),
+        ("Dr. Mr. X", "Dr. X"),
+    ],
+)
+def test_scrub_removes_the_period_after_a_title(text, expected):
+    assert data.scrub(text) == expected
