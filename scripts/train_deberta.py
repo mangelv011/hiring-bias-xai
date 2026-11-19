@@ -21,6 +21,7 @@ ACCUMULATION = 4
 EVAL_EVERY = 375
 PATIENCE = 3
 MAX_LENGTH = 256
+BASELINE_METRICS = RESULTS_DIR / "metrics_baseline.json"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -47,6 +48,19 @@ def _length_report(texts) -> dict:
         "share_above": {str(n): float(np.mean(lengths > n)) for n in (128, 256, 512)},
         "share_truncated": float(np.mean(lengths > MAX_LENGTH)),
     }
+
+
+def _comparison(deberta: dict, baseline: dict) -> dict:
+    """Both models' value and interval for the two headline metrics, and if the intervals meet."""
+    comparison = {}
+    for name in ("macro_f1", "rms_tpr_gap"):
+        a, b = baseline[name], deberta[name]
+        comparison[name] = {
+            "baseline": a,
+            "deberta": b,
+            "cis_overlap": bool(a["ci_low"] <= b["ci_high"] and b["ci_low"] <= a["ci_high"]),
+        }
+    return comparison
 
 
 def _fit(learning_rate: float, train_frame, dev_frame):
@@ -119,6 +133,9 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     _write_json(
         results_dir / "metrics_deberta.json",
         {
+            "comparison_with_baseline": _comparison(
+                report, json.loads(BASELINE_METRICS.read_text())["test"]
+            ),
             "hyperparameters": {
                 "learning_rate": chosen["learning_rate"],
                 "best_step": chosen["best_step"],
