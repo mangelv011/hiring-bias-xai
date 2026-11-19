@@ -73,6 +73,12 @@ DEBERTA_NAME = "microsoft/deberta-v3-small"
 DEBERTA_REVISION = "a36c739020e01763fe789b4b85e2df55d6180012"
 
 
+def autocast(network):
+    """Mixed precision: bfloat16 matrix products on a CUDA network, nothing on the CPU."""
+    on_gpu = network.device.type == "cuda"
+    return torch.autocast(device_type=network.device.type, dtype=torch.bfloat16, enabled=on_gpu)
+
+
 def _deberta_folder():
     return artifacts_dir() / "models" / "deberta"
 
@@ -144,7 +150,7 @@ class DebertaModel:
 
     def logits(self, texts: Sequence[str]) -> np.ndarray:
         """Float32 logits of shape (n, n_labels), in eval mode without gradients."""
-        with torch.inference_mode():
+        with torch.inference_mode(), autocast(self.network):
             batches = [self.network(**inputs).logits.float() for inputs in self._batches(texts)]
         return torch.cat(batches).cpu().numpy()
 
@@ -160,7 +166,7 @@ class DebertaModel:
         activation); the classifier is a linear map of it.
         """
         layers, final = [], []
-        with torch.inference_mode():
+        with torch.inference_mode(), autocast(self.network):
             for inputs in self._batches(texts):
                 states = self.network.deberta(**inputs, output_hidden_states=True)
                 layers.append(torch.stack([state[:, 0] for state in states.hidden_states], dim=1))

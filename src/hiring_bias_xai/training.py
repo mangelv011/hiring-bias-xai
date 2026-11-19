@@ -10,7 +10,7 @@ from sklearn.metrics import f1_score
 from transformers import get_linear_schedule_with_warmup
 
 from hiring_bias_xai.config import SEED
-from hiring_bias_xai.models import DebertaModel
+from hiring_bias_xai.models import DebertaModel, autocast
 
 WARMUP_RATIO = 0.06
 
@@ -73,8 +73,10 @@ def train(
                     truncation=True,
                     return_tensors="pt",
                 ).to(network.device)
+                with autocast(network):
+                    logits = network(**inputs).logits
                 loss = torch.nn.functional.cross_entropy(
-                    network(**inputs).logits.float(), targets[chosen].to(network.device)
+                    logits.float(), targets[chosen].to(network.device)
                 )
                 (loss / accumulation).backward()
                 losses.append(loss.item())
