@@ -78,3 +78,29 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
 
 def xai_subset() -> pd.DataFrame:
     return _stratified_sample(load_split("test"), _XAI_SUBSET_SIZE)
+
+
+_SHOWCASE_MIN_TEST_BIOS = 500
+_SHOWCASE_RULE = (
+    "Among occupations with at least 500 test bios, the three with the lowest and "
+    "the three with the highest share of women in the training subsample."
+)
+
+
+def showcase_occupations(train: pd.DataFrame, test: pd.DataFrame) -> dict:
+    test_bios = test["occupation"].value_counts()
+    large = test_bios.index[test_bios >= _SHOWCASE_MIN_TEST_BIOS]
+    share_women = (train["gender"] == "female").groupby(train["occupation"]).mean()
+    share_women = share_women[share_women.index.isin(large)].sort_values(kind="stable")
+
+    def entries(shares: pd.Series) -> list[dict]:
+        return [
+            {"occupation": occupation, "share_women": round(float(share), 4)}
+            for occupation, share in shares.items()
+        ]
+
+    return {
+        "rule": _SHOWCASE_RULE,
+        "male_dominated": entries(share_women.head(3)),
+        "female_dominated": entries(share_women.tail(3).iloc[::-1]),
+    }
