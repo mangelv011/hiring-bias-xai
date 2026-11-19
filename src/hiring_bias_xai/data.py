@@ -5,7 +5,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from hiring_bias_xai.config import SEED
+from hiring_bias_xai.config import SEED, artifacts_dir
 
 OCCUPATIONS = (
     "accountant", "architect", "attorney", "chiropractor", "comedian", "composer",
@@ -29,8 +29,17 @@ _SPLITS = ("train", "dev", "test")
 _VARIANTS = ("original", "scrubbed")
 
 
+_DATASET = "LabHC/bias_in_bios"
+_REVISION = "052f01de644dba841176e0449528b41f27d94a61"
+
+
 def _load_raw(split: str) -> pd.DataFrame:
-    raise NotImplementedError
+    import datasets
+
+    dataset = datasets.load_dataset(
+        _DATASET, revision=_REVISION, split=split, cache_dir=str(artifacts_dir() / "hf")
+    )
+    return dataset.to_pandas()[["hard_text", "profession", "gender"]]
 
 
 _SUBSAMPLE_SIZES = {"train": 60_000, "dev": 10_000}
