@@ -26,7 +26,7 @@ In the dev split a bio has 150 to 961 characters (median 358).
 
 ## How the labels were produced
 
-- **Occupation**: the dataset authors took it from the title sentence of the bio (for example "Nancy Lee is a registered nurse."), per De-Arteaga et al. That sentence is not in `text`: in the dev split the most common first words are "He" (9,968 bios), "She" (9,163), "His" and "Her", so a model has to infer the occupation from the rest. 28 occupations, coded in alphabetical order from `accountant` = 0 to `yoga_teacher` = 27 (the table in the dataset card, copied into `data.py`).
+- **Occupation**: the dataset authors took it from the first sentence of the bio, which states the title ("<name> is a <title>"), per De-Arteaga et al. That sentence is not in `text`: in the dev split the most common first words are "He" (9,968 bios), "She" (9,163), "His" and "Her", so a model has to infer the occupation from the rest. 28 occupations, coded in alphabetical order from `accountant` = 0 to `yoga_teacher` = 27 (the table in the dataset card, copied into `data.py`).
 - **Gender**: the authors inferred it from the pronouns of the bio. Binary only. Coding `male` = 0, `female` = 1, matching the dataset card and checked on all three splits. In train, 92.4% of the code-1 bios contain "she", "her", "hers" or "herself" and none contains "he", "his", "him" or "himself"; 97.1% of the code-0 bios contain a masculine pronoun and none contains a feminine one. Dev and test give the same figures within 0.1 points. The check is the slow test `test_real_gender_code_1_is_female_and_0_is_male`.
 - No person checked either label for this project.
 
