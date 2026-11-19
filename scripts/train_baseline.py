@@ -13,8 +13,10 @@ from hiring_bias_xai import data, fairness
 from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
 from hiring_bias_xai.models import BaselineModel
 
-C_GRID = (0.5, 1, 2, 4)
-MIN_DF_GRID = (2, 5)
+# lbfgs stops at 100 iterations and each fit takes 30 to 70 s on the 60,000-bio training
+# subsample, so the grid stays small. C below 4 underfits TF-IDF features (dev macro-F1 0.66 at C=1).
+C_GRID = (4, 16, 64)
+MIN_DF_GRID = (5, 20)
 
 
 def _write_json(path: Path, content: dict) -> None:
