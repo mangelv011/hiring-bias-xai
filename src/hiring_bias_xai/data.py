@@ -1,6 +1,7 @@
 """Loading, splitting and scrubbing Bias in Bios."""
 
 import re
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
@@ -22,7 +23,7 @@ _DATASET = "LabHC/bias_in_bios"
 _REVISION = "052f01de644dba841176e0449528b41f27d94a61"
 
 _SUBSAMPLE_SIZES = {"train": 60_000, "dev": 10_000}
-_XAI_SUBSET_SIZE = 2_000
+_SHOWCASE_PER_GROUP = 150
 
 _SHOWCASE_MIN_TEST_BIOS = 500
 _SHOWCASE_RULE = (
@@ -99,9 +100,23 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
     return df
 
 
-def xai_subset() -> pd.DataFrame:
-    """The fixed 2,000 test bios, stratified by occupation and gender."""
-    return _stratified_sample(load_split("test"), _XAI_SUBSET_SIZE)
+def showcase_subset(test: pd.DataFrame, occupations: Sequence[str]) -> pd.DataFrame:
+    """150 test bios per occupation in `occupations` and gender, in official row order.
+
+    Groups are visited in sorted (occupation, gender) order and each draws from one generator
+    seeded with `SEED`, so the result does not depend on the order of `occupations`.
+    """
+    chosen_occupations = test[test["occupation"].isin(occupations)]
+    groups = chosen_occupations.groupby(["occupation", "gender"])
+    rng = np.random.default_rng(SEED)
+    chosen = []
+    for (occupation, gender), positions in groups.indices.items():
+        if len(positions) < _SHOWCASE_PER_GROUP:
+            raise ValueError(
+                f"{occupation} {gender}: {len(positions)} test bios, {_SHOWCASE_PER_GROUP} needed"
+            )
+        chosen.append(rng.choice(positions, size=_SHOWCASE_PER_GROUP, replace=False))
+    return chosen_occupations.iloc[np.sort(np.concatenate(chosen))].reset_index(drop=True)
 
 
 def share_women(frame: pd.DataFrame) -> dict:

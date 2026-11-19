@@ -22,10 +22,16 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         "train": data.load_split("train"),
         "dev": data.load_split("dev"),
         "test": data.load_split("test"),
-        "xai_subset": data.xai_subset(),
     }
-    ids = "".join(f"{bio_id}\n" for bio_id in frames["xai_subset"]["id"])
-    (results_dir / "xai_subset_ids.csv").write_bytes(f"id\n{ids}".encode())
+    showcase = data.showcase_occupations(frames["train"], frames["test"])
+    names = {
+        entry["occupation"]
+        for side in ("male_dominated", "female_dominated")
+        for entry in showcase[side]
+    }
+    frames["showcase_subset"] = data.showcase_subset(frames["test"], sorted(names))
+    ids = "".join(f"{bio_id}\n" for bio_id in frames["showcase_subset"]["id"])
+    (results_dir / "showcase_subset_ids.csv").write_bytes(f"id\n{ids}".encode())
     counts = {name: _counts(df) for name, df in frames.items()}
     results.write_json(
         results_dir / "data_summary.json",
@@ -38,10 +44,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             },
         },
     )
-    results.write_json(
-        results_dir / "showcase_occupations.json",
-        data.showcase_occupations(frames["train"], frames["test"]),
-    )
+    results.write_json(results_dir / "showcase_occupations.json", showcase)
 
 
 if __name__ == "__main__":
