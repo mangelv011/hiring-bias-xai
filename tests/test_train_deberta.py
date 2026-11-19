@@ -193,7 +193,7 @@ def test_the_hyperparameters_name_the_chosen_run_and_every_fixed_setting(run):
     assert _metrics(run)["hyperparameters"] == {
         "learning_rate": 3e-3,
         "best_step": chosen["best_step"],
-        "max_epochs": 30,
+        "epochs": 30,
         "batch_size": 4,
         "gradient_accumulation": 1,
         "effective_batch_size": 4,
