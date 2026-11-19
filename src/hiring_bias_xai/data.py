@@ -15,6 +15,21 @@ OCCUPATIONS = (
     "software_engineer", "surgeon", "teacher", "yoga_teacher",
 )  # fmt: skip
 
+_SPLITS = ("train", "dev", "test")
+_VARIANTS = ("original", "scrubbed")
+
+_DATASET = "LabHC/bias_in_bios"
+_REVISION = "052f01de644dba841176e0449528b41f27d94a61"
+
+_SUBSAMPLE_SIZES = {"train": 60_000, "dev": 10_000}
+_XAI_SUBSET_SIZE = 2_000
+
+_SHOWCASE_MIN_TEST_BIOS = 500
+_SHOWCASE_RULE = (
+    "Among occupations with at least 500 test bios, the three with the lowest and "
+    "the three with the highest share of women in the training subsample."
+)
+
 _GENDERED = re.compile(
     r"\b(?:(?:he|she|her|his|him|hers|himself|herself)(?:['\u2019](?:s|d|ll)?)?|(?:mr|mrs|ms)\.?)(?!\w)",
     re.IGNORECASE,
@@ -25,14 +40,6 @@ def scrub(text: str) -> str:
     return re.sub(" {2,}", " ", _GENDERED.sub("", text)).strip()
 
 
-_SPLITS = ("train", "dev", "test")
-_VARIANTS = ("original", "scrubbed")
-
-
-_DATASET = "LabHC/bias_in_bios"
-_REVISION = "052f01de644dba841176e0449528b41f27d94a61"
-
-
 def _load_raw(split: str) -> pd.DataFrame:
     import datasets
 
@@ -40,10 +47,6 @@ def _load_raw(split: str) -> pd.DataFrame:
         _DATASET, revision=_REVISION, split=split, cache_dir=str(artifacts_dir() / "hf")
     )
     return dataset.to_pandas()[["hard_text", "profession", "gender"]]
-
-
-_SUBSAMPLE_SIZES = {"train": 60_000, "dev": 10_000}
-_XAI_SUBSET_SIZE = 2_000
 
 
 def _stratified_sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
@@ -87,13 +90,6 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
 
 def xai_subset() -> pd.DataFrame:
     return _stratified_sample(load_split("test"), _XAI_SUBSET_SIZE)
-
-
-_SHOWCASE_MIN_TEST_BIOS = 500
-_SHOWCASE_RULE = (
-    "Among occupations with at least 500 test bios, the three with the lowest and "
-    "the three with the highest share of women in the training subsample."
-)
 
 
 def showcase_occupations(train: pd.DataFrame, test: pd.DataFrame) -> dict:
