@@ -28,7 +28,13 @@ def _write(results, name, content):
 @pytest.fixture
 def results(tmp_path):
     per_occupation = {
-        name: {"tpr_gap": {"value": GAPS[name], "ci_low": GAPS[name] - 0.05, "ci_high": GAPS[name] + 0.05}}
+        name: {
+            "tpr_gap": {
+                "value": GAPS[name],
+                "ci_low": GAPS[name] - 0.05,
+                "ci_high": GAPS[name] + 0.05,
+            }
+        }
         for name in SHARES
     }
     _write(
@@ -82,7 +88,13 @@ def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
 
 def test_there_is_one_dot_per_occupation_at_its_share_and_gap(figure):
     (ax,) = figure.axes
-    offsets = np.concatenate([c.get_offsets() for c in ax.collections if isinstance(c, matplotlib.collections.PathCollection)])
+    offsets = np.concatenate(
+        [
+            c.get_offsets()
+            for c in ax.collections
+            if isinstance(c, matplotlib.collections.PathCollection)
+        ]
+    )
     expected = sorted((SHARES[o], GAPS[o]) for o in SHARES)
     assert np.array(sorted(map(tuple, offsets))) == pytest.approx(np.array(expected))
 
@@ -113,7 +125,9 @@ def test_the_figure_states_pearson_r_with_its_fisher_interval(figure):
 def test_only_the_showcase_occupations_are_labelled_next_to_their_dots(figure):
     (ax,) = figure.axes
     labels = {t.get_text(): t for t in ax.texts if not t.get_text().startswith("r =")}
-    assert sorted(labels) == sorted(o.replace("_", " ") for o in ["o1", "o2", "o3", "o6", "o7", "o8"])
+    assert sorted(labels) == sorted(
+        o.replace("_", " ") for o in ["o1", "o2", "o3", "o6", "o7", "o8"]
+    )
     for name in ("o1", "o6"):
         x, y = labels[name].xy
         assert (x, y) == pytest.approx((SHARES[name], GAPS[name]))
@@ -125,7 +139,7 @@ def test_showcase_dots_have_the_highlight_colour_and_the_others_are_grey(figure)
     for c in ax.collections:
         if isinstance(c, matplotlib.collections.PathCollection):
             hex_colour = matplotlib.colors.to_hex(c.get_facecolor()[0]).upper()
-            for x, y in c.get_offsets():
+            for x, _ in c.get_offsets():
                 colour_of[round(float(x), 3)] = hex_colour
     highlighted = {x for x, colour in colour_of.items() if colour == "#D55E00"}
     assert highlighted == {SHARES[o] for o in ["o1", "o2", "o3", "o6", "o7", "o8"]}

@@ -34,7 +34,9 @@ def _label(fig, ax, points: dict, sides: dict) -> None:
         label_y = -np.inf
         for name in names:
             dot_y = ax.transData.transform(points[name])[1] * points_per_pixel
-            label_y = max(dot_y + (MALE_RAISE_PT if side == "male_dominated" else 0), label_y + LABEL_GAP_PT)
+            label_y = max(
+                dot_y + (MALE_RAISE_PT if side == "male_dominated" else 0), label_y + LABEL_GAP_PT
+            )
             placed[name] = label_y - dot_y
     for name, raise_pt in placed.items():
         ax.annotate(
@@ -72,10 +74,16 @@ def build(results_dir: Path):
     ax.scatter(x[is_showcase], gap[is_showcase], s=16, color=plotting.HIGHLIGHT, zorder=4)
     ax.axhline(0, color=DARK, lw=0.6, zorder=1)
     slope, intercept = np.polyfit(x, gap, 1)
-    ax.plot([x.min(), x.max()], [intercept + slope * x.min(), intercept + slope * x.max()], color=DARK, lw=1)
+    ax.plot(
+        [x.min(), x.max()],
+        [intercept + slope * x.min(), intercept + slope * x.max()],
+        color=DARK,
+        lw=1,
+    )
     pearson = _read(results_dir, "gap_statistics.json")["main_model"]["pearson"]
+    r = pearson["value"]
     fig.suptitle(
-        f"In male-dominated occupations the main model misses more women (r = {pearson['value']:.2f}).",
+        f"In male-dominated occupations the main model misses more women (r = {r:.2f}).",
         wrap=True,
         x=0.02,
         ha="left",
@@ -84,7 +92,7 @@ def build(results_dir: Path):
     ax.text(
         0.03,
         0.97,
-        f"r = {pearson['value']:.2f} [{pearson['fisher_ci_low']:.2f}, {pearson['fisher_ci_high']:.2f}]",
+        f"r = {r:.2f} [{pearson['fisher_ci_low']:.2f}, {pearson['fisher_ci_high']:.2f}]",
         transform=ax.transAxes,
         va="top",
     )

@@ -48,12 +48,14 @@ def run(monkeypatch, tmp_path):
     results = tmp_path / "results"
     results.mkdir()
     (tmp_path / "artifacts" / "predictions").mkdir(parents=True)
-    for model, file, hit_women, hit_men in (
-        ("baseline", "baseline", 0.6, 0.8),
-        ("deberta", "deberta", 0.7, 0.9),
+    for file, hit_women, hit_men in (
+        ("baseline", 0.6, 0.8),
+        ("deberta", 0.7, 0.9),
     ):
         hit = np.where(
-            test["gender"] == "female", rng.random(len(test)) < hit_women, rng.random(len(test)) < hit_men
+            test["gender"] == "female",
+            rng.random(len(test)) < hit_women,
+            rng.random(len(test)) < hit_men,
         )
         predicted = np.where(hit, test["occupation"], "other")
         pd.DataFrame({"id": test["id"], "predicted_occupation": predicted}).to_csv(

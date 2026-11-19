@@ -47,7 +47,9 @@ def _by_occupation(y_true, y_pred, gender):
     female = np.asarray(gender) == "female"
     names = np.unique(y_true)
     cells = [(y_true == name) for name in names]
-    return names.tolist(), [(y_pred[c] == name, female[c]) for name, c in zip(names, cells, strict=True)]
+    return names.tolist(), [
+        (y_pred[c] == name, female[c]) for name, c in zip(names, cells, strict=True)
+    ]
 
 
 def _rms(cells) -> float:
