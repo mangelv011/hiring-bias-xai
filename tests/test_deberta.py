@@ -30,3 +30,11 @@ def test_column_i_is_the_probability_of_occupation_i(tiny_network, tiny_tokenize
         model.network.classifier.bias.data[data.OCCUPATIONS.index(name)] = 100.0
         picked = model.predict_proba(TEXTS).argmax(axis=1)
         assert [model.labels[i] for i in picked] == [name] * len(TEXTS)
+
+
+def test_predict_proba_is_deterministic_even_if_the_network_was_left_in_training_mode(
+    tiny_network, tiny_tokenizer
+):
+    model = _model(tiny_network, tiny_tokenizer)
+    model.network.train()
+    np.testing.assert_array_equal(model.predict_proba(TEXTS), model.predict_proba(TEXTS))
