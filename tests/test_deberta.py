@@ -1,4 +1,7 @@
+import inspect
+
 import numpy as np
+import pytest
 import torch
 
 from hiring_bias_xai import data
@@ -58,7 +61,7 @@ def test_texts_are_cut_to_the_tokenizer_max_length_including_the_two_special_tok
     np.testing.assert_allclose(cut, model.predict_proba(["alpha beta gamma"]), atol=1e-6)
 
 
-def test_representations_hold_the_cls_state_of_the_embeddings_and_of_each_layer_and_the_final_vector(
+def test_representations_hold_the_cls_state_of_every_layer_and_the_final_vector(
     tiny_network, tiny_tokenizer
 ):
     # The tiny network has 2 transformer layers and hidden size 32.
@@ -97,3 +100,24 @@ def test_a_saved_model_loads_back_from_the_artifacts_directory(
     loaded = DebertaModel.load()
     texts = ["alpha beta gamma delta epsilon", "zeta eta"]
     np.testing.assert_array_equal(loaded.predict_proba(texts), model.predict_proba(texts))
+
+
+def test_load_takes_no_path_so_only_the_project_folder_in_the_artifacts_directory_is_read():
+    assert list(inspect.signature(DebertaModel.load).parameters) == ["batch_size"]
+
+
+def test_the_checkpoint_is_safetensors_and_pickle_weights_are_refused(
+    monkeypatch, tmp_path, tiny_network, tiny_tokenizer
+):
+    # Pickle files can run code when loaded: the checkpoint has no pickle weights and a folder
+    # that holds only pickle weights does not load.
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    model = _model(tiny_network, tiny_tokenizer)
+    model.save()
+    folder = tmp_path / "models" / "deberta"
+    assert (folder / "model.safetensors").is_file()
+    assert not list(folder.glob("*.bin")) + list(folder.glob("*.pt"))
+    (folder / "model.safetensors").replace(tmp_path / "moved.safetensors")
+    torch.save(model.network.state_dict(), folder / "pytorch_model.bin")
+    with pytest.raises(OSError):
+        DebertaModel.load()
