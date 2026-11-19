@@ -43,6 +43,7 @@ def execute(tmp_path_factory, tiny_network, tiny_tokenizer):
             "EVAL_EVERY": 40,
             "PATIENCE": 100,
             "MAX_LENGTH": 64,
+            "DEVICE": "cpu",
         }
         with pytest.MonkeyPatch.context() as patch:
             patch.setattr(data, "load_split", lambda split, variant="original": splits[split])
