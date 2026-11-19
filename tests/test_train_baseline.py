@@ -34,11 +34,15 @@ def train_baseline(monkeypatch, tmp_path, splits):
     spec = importlib.util.spec_from_file_location("train_baseline", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    default_n_jobs = getattr(module, "N_JOBS", None)
+    module.N_JOBS = 1  # worker processes would not see the monkeypatched load_split
 
     def run():
         module.main(tmp_path / "results")
         return tmp_path / "results"
 
+    run.module = module
+    run.default_n_jobs = default_n_jobs
     return run
 
 
@@ -129,3 +133,15 @@ def test_test_metrics_come_from_the_test_split_with_the_training_shares_of_women
     assert test["accuracy"]["value"] == pytest.approx(10 / 12)
     assert test["rms_tpr_gap"]["value"] == pytest.approx(1 / 3)
     assert test["gap_share_pearson"]["value"] == pytest.approx(1.0)
+
+
+def test_the_grid_runs_in_parallel_and_the_results_do_not_depend_on_it(train_baseline):
+    assert train_baseline.default_n_jobs > 1
+
+    def metrics(n_jobs):
+        train_baseline.module.N_JOBS = n_jobs
+        result = json.loads((train_baseline() / "metrics_baseline.json").read_text())
+        result.pop("runtime_seconds")
+        return result
+
+    assert metrics(2) == metrics(1)
