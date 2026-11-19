@@ -68,3 +68,47 @@ def test_deuteranopia_simulation_keeps_greys_and_maps_pure_red_by_the_machado_ma
     assert out[0, 0].tolist() == [163, 144, 0, 200]
     assert out[0, 1].tolist() == [128, 128, 128, 255]
     assert out[0, 2].tolist() == [0, 0, 0, 255]
+
+
+def test_deuteranopia_simulation_maps_pure_green_and_blue_by_the_other_matrix_columns():
+    # Green (0, 1, 0) becomes the second column (0.860646, 0.672501, 0.04294) and blue the third
+    # (-0.227968 clipped to 0, 0.047413, 0.968881); sRGB-encoded these are the values below.
+    image = np.array([[[0, 255, 0], [0, 0, 255]]], dtype=np.uint8)
+    out = plotting.simulate_deuteranopia(image)
+    assert out.tolist() == [[[239, 214, 58], [0, 61, 251]]]
+
+
+def test_deuteranopia_simulation_keeps_dark_greys_in_both_sRGB_segments():
+    greys = np.array([[[10, 10, 10], [30, 30, 30]]], dtype=np.uint8)
+    assert plotting.simulate_deuteranopia(greys).tolist() == greys.tolist()
+
+
+def test_deuteranopia_simulation_leaves_its_input_unchanged():
+    image = np.array([[[255, 0, 0]]], dtype=np.uint8)
+    plotting.simulate_deuteranopia(image)
+    assert image.tolist() == [[[255, 0, 0]]]
+
+
+def test_the_pdf_embeds_text_as_truetype_not_type_3(tmp_path):
+    fig, ax = plotting.new_figure(height=2)
+    try:
+        ax.set_title("title")
+        plotting.save(fig, "demo", tmp_path)
+    finally:
+        plt.close(fig)
+    assert b"/Type3" not in (tmp_path / "demo.pdf").read_bytes()
+
+
+def test_axis_labels_stay_inside_the_figure():
+    fig, ax = plotting.new_figure(height=2)
+    try:
+        ax.set_xlabel("Share of women in the training subsample")
+        ax.set_ylabel("TPR gap (women minus men)")
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        for label in (ax.xaxis.label, ax.yaxis.label):
+            box = label.get_window_extent(renderer)
+            assert box.x0 >= 0 and box.y0 >= 0
+            assert box.x1 <= fig.bbox.x1 and box.y1 <= fig.bbox.y1
+    finally:
+        plt.close(fig)
