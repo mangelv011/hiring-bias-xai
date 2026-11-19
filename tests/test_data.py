@@ -87,3 +87,72 @@ def test_load_split_rejects_unknown_split_and_variant(synthetic):
         data.load_split("val")
     with pytest.raises(ValueError, match="variant"):
         data.load_split("dev", variant="masked")
+
+
+def test_xai_subset_is_a_stratified_subset_of_test(synthetic, monkeypatch):
+    monkeypatch.setattr(data, "_XAI_SIZE", 53)
+    subset = data.xai_subset()
+    test = data.load_split("test")
+    assert len(subset) == 53
+    assert subset["id"].is_unique
+    assert set(subset["id"]) <= set(test["id"])
+    pd.testing.assert_frame_equal(subset, data.xai_subset())
+    full = test.groupby(["occupation", "gender"]).size()
+    got = subset.groupby(["occupation", "gender"]).size()
+    assert (got - full / full.sum() * 53).abs().max() < 1
+
+
+def test_xai_subset_larger_than_test_is_an_error(synthetic, monkeypatch):
+    monkeypatch.setattr(data, "_XAI_SIZE", len(synthetic) + 1)
+    with pytest.raises(ValueError, match="cannot sample"):
+        data.xai_subset()
+
+
+@pytest.mark.slow
+def test_real_data_sizes_labels_and_gender_coding():
+    train = data.load_split("train")
+    assert len(train) == 60_000
+    assert len(data.load_split("dev")) == 10_000
+    assert len(data.load_split("test")) == 99_069
+    assert len(data.xai_subset()) == 2_000
+    assert set(train["occupation"]) == set(data.OCCUPATIONS)
+    assert set(train["gender"]) == {"female", "male"}
+    assert train["id"].str.startswith("train-").all()
+    # Gender coding: female bios use she/her, male bios use he/his.
+    female_text = train.loc[train["gender"] == "female", "text"].str.lower()
+    assert female_text.str.contains(r"\b(?:she|her)\b").mean() > 0.85
+    assert not female_text.str.contains(r"\b(?:he|his)\b").any()
+    # Occupation coding.
+    nurse_share = (train.loc[train["occupation"] == "nurse", "gender"] == "female").mean()
+    assert nurse_share > 0.8
+    assert (
+        train.loc[train["occupation"] == "software_engineer", "text"]
+        .str.contains("software", case=False)
+        .mean()
+        > 0.2
+    )
+    assert not data.load_split("train", "scrubbed")["text"].str.contains(r"\b(?:she|he)\b").any()
+
+
+def _frame(counts):
+    rows = [
+        {"id": f"{o}-{g}-{i}", "text": "", "occupation": o, "gender": g}
+        for (o, g), n in counts.items()
+        for i in range(n)
+    ]
+    return pd.DataFrame(rows)
+
+
+def test_showcase_picks_three_per_side_among_occupations_with_enough_test_bios():
+    shares = {"a": 5, "b": 10, "c": 20, "d": 50, "e": 80, "f": 90, "g": 95}  # women per 100
+    train = _frame(
+        {(o, g): n for o, w in shares.items() for g, n in (("female", w), ("male", 100 - w))}
+    )
+    test_counts = {o: 500 for o in shares}
+    test_counts["a"] = 499  # the most male-dominated occupation is too small
+    test = _frame({(o, "male"): n for o, n in test_counts.items()})
+    result = data.showcase_occupations(train, test)
+    assert [e["occupation"] for e in result["male_dominated"]] == ["b", "c", "d"]
+    assert [e["occupation"] for e in result["female_dominated"]] == ["g", "f", "e"]
+    assert result["male_dominated"][0]["share_women"] == 0.1
+    assert "500" in result["rule"]
