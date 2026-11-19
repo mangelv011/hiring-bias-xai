@@ -83,7 +83,7 @@ def build(results_dir: Path):
     pearson = _read(results_dir, "gap_statistics.json")["main_model"]["pearson"]
     r = pearson["value"]
     fig.suptitle(
-        f"In male-dominated occupations the main model misses more women (r = {r:.2f}).",
+        f"The main model's errors follow each occupation's gender imbalance (r = {r:.2f}).",
         wrap=True,
         x=0.02,
         ha="left",
