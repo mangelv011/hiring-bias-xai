@@ -68,6 +68,11 @@ class BaselineModel:
         return joblib.load(_baseline_file())
 
 
+DEBERTA_NAME = "microsoft/deberta-v3-small"
+# A commit of the Microsoft repository, so a later push there cannot change the weights.
+DEBERTA_REVISION = "a36c739020e01763fe789b4b85e2df55d6180012"
+
+
 def _deberta_folder():
     return artifacts_dir() / "models" / "deberta"
 
@@ -86,6 +91,33 @@ class DebertaModel:
         self.network = network
         self.tokenizer = tokenizer
         self.batch_size = batch_size
+
+    @classmethod
+    def pretrained(cls, max_length: int, batch_size: int = 32) -> "DebertaModel":
+        """DeBERTa-v3-small at the pinned revision with a new head over the occupations.
+
+        Downloads into `artifacts_dir()/hf`. The repository ships pickle weights only
+        (`pytorch_model.bin`); transformers loads them with `torch.load(weights_only=True)`,
+        and `save` writes safetensors. `max_length` is the token limit, kept in the tokenizer.
+        """
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+        cache_dir = str(artifacts_dir() / "hf")
+        network = AutoModelForSequenceClassification.from_pretrained(
+            DEBERTA_NAME,
+            revision=DEBERTA_REVISION,
+            cache_dir=cache_dir,
+            num_labels=len(cls.labels),
+            id2label=dict(enumerate(cls.labels)),
+            label2id={name: i for i, name in enumerate(cls.labels)},
+        )
+        tokenizer = AutoTokenizer.from_pretrained(
+            DEBERTA_NAME,
+            revision=DEBERTA_REVISION,
+            cache_dir=cache_dir,
+            model_max_length=max_length,
+        )
+        return cls(network, tokenizer, batch_size)
 
     def save(self) -> None:
         """Write the network (safetensors) and the tokenizer to `artifacts_dir()/models/deberta`."""
