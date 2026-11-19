@@ -188,7 +188,7 @@ def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
 def test_the_title_is_the_finding_as_a_sentence_and_its_number_is_the_stored_r(figure, results):
     (ax,) = figure.axes
     title = figure.get_suptitle()
-    assert title == "In male-dominated occupations the main model misses more women (r = 0.85)."
+    assert title == "The main model's errors follow each occupation's gender imbalance (r = 0.85)."
     stored = json.loads((results / "gap_statistics.json").read_text())["main_model"]["pearson"]
     numbers = [float(n) for n in re.findall(r"\d+\.\d+", title)]
     assert numbers == [round(stored["value"], 2)]
