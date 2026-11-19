@@ -64,3 +64,16 @@ def test_scrub_removes_attached_pronoun_suffixes(text, expected, apostrophe):
 )
 def test_scrub_removes_the_period_after_a_title(text, expected):
     assert data.scrub(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Worked hard (she said) daily.", "Worked hard ( said) daily."),
+        ("Nurse, she.", "Nurse, ."),
+        ("Ask him, her, or his-own", "Ask , , or -own"),
+        ("a  b   she   c", "a b c"),
+    ],
+)
+def test_scrub_handles_punctuation_next_to_the_word_and_collapses_spaces(text, expected):
+    assert data.scrub(text) == expected
