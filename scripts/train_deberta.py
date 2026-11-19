@@ -18,8 +18,11 @@ LEARNING_RATES = (5e-5, 3e-5)
 # Every run goes through all epochs and keeps the weights of its best dev evaluation. A first
 # run capped at 3 epochs had its best dev macro-F1 at the last evaluation, so the cap is 5.
 EPOCHS = 5
-BATCH_SIZE = 8
-ACCUMULATION = 4
+# Batches of 8 filled the 4 GB GPU and the driver crashed twice (nvlddmkm 153); 4 x 8 keeps the
+# effective batch at 32 with less memory. Scoring batches are no larger.
+BATCH_SIZE = 4
+ACCUMULATION = 8
+EVAL_BATCH_SIZE = 4
 EVAL_EVERY = 375
 MAX_LENGTH = 256
 BASELINE_METRICS = RESULTS_DIR / "metrics_baseline.json"
@@ -40,7 +43,7 @@ def _share_women(frame) -> dict:
 
 def _length_report(texts) -> dict:
     """Token lengths of the bios before any cutting, and the share `MAX_LENGTH` would cut."""
-    tokenizer = DebertaModel.pretrained(MAX_LENGTH).tokenizer
+    tokenizer = DebertaModel.pretrained(MAX_LENGTH, EVAL_BATCH_SIZE).tokenizer
     lengths = np.array([len(ids) for ids in tokenizer(list(texts), truncation=False)["input_ids"]])
     percentiles = {f"p{q:g}": float(np.percentile(lengths, q)) for q in (50, 90, 95, 99, 99.9)}
     return {
@@ -66,7 +69,7 @@ def _comparison(deberta: dict, baseline: dict) -> dict:
 
 def _fit(learning_rate: float, train_frame, dev_frame):
     seed_everything()
-    model = DebertaModel.pretrained(MAX_LENGTH)
+    model = DebertaModel.pretrained(MAX_LENGTH, EVAL_BATCH_SIZE)
     model.network.to(DEVICE)
     started = time.perf_counter()
     rows = train(
@@ -117,7 +120,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             model.save()
         del model  # frees the GPU before the next run, so the peak is that of one run
     peak_memory = round(torch.cuda.max_memory_allocated() / 2**20, 1) if on_gpu else None
-    model = DebertaModel.load()
+    model = DebertaModel.load(EVAL_BATCH_SIZE)
     model.network.to(DEVICE)
     test_frame = data.load_split("test")
     predicted = _predict(model, test_frame["text"])
@@ -150,6 +153,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
                 "gradient_accumulation": ACCUMULATION,
                 "effective_batch_size": BATCH_SIZE * ACCUMULATION,
                 "warmup_ratio": WARMUP_RATIO,
+                "evaluation_batch_size": EVAL_BATCH_SIZE,
                 "evaluation_every_steps": EVAL_EVERY,
                 "early_stopping": False,
                 "max_length": MAX_LENGTH,
