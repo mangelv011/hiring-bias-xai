@@ -257,11 +257,21 @@ def test_showcase_subset_is_the_same_whatever_the_order_of_the_occupations(fake_
     assert one.equals(other)
 
 
-def test_showcase_subset_stops_when_a_group_has_too_few_bios(fake_raw, monkeypatch):
+def test_a_showcase_group_with_fewer_bios_than_the_quota_contributes_all_of_them(
+    fake_raw, monkeypatch
+):
+    # Real data: dietitian has 71 male test bios, below 150. Here architect men are 3 and the
+    # quota is 4; the other groups still give 4.
     monkeypatch.setattr(data, "_SHOWCASE_PER_GROUP", 4)
     fake_raw(test=_showcase_raw())
-    with pytest.raises(ValueError, match="architect.*male.*3.*4"):
-        data.showcase_subset(data.load_split("test"), ["accountant", "architect"])
+    subset = data.showcase_subset(data.load_split("test"), ["accountant", "architect"])
+    assert _counts(subset) == {
+        ("accountant", "female"): 4,
+        ("accountant", "male"): 4,
+        ("architect", "female"): 4,
+        ("architect", "male"): 3,
+    }
+    assert {"test-24", "test-25", "test-26"} <= set(subset["id"])
 
 
 def test_raw_split_is_downloaded_from_the_pinned_revision_into_the_artifacts_dir(
