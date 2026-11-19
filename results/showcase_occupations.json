@@ -1,0 +1,31 @@
+{
+  "female_dominated": [
+    {
+      "occupation": "dietitian",
+      "share_women": 0.9281
+    },
+    {
+      "occupation": "nurse",
+      "share_women": 0.9084
+    },
+    {
+      "occupation": "model",
+      "share_women": 0.8272
+    }
+  ],
+  "male_dominated": [
+    {
+      "occupation": "surgeon",
+      "share_women": 0.1482
+    },
+    {
+      "occupation": "software_engineer",
+      "share_women": 0.1576
+    },
+    {
+      "occupation": "composer",
+      "share_women": 0.1639
+    }
+  ],
+  "rule": "Among occupations with at least 500 test bios, the three with the lowest and the three with the highest share of women in the training subsample."
+}
