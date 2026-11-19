@@ -40,7 +40,7 @@ class BaselineModel:
 
     def fit(self, texts: Sequence[str], occupations: Sequence[str]) -> "BaselineModel":
         self.pipeline = make_pipeline(
-            TfidfVectorizer(ngram_range=(1, 2), min_df=self.min_df),
+            TfidfVectorizer(ngram_range=(1, 2), min_df=self.min_df, dtype=np.float32),
             LogisticRegression(C=self.C, max_iter=1000),
         ).fit(texts, occupations)
         return self
