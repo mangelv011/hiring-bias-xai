@@ -112,3 +112,14 @@ def test_training_stops_after_patience_evaluations_without_a_better_dev_macro_f1
     assert scores[0] > 0.8  # the task was learned before the plateau
     assert len(rows) == scores.index(max(scores)) + 1 + 3
     assert len(rows) < 8
+
+
+def test_training_leaves_the_model_at_the_evaluation_with_the_best_dev_macro_f1(model):
+    rows, dev_texts, dev_labels = _plateau_run(model, patience=3)
+    scores = [row["dev_macro_f1"] for row in rows]
+    best = rows[scores.index(max(scores))]
+    assert rows[-1]["dev_loss"] != pytest.approx(best["dev_loss"])  # the last step is not the best
+    logits = torch.from_numpy(model.logits(dev_texts))
+    targets = torch.tensor([model.labels.index(label) for label in dev_labels])
+    restored = torch.nn.functional.cross_entropy(logits, targets)
+    assert float(restored) == pytest.approx(best["dev_loss"], rel=1e-4)
