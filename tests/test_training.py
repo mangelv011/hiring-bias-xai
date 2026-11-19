@@ -1,3 +1,4 @@
+import math
 import random
 
 import numpy as np
@@ -264,3 +265,15 @@ def test_training_cuts_the_bios_to_the_tokenizer_max_length(tiny_network, tiny_t
         eval_every=100,
     )  # fmt: skip
     assert set(widths) == {5}
+
+
+def test_without_early_stopping_all_epochs_run_and_the_best_evaluation_is_still_restored(model):
+    # No patience: the 10 extra epochs give 8 evaluations, and the model ends at the first one,
+    # whose dev macro-F1 is the highest (the later ones tie it, and the first of equals wins).
+    rows, dev_texts, dev_labels = _plateau_run(model, patience=math.inf)
+    assert len(rows) == 8
+    logits = torch.from_numpy(model.logits(dev_texts))
+    targets = torch.tensor([model.labels.index(label) for label in dev_labels])
+    restored = torch.nn.functional.cross_entropy(logits, targets)
+    assert float(restored) == pytest.approx(rows[0]["dev_loss"], rel=1e-4)
+    assert rows[-1]["dev_loss"] != pytest.approx(rows[0]["dev_loss"])
