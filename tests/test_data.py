@@ -178,3 +178,19 @@ def test_dev_is_a_10000_bio_subsample_and_ties_go_to_the_first_group_in_sorted_o
         ("accountant", "male"): 3333,
         ("architect", "male"): 3333,
     }
+
+
+def test_subsample_draws_per_group_from_one_seeded_generator_and_keeps_input_order(
+    fake_raw, monkeypatch
+):
+    # 10 accountant female rows (positions 0-9) then 6 accountant male rows (10-15); n = 5.
+    # Quotas: floor(5 * 10 / 16) = 3 and floor(5 * 6 / 16) = 1; the leftover goes to the larger
+    # remainder (male), so 3 and 2. With rng = default_rng(42), choice(arange(10), 3, replace=False)
+    # gives [9, 0, 6] and the next choice(arange(10, 16), 2, replace=False) gives [14, 10].
+    monkeypatch.setitem(data._SUBSAMPLE_SIZES, "train", 5)
+    fake_raw(train=_raw([(f"bio {i}", 0, 1 if i < 10 else 0) for i in range(16)]))
+    df = data.load_split("train")
+    assert list(df["id"]) == ["train-0", "train-6", "train-9", "train-10", "train-14"]
+    assert list(df["text"]) == ["bio 0", "bio 6", "bio 9", "bio 10", "bio 14"]
+    assert list(df.index) == [0, 1, 2, 3, 4]
+    assert df.equals(data.load_split("train"))
