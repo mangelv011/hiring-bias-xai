@@ -26,6 +26,17 @@ Expensive explanations run on a fixed, stratified XAI subset of the test bios. T
 
 Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). No explanation code yet.
 
+## Results so far
+
+Test split, 99,069 bios, 95% bootstrap intervals from `src/hiring_bias_xai/fairness.py`.
+
+| Model | Accuracy | Macro-F1 | RMS TPR gap | Gap-share correlation |
+|---|---|---|---|---|
+| Baseline model | 0.7954 [0.7929, 0.7979] | 0.7282 [0.7235, 0.7332] | 0.1666 [0.1506, 0.1895] | 0.892 [0.823, 0.909] |
+| Main model | 0.8370 [0.8346, 0.8391] | 0.7832 [0.7787, 0.7879] | 0.1476 [0.1342, 0.1715] | 0.855 [0.777, 0.873] |
+
+The main model is more accurate: the macro-F1 intervals do not overlap. Its RMS TPR gap is lower, but the intervals overlap, so this data does not show that it is fairer. Details and training history are in [docs/decisions/0002-models.md](docs/decisions/0002-models.md).
+
 ## How to run
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build.

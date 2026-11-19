@@ -18,8 +18,8 @@ LEARNING_RATES = (5e-5, 3e-5)
 # Every run goes through all epochs and keeps the weights of its best dev evaluation. A first
 # run capped at 3 epochs had its best dev macro-F1 at the last evaluation, so the cap is 5.
 EPOCHS = 5
-# Batches of 8 filled the 4 GB GPU and the driver crashed twice (nvlddmkm 153); 4 x 8 keeps the
-# effective batch at 32 with less memory. Scoring batches are no larger.
+# Batches of 8 ran near the 4 GB limit and the GPU driver failed twice (nvlddmkm 153); 4 x 8 keeps
+# the effective batch at 32 with less memory. Scoring batches are no larger.
 BATCH_SIZE = 4
 ACCUMULATION = 8
 EVAL_BATCH_SIZE = 4
