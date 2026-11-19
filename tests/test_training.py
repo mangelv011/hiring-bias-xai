@@ -4,13 +4,12 @@ import torch
 from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import train
 
-# Two separable occupations: nurse bios use alpha and beta, surgeon bios use gamma and delta.
+# Two separable occupations: nurse bios say alpha, surgeon bios say gamma.
 NURSE, SURGEON = "nurse", "surgeon"
 
 
 def _bios(n_per_class):
-    texts = ["alpha beta alpha", "beta alpha beta"] * (n_per_class // 2)
-    texts += ["gamma delta gamma", "delta gamma delta"] * (n_per_class // 2)
+    texts = ["alpha alpha alpha"] * n_per_class + ["gamma gamma gamma"] * n_per_class
     return texts, [NURSE] * n_per_class + [SURGEON] * n_per_class
 
 
@@ -20,8 +19,8 @@ def model(tiny_network, tiny_tokenizer):
 
 
 def test_training_on_a_separable_task_brings_the_dev_loss_far_below_chance(model):
-    # A random 28-way classifier has a loss near ln 28 = 3.33; two separable classes can go
-    # far below it.
+    # A random 28-way classifier has a loss near ln 28 = 3.33 and a macro-F1 below 1; a model
+    # that has learned two separable classes gets every dev bio right.
     train_texts, train_labels = _bios(16)
     dev_texts, dev_labels = _bios(4)
     rows = train(
@@ -30,13 +29,14 @@ def test_training_on_a_separable_task_brings_the_dev_loss_far_below_chance(model
         train_labels,
         dev_texts,
         dev_labels,
-        learning_rate=1e-2,
-        epochs=8,
-        batch_size=8,
-        eval_every=2,
+        learning_rate=3e-3,
+        epochs=30,
+        batch_size=4,
+        eval_every=10,
     )
     assert rows[0]["dev_loss"] > rows[-1]["dev_loss"]
-    assert rows[-1]["dev_loss"] < 1.0
+    assert rows[-1]["dev_loss"] < 0.1
+    assert rows[-1]["dev_macro_f1"] == 1.0
 
 
 def test_the_learning_rate_warms_up_over_six_percent_of_the_steps_then_decays_linearly_to_zero(
@@ -90,32 +90,25 @@ def test_each_evaluation_gets_a_row_and_the_last_step_is_always_evaluated(model)
 
 
 def _plateau_run(model, patience):
-    """Train 20 epochs (40 evaluations at most) on a dev set whose F1 stops rising at once.
+    """Learn the task, then train 10 more epochs on a dev set whose F1 cannot rise.
 
-    One nurse dev bio carries the surgeon label, so no model reaches an F1 of 1; once the
-    task is learned the F1 stays flat while the dev loss keeps falling.
+    One nurse dev bio carries the surgeon label, so the F1 of a model that has learned the
+    task is flat (below 1) while its dev loss keeps moving.
     """
     texts, labels = _bios(16)
     dev_texts, dev_labels = _bios(4)
     dev_labels[0] = SURGEON
+    args = (model, texts, labels, dev_texts, dev_labels)
+    train(*args, learning_rate=3e-3, epochs=30, batch_size=4, eval_every=240)
     rows = train(
-        model,
-        texts,
-        labels,
-        dev_texts,
-        dev_labels,
-        learning_rate=1e-2,
-        epochs=20,
-        batch_size=8,
-        eval_every=2,
-        patience=patience,
+        *args, learning_rate=1e-4, epochs=10, batch_size=4, eval_every=10, patience=patience
     )
     return rows, dev_texts, dev_labels
 
 
 def test_training_stops_after_patience_evaluations_without_a_better_dev_macro_f1(model):
-    rows, _, _ = _plateau_run(model, patience=2)
+    rows, _, _ = _plateau_run(model, patience=3)
     scores = [row["dev_macro_f1"] for row in rows]
-    first_best = scores.index(max(scores))
-    assert len(rows) == first_best + 1 + 2
-    assert len(rows) < 40
+    assert scores[0] > 0.8  # the task was learned before the plateau
+    assert len(rows) == scores.index(max(scores)) + 1 + 3
+    assert len(rows) < 8
