@@ -51,12 +51,13 @@ def test_train_baseline_writes_the_metrics_file(train_baseline):
         "runtime_seconds",
         "test",
     ]
-    assert metrics["runtime_seconds"] > 0
+    assert 0 < metrics["runtime_seconds"] < 600
 
 
 def test_train_baseline_saves_the_model_and_the_test_predictions_outside_the_repo(train_baseline):
     artifacts = train_baseline().parent / "artifacts"
-    assert BaselineModel.load().min_df == 20
+    saved = BaselineModel.load()
+    assert (saved.C, saved.min_df) == (4, 20)  # the selected model, not the last one fitted
     predictions = pd.read_csv(artifacts / "predictions" / "baseline_test.csv")
     assert list(predictions.columns) == ["id", "predicted_occupation"]
     # The synthetic test split is 6 nurse bios then 6 surgeon bios, all easy.
@@ -67,6 +68,14 @@ def test_train_baseline_saves_the_model_and_the_test_predictions_outside_the_rep
 def test_ties_on_dev_go_to_the_smaller_C_and_the_larger_min_df(train_baseline):
     metrics = json.loads((train_baseline() / "metrics_baseline.json").read_text())
     assert {row["dev_macro_f1"] for row in metrics["dev_grid"]} == {1.0}
+    assert [(row["C"], row["min_df"]) for row in metrics["dev_grid"]] == [
+        (4, 5),
+        (4, 20),
+        (16, 5),
+        (16, 20),
+        (64, 5),
+        (64, 20),
+    ]
     assert metrics["hyperparameters"] == {"C": 4, "min_df": 20}
 
 
@@ -85,19 +94,22 @@ def test_overfitting_check_is_train_macro_f1_minus_test_macro_f1(train_baseline,
 
 def test_hyperparameters_are_chosen_by_macro_f1_on_dev(train_baseline, splits):
     # Six surgeon bios of train say "scalpel theatre rare" (6 bios: kept by min_df=5, dropped by
-    # min_df=20) and 20 more nurse bios make nurse the majority. Three surgeon bios of dev say only
-    # "rare". With min_df=5 they are found: macro-F1 1. With min_df=20 the text is empty and the
-    # model answers with the majority, nurse: nurse TP 6, FP 3 -> F1 12/15; surgeon TP 3, FN 3
-    # -> F1 6/9; macro-F1 11/15.
+    # min_df=20) and 20 more nurse bios make nurse the majority. Dev has 8 nurse bios and 6 surgeon
+    # bios, three of them saying only "rare". With min_df=5 they are found: macro-F1 1. With
+    # min_df=20 the text is empty and the model answers with the majority, nurse: nurse TP 8,
+    # FP 3 -> F1 16/19; surgeon TP 3, FN 3 -> F1 6/9; macro-F1 (16/19 + 2/3) / 2 = 43/57
+    # (weighted by size it would be 0.767).
     train, dev = splits["train"], splits["dev"]
     train.loc[train.index[train["occupation"] == "surgeon"][:6], "text"] = "scalpel theatre rare"
     nurses = _split("extra", 5).query("occupation == 'nurse'")
     splits["train"] = pd.concat([train, nurses.assign(id="extra")], ignore_index=True)
     dev.loc[dev.index[dev["occupation"] == "surgeon"][:3], "text"] = "rare"
+    dev_nurses = _split("dev-extra", 1).query("occupation == 'nurse'")
+    splits["dev"] = pd.concat([dev, dev_nurses.assign(id="dev-extra")], ignore_index=True)
     metrics = json.loads((train_baseline() / "metrics_baseline.json").read_text())
     assert metrics["hyperparameters"] == {"C": 4, "min_df": 5}
     by_min_df = {row["min_df"]: row["dev_macro_f1"] for row in metrics["dev_grid"]}
-    assert by_min_df == pytest.approx({5: 1.0, 20: 11 / 15})
+    assert by_min_df == pytest.approx({5: 1.0, 20: 43 / 57})
 
 
 def test_test_metrics_come_from_the_test_split_with_the_training_shares_of_women(
