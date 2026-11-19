@@ -68,6 +68,10 @@ class BaselineModel:
         return joblib.load(_baseline_file())
 
 
+def _deberta_folder():
+    return artifacts_dir() / "models" / "deberta"
+
+
 class Representations(NamedTuple):
     layers: np.ndarray
     final: np.ndarray
@@ -82,6 +86,21 @@ class DebertaModel:
         self.network = network
         self.tokenizer = tokenizer
         self.batch_size = batch_size
+
+    def save(self) -> None:
+        """Write the network (safetensors) and the tokenizer to `artifacts_dir()/models/deberta`."""
+        self.network.save_pretrained(_deberta_folder())
+        self.tokenizer.save_pretrained(_deberta_folder())
+
+    @classmethod
+    def load(cls, batch_size: int = 32) -> "DebertaModel":
+        """Read the model that `save` wrote."""
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+        network = AutoModelForSequenceClassification.from_pretrained(
+            _deberta_folder(), use_safetensors=True
+        )
+        return cls(network, AutoTokenizer.from_pretrained(_deberta_folder()), batch_size)
 
     def _batches(self, texts: Sequence[str]):
         """Tokenized batches on the network's device; puts the network in eval mode."""
