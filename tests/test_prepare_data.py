@@ -46,6 +46,22 @@ def test_prepare_data_writes_the_xai_subset_ids_as_a_single_column_csv_with_lf(p
     assert (results / "xai_subset_ids.csv").read_bytes() == expected.encode()
 
 
+def test_prepare_data_writes_the_showcase_occupations_file(prepare):
+    # The synthetic test split has 12 bios, far below the 500 needed, so no occupation qualifies.
+    results = prepare()
+    raw = (results / "showcase_occupations.json").read_bytes()
+    assert json.loads(raw) == {
+        "rule": (
+            "Among occupations with at least 500 test bios, the three with the lowest and "
+            "the three with the highest share of women in the training subsample."
+        ),
+        "male_dominated": [],
+        "female_dominated": [],
+    }
+    assert raw.endswith(b"}\n")
+    assert b"\r" not in raw
+
+
 def test_prepare_data_writes_the_summary_counts_and_training_shares_of_women(prepare):
     # Train: 80 bios, n = 40 gives exactly half of every group. Dev: 12 bios, n = 6, half.
     # XAI subset: 12 test bios, n = 6, half. Share of women in the train subsample: accountant
