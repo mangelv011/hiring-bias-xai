@@ -13,10 +13,13 @@ import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "figure_f1.py"
 
-# Eight occupations on the line gap = 1.2 * share - 0.6, each with a bootstrap interval of
-# gap -+ 0.05. The Pearson r and its Fisher interval are written in as the statistics file would.
+# Eight occupations near the line gap = 1.2 * share - 0.6 (each off it by a little), each with an
+# asymmetric bootstrap interval [gap - 0.03, gap + 0.07]. The Pearson r and its Fisher interval
+# are written in as the statistics file would.
 SHARES = {"o1": 0.1, "o2": 0.2, "o3": 0.3, "o4": 0.4, "o5": 0.6, "o6": 0.7, "o7": 0.8, "o8": 0.9}
-GAPS = {name: 1.2 * share - 0.6 for name, share in SHARES.items()}
+OFF_LINE = dict(zip(SHARES, [0.03, -0.04, 0.02, -0.05, 0.04, -0.03, 0.05, -0.02], strict=True))
+GAPS = {name: 1.2 * share - 0.6 + OFF_LINE[name] for name, share in SHARES.items()}
+BELOW, ABOVE = 0.03, 0.07
 R, R_LOW, R_HIGH = 0.8547, 0.7071, 0.9309
 SHOWCASE = ["o1", "o2", "o3", "o6", "o7", "o8"]
 
@@ -31,8 +34,8 @@ def results(tmp_path):
         name: {
             "tpr_gap": {
                 "value": GAPS[name],
-                "ci_low": GAPS[name] - 0.05,
-                "ci_high": GAPS[name] + 0.05,
+                "ci_low": GAPS[name] - BELOW,
+                "ci_high": GAPS[name] + ABOVE,
             }
         }
         for name in SHARES
@@ -109,12 +112,14 @@ def test_there_is_a_zero_reference_line(figure):
 
 
 def test_the_fitted_line_is_the_least_squares_line_of_the_dots(figure):
-    # The dots lie on gap = 1.2 * share - 0.6, so the OLS line has slope 1.2 and intercept -0.6.
+    # The dots scatter around a line, so a straight line through them is the least-squares one.
     (ax,) = figure.axes
     fitted = [(x, y) for x, y in _lines(ax) if not np.all(np.asarray(y) == 0)]
     assert len(fitted) == 1
     x, y = fitted[0]
-    assert np.polyfit(x, y, 1) == pytest.approx([1.2, -0.6])
+    expected = np.polyfit(list(SHARES.values()), list(GAPS.values()), 1)
+    assert np.polyfit(x, y, 1) == pytest.approx(expected)
+    assert (min(x), max(x)) == pytest.approx((min(SHARES.values()), max(SHARES.values())))
 
 
 def test_the_figure_states_pearson_r_with_its_fisher_interval(figure):
@@ -149,11 +154,11 @@ def test_showcase_dots_have_the_highlight_colour_and_the_others_are_grey(figure)
 def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
     # o1 and o2 get almost the same share and gap, so labels placed beside their dots would collide.
     metrics = json.loads((results / "metrics_deberta.json").read_text())
-    gap = GAPS["o1"] + 0.004
+    gap = GAPS["o1"] - 0.004
     metrics["test"]["per_occupation"]["o2"]["tpr_gap"] = {
         "value": gap,
-        "ci_low": gap - 0.05,
-        "ci_high": gap + 0.05,
+        "ci_low": gap - BELOW,
+        "ci_high": gap + ABOVE,
     }
     (results / "metrics_deberta.json").write_text(json.dumps(metrics))
     stats = json.loads((results / "gap_statistics.json").read_text())
@@ -173,6 +178,9 @@ def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
         ]
         assert len(boxes) == 2
         assert not boxes[0].overlaps(boxes[1])
+        # o2's dot is the lower one, so its label stays the lower one and the leaders do not cross.
+        labels = {t.get_text(): t for t in fig.axes[0].texts}
+        assert labels["o2"].xyann[1] < labels["o1"].xyann[1]
     finally:
         plt.close(fig)
 
@@ -210,5 +218,54 @@ def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
         for segment in c.get_segments()
     ]
     found = sorted((s[0][0], s[0][1], s[1][1]) for s in bars)
-    expected = sorted((SHARES[o], GAPS[o] - 0.05, GAPS[o] + 0.05) for o in SHARES)
+    expected = sorted((SHARES[o], GAPS[o] - BELOW, GAPS[o] + ABOVE) for o in SHARES)
     assert np.array(found) == pytest.approx(np.array(expected))
+    bar_colours = {
+        matplotlib.colors.to_hex(c.get_color()[0]).upper()
+        for c in ax.collections
+        if isinstance(c, matplotlib.collections.LineCollection)
+    }
+    assert bar_colours == {"#999999"}
+
+
+def _render(results):
+    spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.main(results)
+
+
+def test_a_long_label_beside_the_rightmost_dot_stays_inside_the_axes(results):
+    long_name = "dietitian"
+    for name in ("metrics_deberta.json", "gap_statistics.json", "showcase_occupations.json"):
+        path = results / name
+        path.write_text(path.read_text().replace('"o8"', f'"{long_name}"'))
+    fig = _render(results)
+    try:
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        (ax,) = fig.axes
+        label = next(t for t in ax.texts if t.get_text() == long_name.replace("_", " "))
+        box = matplotlib.text.Text.get_window_extent(label, renderer)
+        assert box.x1 <= ax.get_window_extent(renderer).x1
+    finally:
+        plt.close(fig)
+
+
+def test_the_wrapped_title_fits_inside_the_figure(figure):
+    figure.canvas.draw()
+    box = figure._suptitle.get_window_extent(figure.canvas.get_renderer())
+    assert 0 <= box.x0 and box.x1 <= figure.bbox.x1
+
+
+def test_male_dominated_labels_start_above_their_dots_and_only_raised_labels_have_leaders(figure):
+    (ax,) = figure.axes
+    labels = {t.get_text(): t for t in ax.texts if hasattr(t, "xyann")}
+    for name in ("o1", "o2", "o3"):
+        assert labels[name].xyann[1] > 0
+    for name in ("o6", "o7", "o8"):
+        assert labels[name].xyann[1] >= 0
+    # The lowest female-dominated dot sits level with its label; the others are pushed up.
+    assert labels["o6"].xyann[1] == 0
+    assert labels["o6"].arrow_patch is None
+    assert all((t.xyann[1] != 0) == (t.arrow_patch is not None) for t in labels.values())
