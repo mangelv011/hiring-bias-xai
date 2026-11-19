@@ -27,3 +27,10 @@ def _report(**kwargs):
 def test_accuracy_is_the_share_of_bios_with_the_right_occupation():
     # Correct: nurse 3 + 1, surgeon 1 + 4 = 9 of 12.
     assert _report()["accuracy"]["value"] == pytest.approx(9 / 12)
+
+
+def test_macro_f1_averages_the_f1_of_each_occupation():
+    # F1 = 2 TP / (2 TP + FP + FN).
+    # nurse: TP 4, FP 1 (a female surgeon), FN 2 (a female and a male nurse) -> 8 / 11.
+    # surgeon: TP 5, FP 2, FN 1 -> 10 / 13.
+    assert _report()["macro_f1"]["value"] == pytest.approx((8 / 11 + 10 / 13) / 2)
