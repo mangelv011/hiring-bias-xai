@@ -122,3 +122,19 @@ def test_the_overfitting_check_compares_train_and_test_macro_f1(run):
     assert check["train_macro_f1"] == 1.0
     assert check["test_macro_f1"] == pytest.approx(test_f1)
     assert check["gap"] == pytest.approx(1 - test_f1)
+
+
+def test_max_length_report_gives_the_untruncated_token_lengths_of_the_training_bios(run):
+    # Every toy bio is three words plus [CLS] and [SEP]: 5 tokens, far below 64.
+    report = _metrics(run)["max_length"]
+    assert report["value"] == 64
+    assert report["token_length_percentiles"] == {
+        "p50": 5,
+        "p90": 5,
+        "p95": 5,
+        "p99": 5,
+        "p99.9": 5,
+        "max": 5,
+    }
+    assert report["share_above"] == {"128": 0.0, "256": 0.0, "512": 0.0}
+    assert report["share_truncated"] == 0.0
