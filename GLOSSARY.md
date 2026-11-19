@@ -56,6 +56,18 @@ _Avoid_: judge
 TPR of women minus TPR of men within one occupation; positive favours women.
 _Avoid_: equal opportunity difference, gender gap
 
+**RMS TPR gap**:
+Root mean square of the TPR gaps over all occupations; one number for how far a screener is from equal opportunity, whichever gender it favours.
+_Avoid_: average gap, mean gap
+
+**Gap-share correlation**:
+Pearson correlation, across occupations, between the TPR gap and the share of women in the training subsample.
+_Avoid_: bias correlation
+
+**Bootstrap CI**:
+The 95% interval of a metric from resampling the test bios with replacement and reading the 2.5th and 97.5th percentiles.
+_Avoid_: error bar, confidence band
+
 **Counterfactual swap**:
 An edit of a bio that changes only the protected attribute signal (pronouns or a name header), used to see whether the screening decision flips.
 _Avoid_: perturbation, augmentation
