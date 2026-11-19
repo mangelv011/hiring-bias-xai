@@ -1,9 +1,9 @@
 {
   "bios": {
     "dev": 10000,
+    "showcase_subset": 1721,
     "test": 99069,
-    "train": 60000,
-    "xai_subset": 2000
+    "train": 60000
   },
   "counts": {
     "dev": {
@@ -118,6 +118,32 @@
       "yoga_teacher": {
         "female": 36,
         "male": 7
+      }
+    },
+    "showcase_subset": {
+      "composer": {
+        "female": 150,
+        "male": 150
+      },
+      "dietitian": {
+        "female": 150,
+        "male": 71
+      },
+      "model": {
+        "female": 150,
+        "male": 150
+      },
+      "nurse": {
+        "female": 150,
+        "male": 150
+      },
+      "software_engineer": {
+        "female": 150,
+        "male": 150
+      },
+      "surgeon": {
+        "female": 150,
+        "male": 150
       }
     },
     "test": {
@@ -346,120 +372,6 @@
       "yoga_teacher": {
         "female": 212,
         "male": 39
-      }
-    },
-    "xai_subset": {
-      "accountant": {
-        "female": 10,
-        "male": 18
-      },
-      "architect": {
-        "female": 12,
-        "male": 39
-      },
-      "attorney": {
-        "female": 63,
-        "male": 101
-      },
-      "chiropractor": {
-        "female": 4,
-        "male": 10
-      },
-      "comedian": {
-        "female": 3,
-        "male": 11
-      },
-      "composer": {
-        "female": 5,
-        "male": 24
-      },
-      "dentist": {
-        "female": 26,
-        "male": 48
-      },
-      "dietitian": {
-        "female": 19,
-        "male": 1
-      },
-      "dj": {
-        "female": 1,
-        "male": 6
-      },
-      "filmmaker": {
-        "female": 12,
-        "male": 24
-      },
-      "interior_designer": {
-        "female": 6,
-        "male": 1
-      },
-      "journalist": {
-        "female": 50,
-        "male": 51
-      },
-      "model": {
-        "female": 31,
-        "male": 7
-      },
-      "nurse": {
-        "female": 87,
-        "male": 9
-      },
-      "painter": {
-        "female": 18,
-        "male": 21
-      },
-      "paralegal": {
-        "female": 8,
-        "male": 1
-      },
-      "pastor": {
-        "female": 3,
-        "male": 10
-      },
-      "personal_trainer": {
-        "female": 3,
-        "male": 4
-      },
-      "photographer": {
-        "female": 44,
-        "male": 79
-      },
-      "physician": {
-        "female": 102,
-        "male": 105
-      },
-      "poet": {
-        "female": 17,
-        "male": 18
-      },
-      "professor": {
-        "female": 269,
-        "male": 327
-      },
-      "psychologist": {
-        "female": 58,
-        "male": 35
-      },
-      "rapper": {
-        "female": 1,
-        "male": 6
-      },
-      "software_engineer": {
-        "female": 5,
-        "male": 29
-      },
-      "surgeon": {
-        "female": 10,
-        "male": 58
-      },
-      "teacher": {
-        "female": 49,
-        "male": 33
-      },
-      "yoga_teacher": {
-        "female": 7,
-        "male": 1
       }
     }
   },
