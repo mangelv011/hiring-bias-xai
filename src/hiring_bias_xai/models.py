@@ -65,3 +65,13 @@ class BaselineModel:
         project wrote under `artifacts_dir()`; never one from another source.
         """
         return joblib.load(_baseline_file())
+
+
+class DebertaModel:
+    """DeBERTa-v3-small with a classification head over the occupations; satisfies `Classifier`."""
+
+    labels = data.OCCUPATIONS
+
+    def __init__(self, network, tokenizer):
+        self.network = network
+        self.tokenizer = tokenizer
