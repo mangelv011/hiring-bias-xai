@@ -205,3 +205,44 @@ def test_class_log_odds_does_not_saturate_where_probabilities_do(tiny_network, t
     odds = model.class_log_odds(TEXTS, "nurse")
     assert np.isfinite(odds).all()
     assert (odds > 150).all()
+
+
+def _batch_widths(model):
+    """Record the padded length of every batch the network sees."""
+    widths = []
+    model.network.register_forward_pre_hook(
+        lambda _module, _args, kwargs: widths.append(kwargs["input_ids"].shape[1]),
+        with_kwargs=True,
+    )
+    return widths
+
+
+def test_texts_are_batched_by_token_length_so_short_ones_are_not_padded_to_long_ones(
+    tiny_network, tiny_tokenizer
+):
+    # Token lengths with [CLS] and [SEP]: 4, 5, 3, 6. In input order batches of 2 would be padded
+    # to 5 and 6; sorted they are padded to 4 and 6.
+    model = _model(tiny_network, tiny_tokenizer, batch_size=2)
+    widths = _batch_widths(model)
+    model.logits(["alpha beta", "gamma delta epsilon", "zeta", "eta theta alpha beta"])
+    assert widths == [4, 6]
+
+
+def test_logits_come_back_in_input_order_and_equal_those_of_each_text_alone(
+    tiny_network, tiny_tokenizer
+):
+    model = _model(tiny_network, tiny_tokenizer, batch_size=2)
+    texts = ["eta theta alpha beta", "zeta", "gamma delta epsilon", "alpha beta", "zeta"]
+    alone = np.concatenate([model.logits([text]) for text in texts])
+    np.testing.assert_allclose(model.logits(texts), alone, atol=1e-5)
+    assert not np.allclose(alone[0], alone[1], atol=1e-2)  # order matters in this fixture
+
+
+def test_representations_come_back_in_input_order_too(tiny_network, tiny_tokenizer):
+    model = _model(tiny_network, tiny_tokenizer, batch_size=2)
+    texts = ["eta theta alpha beta", "zeta", "gamma delta epsilon", "alpha beta"]
+    layers, final = model.representations(texts)
+    for i, text in enumerate(texts):
+        alone_layers, alone_final = model.representations([text])
+        np.testing.assert_allclose(layers[i], alone_layers[0], atol=1e-4)
+        np.testing.assert_allclose(final[i], alone_final[0], atol=1e-4)
