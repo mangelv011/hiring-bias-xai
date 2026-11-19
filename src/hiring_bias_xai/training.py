@@ -15,6 +15,13 @@ from hiring_bias_xai.models import DebertaModel, autocast
 WARMUP_RATIO = 0.06
 
 
+def seed_everything() -> None:
+    """Seed the python, numpy and torch generators with `SEED`."""
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+
+
 def _evaluate(model: DebertaModel, texts: Sequence[str], labels: Sequence[str]) -> dict:
     logits = model.logits(texts)
     targets = torch.tensor([model.labels.index(label) for label in labels])
@@ -46,9 +53,7 @@ def train(
     the model ends with the weights of the evaluation that had the highest one. The global
     random generators (python, numpy, torch) are seeded with `SEED` first.
     """
-    random.seed(SEED)
-    np.random.seed(SEED)
-    torch.manual_seed(SEED)
+    seed_everything()
     network = model.network
     targets = torch.tensor([model.labels.index(label) for label in train_labels])
     optimizer = torch.optim.AdamW(network.parameters(), lr=learning_rate)
