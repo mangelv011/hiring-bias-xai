@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -116,6 +117,16 @@ def showcase_subset(test: pd.DataFrame, occupations: Sequence[str]) -> pd.DataFr
         size = min(len(positions), _SHOWCASE_PER_GROUP)
         chosen.append(rng.choice(positions, size=size, replace=False))
     return chosen_occupations.iloc[np.sort(np.concatenate(chosen))].reset_index(drop=True)
+
+
+def load_showcase_subset(ids_file: Path) -> pd.DataFrame:
+    """The test bios listed in `ids_file` (the file `prepare_data.py` writes), in file order."""
+    ids = pd.read_csv(ids_file)["id"]
+    test = load_split("test").set_index("id", drop=False)
+    missing = ids[~ids.isin(test.index)]
+    if len(missing):
+        raise ValueError(f"{len(missing)} IDs are not in the test split, such as {missing.iloc[0]}")
+    return test.loc[ids].reset_index(drop=True)
 
 
 def share_women(frame: pd.DataFrame) -> dict:
