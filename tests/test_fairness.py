@@ -70,3 +70,8 @@ def test_a_model_that_misses_more_women_than_men_has_a_negative_gap():
 def test_rms_tpr_gap_is_the_root_mean_square_of_the_gaps():
     # Gaps are +1/4 (nurse) and -1/2 (surgeon): sqrt((1/16 + 1/4) / 2) = sqrt(5/32).
     assert _report()["rms_tpr_gap"]["value"] == pytest.approx((5 / 32) ** 0.5)
+
+
+def test_gap_share_pearson_is_one_when_the_gap_rises_with_the_share_of_women():
+    # Gaps (nurse, surgeon) = (+1/4, -1/2) and shares = (0.9, 0.1): two points on a rising line.
+    assert _report()["gap_share_pearson"]["value"] == pytest.approx(1.0)
