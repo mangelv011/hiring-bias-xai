@@ -82,6 +82,10 @@ def test_scrub_handles_punctuation_next_to_the_word_and_collapses_spaces(text, e
     assert data.scrub(text) == expected
 
 
+def test_scrub_deletes_the_word_without_leaving_a_space_behind():
+    assert data.scrub("(she) and x,he.") == "() and x,."
+
+
 @pytest.mark.parametrize(
     "unit",
     ["he'", "he" + "'s" * 3 + "x", " ", "m", "hee", "’he’", "Mr", "h e "],
@@ -308,6 +312,13 @@ def test_real_gender_code_1_is_female_and_0_is_male():
     assert not masculine[code_1].any()
     assert masculine[code_0].mean() > 0.9
     assert not feminine[code_0].any()
+
+
+def test_subsample_as_large_as_the_split_keeps_every_bio(fake_raw, monkeypatch):
+    monkeypatch.setitem(data._SUBSAMPLE_SIZES, "dev", 6)
+    fake_raw(dev=_raw([(f"bio {i}", i % 2, i % 2) for i in range(6)]))
+    df = data.load_split("dev")
+    assert list(df["id"]) == [f"dev-{i}" for i in range(6)]
 
 
 def test_subsample_larger_than_the_split_raises(fake_raw, monkeypatch):
