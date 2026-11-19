@@ -75,3 +75,15 @@ def test_rms_tpr_gap_is_the_root_mean_square_of_the_gaps():
 def test_gap_share_pearson_is_one_when_the_gap_rises_with_the_share_of_women():
     # Gaps (nurse, surgeon) = (+1/4, -1/2) and shares = (0.9, 0.1): two points on a rising line.
     assert _report()["gap_share_pearson"]["value"] == pytest.approx(1.0)
+
+
+def test_gap_share_pearson_follows_the_gaps_and_shares_of_every_occupation():
+    # Three occupations of 2 women and 2 men; "x" is a wrong answer. Gaps are +1/2, 0, -1/2:
+    #   a: women 2 of 2, men 1 of 2   b: women 1 of 2, men 1 of 2   c: women 1 of 2, men 2 of 2
+    # With shares 0.2, 0.5, 0.9 (mean 8/15) the sums are: gap x share = 1/2 * -1/3
+    # + -1/2 * 11/30 = -7/20, gap^2 = 1/2, share^2 = 37/150, so r = -7/20 / sqrt(37/300).
+    y_true = ["a"] * 4 + ["b"] * 4 + ["c"] * 4
+    y_pred = ["a", "a", "a", "x", "b", "x", "b", "x", "c", "x", "c", "c"]
+    gender = ["female", "female", "male", "male"] * 3
+    report = fairness.evaluate(y_true, y_pred, gender, {"a": 0.2, "b": 0.5, "c": 0.9})
+    assert report["gap_share_pearson"]["value"] == pytest.approx(-7 / 20 / (37 / 300) ** 0.5)
