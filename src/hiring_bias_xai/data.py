@@ -38,6 +38,7 @@ _GENDERED = re.compile(
 
 
 def scrub(text: str) -> str:
+    """Remove gendered pronouns and titles (De-Arteaga et al. 2019 list) as whole words."""
     return re.sub(" {2,}", " ", _GENDERED.sub("", text)).strip()
 
 
@@ -72,6 +73,11 @@ def _stratified_sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
 
 
 def load_split(split: str, variant: str = "original") -> pd.DataFrame:
+    """Bios with columns id, text, occupation, gender, in official row order.
+
+    train and dev are the training subsamples (60,000 and 10,000 bios); test is the full split.
+    variant="scrubbed" applies `scrub` to the text.
+    """
     if split not in _SPLITS:
         raise ValueError(f"split must be one of {', '.join(_SPLITS)}; got {split!r}")
     if variant not in _VARIANTS:
@@ -94,10 +100,12 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
 
 
 def xai_subset() -> pd.DataFrame:
+    """The fixed 2,000 test bios, stratified by occupation and gender."""
     return _stratified_sample(load_split("test"), _XAI_SUBSET_SIZE)
 
 
 def showcase_occupations(train: pd.DataFrame, test: pd.DataFrame) -> dict:
+    """The rule and the three most male- and female-dominated eligible occupations, JSON-ready."""
     test_bios = test["occupation"].value_counts()
     large = test_bios.index[test_bios >= _SHOWCASE_MIN_TEST_BIOS]
     share_women = (train["gender"] == "female").groupby(train["occupation"]).mean()
