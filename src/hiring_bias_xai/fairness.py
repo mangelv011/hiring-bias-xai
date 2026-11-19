@@ -24,8 +24,10 @@ def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> 
             tpr[f"n_{group}"] = int(of_group.sum())
         tpr["tpr_gap"] = {"value": tpr["tpr_female"]["value"] - tpr["tpr_male"]["value"]}
         per_occupation[str(occupation)] = tpr
+    gaps = [tpr["tpr_gap"]["value"] for tpr in per_occupation.values()]
     return {
         "per_occupation": per_occupation,
+        "rms_tpr_gap": {"value": float(np.sqrt(np.mean(np.square(gaps))))},
         "accuracy": {"value": float(np.mean(y_true == y_pred))},
         "macro_f1": {"value": float(np.mean(f1))},
     }
