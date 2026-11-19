@@ -43,3 +43,9 @@ def test_tpr_is_the_share_of_true_bios_of_an_occupation_predicted_as_it():
     assert per_occupation[N]["tpr_male"]["value"] == pytest.approx(1 / 2)
     assert per_occupation[S]["tpr_female"]["value"] == pytest.approx(1 / 2)
     assert per_occupation[S]["tpr_male"]["value"] == pytest.approx(4 / 4)
+
+
+def test_per_occupation_counts_the_true_bios_of_each_gender():
+    per_occupation = _report()["per_occupation"]
+    assert [per_occupation[N]["n_female"], per_occupation[N]["n_male"]] == [4, 2]
+    assert [per_occupation[S]["n_female"], per_occupation[S]["n_male"]] == [2, 4]
