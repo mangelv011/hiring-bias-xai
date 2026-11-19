@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import matplotlib
@@ -129,6 +130,30 @@ def test_showcase_dots_have_the_highlight_colour_and_the_others_are_grey(figure)
     highlighted = {x for x, colour in colour_of.items() if colour == "#D55E00"}
     assert highlighted == {SHARES[o] for o in ["o1", "o2", "o3", "o6", "o7", "o8"]}
     assert {colour_of[SHARES["o4"]], colour_of[SHARES["o5"]]} == {"#999999"}
+
+
+def test_the_title_is_the_finding_as_a_sentence_and_its_number_is_the_stored_r(figure, results):
+    (ax,) = figure.axes
+    title = figure.get_suptitle()
+    assert title == "In male-dominated occupations the main model misses more women (r = 0.85)."
+    stored = json.loads((results / "gap_statistics.json").read_text())["main_model"]["pearson"]
+    numbers = [float(n) for n in re.findall(r"\d+\.\d+", title)]
+    assert numbers == [round(stored["value"], 2)]
+    assert ax.get_title() == ""
+
+
+def test_the_title_changes_with_the_stored_r(results):
+    stats = json.loads((results / "gap_statistics.json").read_text())
+    stats["main_model"]["pearson"]["value"] = 0.5
+    (results / "gap_statistics.json").write_text(json.dumps(stats))
+    spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fig = module.main(results)
+    try:
+        assert "r = 0.50)" in fig.get_suptitle()
+    finally:
+        plt.close(fig)
 
 
 def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
