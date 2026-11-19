@@ -24,8 +24,12 @@ OCCUPATIONS = (
 _GENDERS = ("male", "female")
 
 _SUBSAMPLE_SIZES = {"train": 60_000, "dev": 10_000}
+_XAI_SIZE = 2_000
 _SPLITS = ("train", "dev", "test")
 _VARIANTS = ("original", "scrubbed")
+
+_SHOWCASE_MIN_TEST_BIOS = 500
+_SHOWCASE_PER_SIDE = 3
 
 # De-Arteaga et al. (2019), arXiv:1901.09451, section 4: "we deleted the subject's first name,
 # along with the words he, she, her, his, him, hers, himself, herself, mr, mrs, and ms".
@@ -99,3 +103,30 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
     if variant == "scrubbed":
         df = df.assign(text=df["text"].map(scrub))
     return df
+
+
+def xai_subset() -> pd.DataFrame:
+    """The fixed 2,000 test bios, stratified by occupation x gender, on which explanations run."""
+    return _stratified_sample(load_split("test"), _XAI_SIZE, SEED)
+
+
+def showcase_occupations(train: pd.DataFrame, test: pd.DataFrame) -> dict:
+    """The three most male- and three most female-dominated occupations, JSON-ready.
+
+    Share of women is measured on `train`; only occupations with at least 500 `test` bios count.
+    """
+    share = (train["gender"] == "female").groupby(train["occupation"]).mean()
+    eligible = share[test["occupation"].value_counts() >= _SHOWCASE_MIN_TEST_BIOS].sort_values()
+
+    def entries(series):
+        return [{"occupation": o, "share_women": round(float(s), 4)} for o, s in series.items()]
+
+    return {
+        "rule": (
+            f"Among occupations with at least {_SHOWCASE_MIN_TEST_BIOS} test bios, the "
+            f"{_SHOWCASE_PER_SIDE} with the lowest and the {_SHOWCASE_PER_SIDE} with the highest "
+            "share of women in the training subsample."
+        ),
+        "male_dominated": entries(eligible.head(_SHOWCASE_PER_SIDE)),
+        "female_dominated": entries(eligible.tail(_SHOWCASE_PER_SIDE).iloc[::-1]),
+    }
