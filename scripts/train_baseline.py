@@ -13,8 +13,8 @@ from hiring_bias_xai import data, fairness
 from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
 from hiring_bias_xai.models import BaselineModel
 
-# lbfgs stops at 100 iterations and each fit takes 30 to 70 s on the 60,000-bio training
-# subsample, so the grid stays small. C below 4 underfits TF-IDF features (dev macro-F1 0.66 at C=1).
+# Each fit takes 30 to 70 s (lbfgs stops at 100 iterations), so the grid stays small.
+# C below 4 underfits TF-IDF features: dev macro-F1 0.66 at C=1.
 C_GRID = (4, 16, 64)
 MIN_DF_GRID = (5, 20)
 
@@ -30,7 +30,7 @@ def _predict(model: BaselineModel, texts) -> np.ndarray:
 def _macro_f1(model: BaselineModel, frame) -> float:
     occupations = frame["occupation"]
     predicted = _predict(model, frame["text"])
-    return float(f1_score(occupations, predicted, labels=occupations.unique(), average="macro"))
+    return float(f1_score(occupations, predicted, average="macro"))
 
 
 def _share_women(frame) -> dict:
