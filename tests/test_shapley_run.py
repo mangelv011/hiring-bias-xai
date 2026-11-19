@@ -95,7 +95,8 @@ def test_the_summary_has_per_screener_counts_cost_and_the_efficiency_error(run):
         assert entry["mean_evaluations"] == pytest.approx(
             np.mean([len(item.logits) for item in saved.values()])
         )
-        assert entry["total_seconds"] == pytest.approx(sum(item.seconds for item in saved.values()))
+        seconds = sum(item.seconds for item in saved.values())
+        assert entry["total_seconds"] == pytest.approx(seconds, abs=0.05)  # rounded to 0.1 s
         assert 0 <= entry["efficiency_max_error"] < 1e-9
 
 
