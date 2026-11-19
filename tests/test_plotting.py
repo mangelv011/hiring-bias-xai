@@ -3,6 +3,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -54,3 +55,16 @@ def test_new_figure_is_single_column_wide_with_readable_text_and_open_spines():
         assert min(sizes) >= 7
     finally:
         plt.close(fig)
+
+
+def test_deuteranopia_simulation_keeps_greys_and_maps_pure_red_by_the_machado_matrix():
+    # Machado et al. (2009), severity 1.0, on linear RGB: red (1, 0, 0) becomes the first matrix
+    # column (0.367322, 0.280085, -0.01182), whose blue part is clipped to 0; sRGB-encoded that
+    # is (163, 144, 0). The rows of the matrix sum to 1, so greys do not move.
+    image = np.array([[[255, 0, 0, 200], [128, 128, 128, 255], [0, 0, 0, 255]]], dtype=np.uint8)
+    out = plotting.simulate_deuteranopia(image)
+    assert out.dtype == np.uint8
+    assert out.shape == image.shape
+    assert out[0, 0].tolist() == [163, 144, 0, 200]
+    assert out[0, 1].tolist() == [128, 128, 128, 255]
+    assert out[0, 2].tolist() == [0, 0, 0, 255]
