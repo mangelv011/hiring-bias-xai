@@ -15,7 +15,8 @@ from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
 from hiring_bias_xai.models import BaselineModel
 
 # The run must fit in 10 minutes, so the grid stays small. Dev macro-F1 rises with C and
-# flattens (0.720, 0.726, 0.729 at C=16, 64, 256 for min_df=5); C=4 is clearly worse.
+# peaks at C=256 for min_df=5 (0.720, 0.726, 0.729 at C=16, 64, 256). Off-grid checks: C=4 is
+# clearly worse, and C=1024 and C=4096 fall to 0.725 and 0.710, so the best C is inside the grid.
 C_GRID = (16, 64, 256)
 MIN_DF_GRID = (5, 20)
 # One process per grid point. Fits are single-threaded and memory-bound: 6 at once run at
