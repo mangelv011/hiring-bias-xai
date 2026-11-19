@@ -1,8 +1,11 @@
+import random
+
+import numpy as np
 import pytest
 import torch
 
 from hiring_bias_xai.models import DebertaModel
-from hiring_bias_xai.training import train
+from hiring_bias_xai.training import seed_everything, train
 
 # Two separable occupations: nurse bios say alpha, surgeon bios say gamma.
 NURSE, SURGEON = "nurse", "surgeon"
@@ -109,7 +112,9 @@ def _plateau_run(model, patience):
 def test_training_stops_after_patience_evaluations_without_a_better_dev_macro_f1(model):
     rows, _, _ = _plateau_run(model, patience=3)
     scores = [row["dev_macro_f1"] for row in rows]
-    assert scores[0] > 0.8  # the task was learned before the plateau
+    # The learned model labels the 8 dev bios N N N N S S S S against S N N N S S S S: nurse has
+    # 3 hits, 4 predicted, 3 true (F1 6/7); surgeon 4 hits, 4 predicted, 5 true (F1 8/9).
+    assert scores[0] == pytest.approx((6 / 7 + 8 / 9) / 2)
     assert len(rows) == scores.index(max(scores)) + 1 + 3
     assert len(rows) < 8
 
@@ -173,3 +178,47 @@ def test_each_evaluation_row_is_handed_to_the_callback_as_it_is_logged(model):
     )  # fmt: skip
     assert seen == rows
     assert len(rows) == 3  # steps 3, 6 and the last, 8
+
+
+def test_seed_everything_seeds_python_numpy_and_torch_with_42():
+    random.random(), np.random.rand(), torch.rand(1)  # move all three generators
+    seed_everything()
+    assert random.random() == random.Random(42).random()
+    assert np.random.rand() == np.random.RandomState(42).rand()
+    assert torch.rand(1).item() == torch.rand(1, generator=torch.Generator().manual_seed(42)).item()
+
+
+def test_every_training_forward_pass_runs_in_training_mode_and_every_dev_pass_in_eval_mode(model):
+    # Dropout must be on while learning and off while scoring. 16 bios in batches of 4 make
+    # 4 steps; evaluating after steps 2 and 4 scores the 16 dev bios in one batch each time.
+    modes = []
+    model.network.register_forward_pre_hook(
+        lambda module, args, kwargs: modes.append(module.training), with_kwargs=True
+    )
+    texts, labels = _bios(8)
+    train(
+        model, texts, labels, texts, labels, learning_rate=1e-3, epochs=1, batch_size=4,
+        eval_every=2,
+    )  # fmt: skip
+    assert modes == [True, True, False, True, True, False]
+
+
+def test_train_loss_is_the_mean_loss_of_the_steps_since_the_last_evaluation(
+    tiny_network, tiny_tokenizer
+):
+    # Without dropout the two runs follow the same path, so the loss logged every 2 steps is
+    # the mean of the losses logged every step.
+    texts, labels = _bios(8)
+
+    def run(eval_every):
+        model = DebertaModel(tiny_network(dropout=0.0), tiny_tokenizer(64))
+        return train(
+            model, texts, labels, texts, labels, learning_rate=1e-3, epochs=2, batch_size=4,
+            eval_every=eval_every,
+        )  # fmt: skip
+
+    every_step = [row["train_loss"] for row in run(1)]
+    every_two = [row["train_loss"] for row in run(2)]
+    assert every_two == pytest.approx(
+        [(a + b) / 2 for a, b in zip(every_step[::2], every_step[1::2], strict=True)], rel=1e-4
+    )
