@@ -88,3 +88,9 @@ def test_the_test_report_scores_the_chosen_model_once_with_the_fairness_module(r
     assert sorted(test["per_occupation"]) == ["nurse", "surgeon"]
     assert test["per_occupation"]["nurse"]["n_female"] == 2
 
+
+def test_the_test_predictions_are_saved_outside_the_repo(run):
+    predictions = pd.read_csv(run / "artifacts" / "predictions" / "deberta_test.csv")
+    assert list(predictions.columns) == ["id", "predicted_occupation"]
+    assert predictions["id"].tolist() == [f"test-{i}" for i in range(8)]
+    assert predictions["predicted_occupation"].tolist() == ["nurse"] * 4 + ["surgeon"] * 4
