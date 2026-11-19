@@ -137,7 +137,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     )
     columns = ["base_learning_rate", "step", "epoch", "train_loss", "dev_loss", "dev_macro_f1"]
     pd.DataFrame(log)[[*columns, "learning_rate"]].to_csv(
-        results_dir / "training_log.csv", index=False
+        results_dir / "training_log.csv", index=False, lineterminator="\n"
     )
     _write_json(
         results_dir / "metrics_deberta.json",
