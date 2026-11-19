@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import torch
 
 from hiring_bias_xai import data
@@ -46,13 +47,18 @@ def _fit(learning_rate: float, train_frame, dev_frame):
 def main(results_dir: Path = RESULTS_DIR) -> None:
     results_dir.mkdir(parents=True, exist_ok=True)
     train_frame, dev_frame = data.load_split("train"), data.load_split("dev")
-    best_f1, best_learning_rate = -1.0, None
+    best_f1, best_learning_rate, log = -1.0, None, []
     for learning_rate in LEARNING_RATES:
         model, rows = _fit(learning_rate, train_frame, dev_frame)
+        log += [{"base_learning_rate": learning_rate} | row for row in rows]
         dev_f1 = max(row["dev_macro_f1"] for row in rows)
         if dev_f1 > best_f1:
             best_f1, best_learning_rate = dev_f1, learning_rate
             model.save()
+    columns = ["base_learning_rate", "step", "epoch", "train_loss", "dev_loss", "dev_macro_f1"]
+    pd.DataFrame(log)[[*columns, "learning_rate"]].to_csv(
+        results_dir / "training_log.csv", index=False
+    )
     _write_json(
         results_dir / "metrics_deberta.json",
         {"hyperparameters": {"learning_rate": best_learning_rate}},
