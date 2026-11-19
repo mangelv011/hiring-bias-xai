@@ -163,7 +163,7 @@ def compute(y_true, y_pred, gender, share_women, *, n_boot=1000, n_perm=1000, se
     gap = [tests[name]["tpr_gap"] for name in names]
     share = [share_women[name] for name in names]
     return (
-        {"n_occupations": len(names)}
+        {"n_occupations": len(names), "n_bootstrap": n_boot}
         | correlations(gap, share, n_boot=n_boot, seed=seed)
         | {
             "leave_one_out": leave_one_out(gap, share, names),
