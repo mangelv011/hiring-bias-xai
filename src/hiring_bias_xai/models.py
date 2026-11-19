@@ -181,18 +181,34 @@ class DebertaModel(_Screener):
         return cls(network, AutoTokenizer.from_pretrained(_deberta_folder()), batch_size)
 
     def _batches(self, texts: Sequence[str]):
-        """Tokenized batches on the network's device; puts the network in eval mode."""
+        """Tokenized batches on the network's device; puts the network in eval mode.
+
+        Texts are batched by token length, so short ones are not padded to long ones. Yields
+        (positions, inputs), where `positions` are the indices of the batch's texts in `texts`.
+        """
         self.network.eval()
+        encoded = self.tokenizer(list(texts), truncation=True)
+        by_length = np.argsort([len(ids) for ids in encoded["input_ids"]], kind="stable")
         for start in range(0, len(texts), self.batch_size):
-            batch = list(texts[start : start + self.batch_size])
-            inputs = self.tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
-            yield inputs.to(self.network.device)
+            positions = by_length[start : start + self.batch_size]
+            features = [{key: encoded[key][i] for key in encoded} for i in positions]
+            inputs = self.tokenizer.pad(features, return_tensors="pt")
+            yield positions, inputs.to(self.network.device)
+
+    @staticmethod
+    def _in_input_order(batches: list, positions: list) -> np.ndarray:
+        """Concatenate per-batch outputs and put the rows back in the order of the texts."""
+        stacked = torch.cat(batches).float().cpu().numpy()
+        return stacked[np.argsort(np.concatenate(positions))]
 
     def logits(self, texts: Sequence[str]) -> np.ndarray:
         """Float32 logits of shape (n, n_labels), in eval mode without gradients."""
+        batches, positions = [], []
         with torch.inference_mode(), autocast(self.network):
-            batches = [self.network(**inputs).logits.float() for inputs in self._batches(texts)]
-        return torch.cat(batches).cpu().numpy()
+            for chosen, inputs in self._batches(texts):
+                batches.append(self.network(**inputs).logits)
+                positions.append(chosen)
+        return self._in_input_order(batches, positions)
 
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
         return torch.softmax(torch.from_numpy(self.logits(texts)), dim=-1).numpy()
@@ -205,12 +221,13 @@ class DebertaModel(_Screener):
         is the [CLS] state of the last layer passed through the head's pooler (dense layer and
         activation); the classifier is a linear map of it.
         """
-        layers, final = [], []
+        layers, final, positions = [], [], []
         with torch.inference_mode(), autocast(self.network):
-            for inputs in self._batches(texts):
+            for chosen, inputs in self._batches(texts):
                 states = self.network.deberta(**inputs, output_hidden_states=True)
                 layers.append(torch.stack([state[:, 0] for state in states.hidden_states], dim=1))
                 final.append(self.network.pooler(states.last_hidden_state))
+                positions.append(chosen)
         return Representations(
-            torch.cat(layers).float().cpu().numpy(), torch.cat(final).float().cpu().numpy()
+            self._in_input_order(layers, positions), self._in_input_order(final, positions)
         )
