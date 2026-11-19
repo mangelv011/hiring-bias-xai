@@ -34,6 +34,7 @@ def train(
     epochs: int,
     batch_size: int,
     eval_every: int,
+    accumulation: int = 1,
     patience: float = math.inf,
 ) -> list[dict]:
     """Fine-tune `model` and return one row per evaluation on the dev bios.
@@ -44,7 +45,7 @@ def train(
     network = model.network
     targets = torch.tensor([model.labels.index(label) for label in train_labels])
     optimizer = torch.optim.AdamW(network.parameters(), lr=learning_rate)
-    steps_per_epoch = len(train_texts) // batch_size
+    steps_per_epoch = len(train_texts) // (batch_size * accumulation)
     total_steps = epochs * steps_per_epoch
     scheduler = get_linear_schedule_with_warmup(
         optimizer, math.ceil(WARMUP_RATIO * total_steps), total_steps
@@ -53,20 +54,26 @@ def train(
     stopped = False
     for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_texts))
-        for start in range(0, len(order) - batch_size + 1, batch_size):
-            chosen = order[start : start + batch_size]
+        for first in range(
+            0, steps_per_epoch * batch_size * accumulation, batch_size * accumulation
+        ):
             network.train()
-            inputs = model.tokenizer(
-                [train_texts[i] for i in chosen], padding=True, truncation=True, return_tensors="pt"
-            ).to(network.device)
-            loss = torch.nn.functional.cross_entropy(
-                network(**inputs).logits.float(), targets[chosen].to(network.device)
-            )
-            loss.backward()
+            for start in range(first, first + batch_size * accumulation, batch_size):
+                chosen = order[start : start + batch_size]
+                inputs = model.tokenizer(
+                    [train_texts[i] for i in chosen],
+                    padding=True,
+                    truncation=True,
+                    return_tensors="pt",
+                ).to(network.device)
+                loss = torch.nn.functional.cross_entropy(
+                    network(**inputs).logits.float(), targets[chosen].to(network.device)
+                )
+                (loss / accumulation).backward()
+                losses.append(loss.item())
             optimizer.step()
             scheduler.step()
             optimizer.zero_grad()
-            losses.append(float(loss))
             step += 1
             if step % eval_every == 0 or step == total_steps:
                 rows.append(
