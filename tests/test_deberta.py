@@ -84,3 +84,16 @@ def test_the_final_vector_is_the_pooled_cls_state_of_the_last_layer(tiny_network
     with torch.no_grad():
         pooled = model.network.pooler(torch.from_numpy(layers[:, -1])[:, None, :])
     np.testing.assert_allclose(pooled.numpy(), final, atol=1e-5)
+
+
+def test_a_saved_model_loads_back_from_the_artifacts_directory(
+    monkeypatch, tmp_path, tiny_network, tiny_tokenizer
+):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    model = _model(tiny_network, tiny_tokenizer, max_length=5)
+    model.save()
+    folder = tmp_path / "models" / "deberta"
+    assert (folder / "config.json").is_file()
+    loaded = DebertaModel.load()
+    texts = ["alpha beta gamma delta epsilon", "zeta eta"]
+    np.testing.assert_array_equal(loaded.predict_proba(texts), model.predict_proba(texts))
