@@ -78,6 +78,8 @@ class DebertaModel:
         self.tokenizer = tokenizer
 
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
+        self.network.eval()
         inputs = self.tokenizer(list(texts), padding=True, return_tensors="pt")
-        logits = self.network(**inputs.to(self.network.device)).logits
-        return torch.softmax(logits.float(), dim=-1).detach().numpy()
+        with torch.inference_mode():
+            logits = self.network(**inputs.to(self.network.device)).logits
+        return torch.softmax(logits.float(), dim=-1).numpy()
