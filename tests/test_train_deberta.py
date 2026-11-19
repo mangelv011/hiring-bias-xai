@@ -203,3 +203,24 @@ def test_peak_gpu_memory_is_the_most_memory_torch_allocated_during_training(exec
     peak = json.loads((root / "results" / "metrics_deberta.json").read_text())["peak_gpu_memory_mb"]
     # The tiny network holds about 0.2 MB of weights, plus gradients and Adam state.
     assert 0.5 < peak < 100
+
+
+def test_the_comparison_with_the_baseline_says_whether_the_confidence_intervals_overlap(
+    execute, tmp_path
+):
+    # Baseline macro-F1 0.005 [0.0, 0.01] is far below the toy model's (6/7 + 8/9) / 2, whose
+    # interval stays above 0.01: no overlap. Baseline RMS TPR gap 0.5 [0.0, 1.0] covers any
+    # value: overlap.
+    macro_f1 = {"value": 0.005, "ci_low": 0.0, "ci_high": 0.01}
+    rms_tpr_gap = {"value": 0.5, "ci_low": 0.0, "ci_high": 1.0}
+    path = tmp_path / "metrics_baseline.json"
+    path.write_text(json.dumps({"test": {"macro_f1": macro_f1, "rms_tpr_gap": rms_tpr_gap}}))
+    root = execute(BASELINE_METRICS=path, LEARNING_RATES=(3e-3,))
+    metrics = json.loads((root / "results" / "metrics_deberta.json").read_text())
+    comparison = metrics["comparison_with_baseline"]
+    assert comparison["macro_f1"]["baseline"] == macro_f1
+    assert comparison["macro_f1"]["deberta"] == metrics["test"]["macro_f1"]
+    assert comparison["macro_f1"]["cis_overlap"] is False
+    assert comparison["rms_tpr_gap"]["baseline"] == rms_tpr_gap
+    assert comparison["rms_tpr_gap"]["deberta"] == metrics["test"]["rms_tpr_gap"]
+    assert comparison["rms_tpr_gap"]["cis_overlap"] is True
