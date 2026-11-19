@@ -34,6 +34,7 @@ def _load_raw(split: str) -> pd.DataFrame:
 
 
 _SUBSAMPLE_SIZES = {"train": 60_000, "dev": 10_000}
+_XAI_SUBSET_SIZE = 2_000
 
 
 def _stratified_sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
@@ -73,3 +74,7 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
     if split in _SUBSAMPLE_SIZES:
         df = _stratified_sample(df, _SUBSAMPLE_SIZES[split])
     return df
+
+
+def xai_subset() -> pd.DataFrame:
+    return _stratified_sample(load_split("test"), _XAI_SUBSET_SIZE)
