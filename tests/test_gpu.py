@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 import torch
 
@@ -42,3 +43,20 @@ def test_forward_passes_of_training_and_inference_run_in_bfloat16_on_the_gpu(
     assert training_dtypes == {torch.bfloat16}
     assert set(seen) == {torch.bfloat16}
     assert next(model.network.parameters()).dtype == torch.float32
+
+
+@pytest.mark.gpu
+@pytest.mark.slow
+def test_the_trained_checkpoint_predicts_ten_real_bios_twice_with_identical_outputs():
+    # Needs the checkpoint that scripts/train_deberta.py saves and the real dataset.
+    from hiring_bias_xai import data
+    from hiring_bias_xai.models import DebertaModel
+
+    texts = list(data.load_split("test")["text"][:10])
+    model = DebertaModel.load()
+    model.network.to("cuda")
+    first, second = model.predict_proba(texts), model.predict_proba(texts)
+    assert first.shape == (10, 28)
+    assert next(model.network.parameters()).dtype == torch.float32
+    np.testing.assert_array_equal(first, second)
+    np.testing.assert_allclose(first.sum(axis=1), 1.0, rtol=1e-5)
