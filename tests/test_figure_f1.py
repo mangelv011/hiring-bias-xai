@@ -109,6 +109,28 @@ def test_the_figure_states_pearson_r_with_its_fisher_interval(figure):
     assert "r = 0.85 [0.71, 0.93]" in [t.get_text() for t in ax.texts]
 
 
+def test_only_the_showcase_occupations_are_labelled_next_to_their_dots(figure):
+    (ax,) = figure.axes
+    labels = {t.get_text(): t for t in ax.texts if not t.get_text().startswith("r =")}
+    assert sorted(labels) == sorted(o.replace("_", " ") for o in ["o1", "o2", "o3", "o6", "o7", "o8"])
+    for name in ("o1", "o6"):
+        x, y = labels[name].xy
+        assert (x, y) == pytest.approx((SHARES[name], GAPS[name]))
+
+
+def test_showcase_dots_have_the_highlight_colour_and_the_others_are_grey(figure):
+    (ax,) = figure.axes
+    colour_of = {}
+    for c in ax.collections:
+        if isinstance(c, matplotlib.collections.PathCollection):
+            hex_colour = matplotlib.colors.to_hex(c.get_facecolor()[0]).upper()
+            for x, y in c.get_offsets():
+                colour_of[round(float(x), 3)] = hex_colour
+    highlighted = {x for x, colour in colour_of.items() if colour == "#D55E00"}
+    assert highlighted == {SHARES[o] for o in ["o1", "o2", "o3", "o6", "o7", "o8"]}
+    assert {colour_of[SHARES["o4"]], colour_of[SHARES["o5"]]} == {"#999999"}
+
+
 def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
     (ax,) = figure.axes
     bars = [
