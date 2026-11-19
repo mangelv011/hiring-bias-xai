@@ -6,6 +6,7 @@ from typing import NamedTuple, Protocol
 import joblib
 import numpy as np
 import torch
+from scipy.special import logsumexp
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
@@ -15,22 +16,50 @@ from hiring_bias_xai.config import artifacts_dir
 
 
 class Classifier(Protocol):
-    """A screener that maps texts to occupation probabilities.
+    """A screener that maps texts to occupation scores.
 
-    `predict_proba` returns an array of shape (n, n_labels); each row sums to 1 and
-    column i is the probability of `labels[i]`.
+    `logits` returns an array of shape (n, n_labels), column i the score of `labels[i]`.
+    `predict_proba` is its softmax, so each row sums to 1. `predict` gives the name of the
+    highest-scoring occupation of each text. `class_log_odds` gives, for one occupation, the
+    log of its odds against all the others, computed from the logits (see `log_odds`).
     """
 
     labels: Sequence[str]
 
+    def logits(self, texts: Sequence[str]) -> np.ndarray: ...
+
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray: ...
+
+    def predict(self, texts: Sequence[str]) -> list[str]: ...
+
+    def class_log_odds(self, texts: Sequence[str], label: str) -> np.ndarray: ...
+
+
+def log_odds(logits: np.ndarray, index: int) -> np.ndarray:
+    """Log-odds of column `index` of `logits` against the others, as float64.
+
+    z_c - logsumexp over k != c of z_k. Computed from logits because probabilities saturate to
+    exactly 0 and 1 in float32.
+    """
+    logits = np.asarray(logits, dtype=np.float64)
+    return logits[:, index] - logsumexp(np.delete(logits, index, axis=1), axis=1)
+
+
+class _Screener:
+    """`predict` and `class_log_odds` for any class with `labels` and `logits`."""
+
+    def predict(self, texts: Sequence[str]) -> list[str]:
+        return [self.labels[i] for i in self.logits(texts).argmax(axis=1)]
+
+    def class_log_odds(self, texts: Sequence[str], label: str) -> np.ndarray:
+        return log_odds(self.logits(texts), self.labels.index(label))
 
 
 def _baseline_file():
     return artifacts_dir() / "models" / "baseline.joblib"
 
 
-class BaselineModel:
+class BaselineModel(_Screener):
     """TF-IDF (word 1-2 grams) with multinomial logistic regression; satisfies `Classifier`."""
 
     labels = data.OCCUPATIONS
@@ -45,6 +74,16 @@ class BaselineModel:
             LogisticRegression(C=self.C, max_iter=1000),
         ).fit(texts, occupations)
         return self
+
+    def logits(self, texts: Sequence[str]) -> np.ndarray:
+        """Float64 scores, shape (n, n_labels); occupations never seen in `fit` get -inf."""
+        seen = self.pipeline.decision_function(texts)
+        if seen.ndim == 1:  # two occupations: sklearn gives one score, the logit of the second
+            seen = np.stack([-seen / 2, seen / 2], axis=1)
+        columns = [self.labels.index(name) for name in self.pipeline.classes_]
+        logits = np.full((len(seen), len(self.labels)), -np.inf)
+        logits[:, columns] = seen
+        return logits
 
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
         seen = self.pipeline.predict_proba(texts)
@@ -88,7 +127,7 @@ class Representations(NamedTuple):
     final: np.ndarray
 
 
-class DebertaModel:
+class DebertaModel(_Screener):
     """DeBERTa-v3-small with a classification head over the occupations; satisfies `Classifier`."""
 
     labels = data.OCCUPATIONS
