@@ -287,3 +287,57 @@ def test_the_axes_are_labelled_with_the_quantities_and_ticked_in_shares(figure):
     assert ax.get_xlabel() == "Share of women in the training subsample"
     assert ax.get_ylabel() == "TPR gap (women minus men)"
     assert list(ax.get_xticks()) == [0.2, 0.4, 0.6, 0.8, 1.0]
+
+
+def _label_boxes(fig):
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    (ax,) = fig.axes
+    return {
+        t.get_text(): matplotlib.text.Text.get_window_extent(t, renderer)
+        for t in ax.texts
+        if hasattr(t, "xyann")
+    }
+
+
+def _assert_labels_are_clear(fig):
+    (ax,) = fig.axes
+    boxes = _label_boxes(fig)
+    fitted = next(line for line in ax.get_lines() if not np.all(np.asarray(line.get_ydata()) == 0))
+    path = fitted.get_path().transformed(fitted.get_transform())
+    dots = np.concatenate(
+        [
+            ax.transData.transform(c.get_offsets())
+            for c in ax.collections
+            if isinstance(c, matplotlib.collections.PathCollection)
+        ]
+    )
+    names = list(boxes)
+    for i, name in enumerate(names):
+        box = boxes[name]
+        assert not path.intersects_bbox(box, filled=False), f"{name} crosses the fitted line"
+        for other in names[i + 1 :]:
+            assert not box.overlaps(boxes[other]), f"{name} overlaps {other}"
+        inside = (
+            (dots[:, 0] > box.x0 - 3)
+            & (dots[:, 0] < box.x1 + 3)
+            & (dots[:, 1] > box.y0 - 3)
+            & (dots[:, 1] < box.y1 + 3)
+        )
+        assert not inside.any(), f"{name} covers a dot"
+
+
+def test_labels_do_not_cross_the_fitted_line_or_each_other_or_cover_a_dot(figure):
+    _assert_labels_are_clear(figure)
+
+
+def test_the_committed_f1_has_clear_labels():
+    spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fig = module.build(SCRIPT.parents[1] / "results")
+    try:
+        assert len(_label_boxes(fig)) == 6
+        _assert_labels_are_clear(fig)
+    finally:
+        plt.close(fig)
