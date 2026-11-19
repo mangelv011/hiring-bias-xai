@@ -46,3 +46,9 @@ def test_train_baseline_writes_the_metrics_file(train_baseline):
         "runtime_seconds",
         "test",
     ]
+
+
+def test_ties_on_dev_go_to_the_smaller_C_and_the_larger_min_df(train_baseline):
+    metrics = json.loads((train_baseline() / "metrics_baseline.json").read_text())
+    assert {row["dev_macro_f1"] for row in metrics["dev_grid"]} == {1.0}
+    assert metrics["hyperparameters"] == {"C": 0.5, "min_df": 5}
