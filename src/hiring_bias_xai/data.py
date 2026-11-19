@@ -101,7 +101,9 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
 
 
 def showcase_subset(test: pd.DataFrame, occupations: Sequence[str]) -> pd.DataFrame:
-    """150 test bios per occupation in `occupations` and gender, in official row order.
+    """Up to 150 test bios per occupation in `occupations` and gender, in official row order.
+
+    A group with fewer bios than that contributes all of them.
 
     Groups are visited in sorted (occupation, gender) order and each draws from one generator
     seeded with `SEED`, so the result does not depend on the order of `occupations`.
@@ -110,12 +112,9 @@ def showcase_subset(test: pd.DataFrame, occupations: Sequence[str]) -> pd.DataFr
     groups = chosen_occupations.groupby(["occupation", "gender"])
     rng = np.random.default_rng(SEED)
     chosen = []
-    for (occupation, gender), positions in groups.indices.items():
-        if len(positions) < _SHOWCASE_PER_GROUP:
-            raise ValueError(
-                f"{occupation} {gender}: {len(positions)} test bios, {_SHOWCASE_PER_GROUP} needed"
-            )
-        chosen.append(rng.choice(positions, size=_SHOWCASE_PER_GROUP, replace=False))
+    for positions in groups.indices.values():
+        size = min(len(positions), _SHOWCASE_PER_GROUP)
+        chosen.append(rng.choice(positions, size=size, replace=False))
     return chosen_occupations.iloc[np.sort(np.concatenate(chosen))].reset_index(drop=True)
 
 
