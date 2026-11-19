@@ -76,6 +76,25 @@ def rms_permutation_test(y_true, y_pred, gender, *, n_perm=1000, seed=SEED) -> d
     }
 
 
+def occupation_tests(y_true, y_pred, gender) -> dict:
+    """Per occupation: TPR gap, raw p of the women-versus-men z-test and its Holm-adjusted p.
+
+    Holm runs over all occupations. The gaps are descriptive; a claim that one occupation's gap
+    is non-zero rests on `p_holm` only.
+    """
+    names, cells = _by_occupation(y_true, y_pred, gender)
+    rows = []
+    for hit, female in cells:
+        hits_f, n_f = int(hit[female].sum()), int(female.sum())
+        hits_m, n_m = int(hit[~female].sum()), int((~female).sum())
+        rows.append((hits_f / n_f - hits_m / n_m, two_proportion_p(hits_f, n_f, hits_m, n_m)))
+    adjusted = holm([p for _, p in rows])
+    return {
+        name: {"tpr_gap": gap, "p_raw": p, "p_holm": p_holm}
+        for name, (gap, p), p_holm in zip(names, rows, adjusted, strict=True)
+    }
+
+
 def _pearson_rows(x, y):
     """Pearson correlation of each row of `x` with the same row of `y`; NaN for a constant row."""
     x = x - x.mean(axis=-1, keepdims=True)
