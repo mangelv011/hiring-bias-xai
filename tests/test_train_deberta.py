@@ -165,3 +165,21 @@ def test_every_run_records_its_best_dev_evaluation(run):
         assert entry["evaluations"] == 6
     assert runs[0]["best_dev_macro_f1"] == 1.0
     assert runs[1]["best_dev_macro_f1"] < 1.0
+
+
+def test_the_hyperparameters_name_the_chosen_run_and_every_fixed_setting(run):
+    chosen = _metrics(run)["runs"][0]
+    assert _metrics(run)["hyperparameters"] == {
+        "learning_rate": 3e-3,
+        "best_step": chosen["best_step"],
+        "max_epochs": 30,
+        "batch_size": 4,
+        "gradient_accumulation": 1,
+        "effective_batch_size": 4,
+        "warmup_ratio": 0.06,
+        "evaluation_every_steps": 40,
+        "patience_in_evaluations": 100,
+        "max_length": 64,
+        "seed": 42,
+        "precision": "bfloat16 autocast on CUDA, float32 otherwise",
+    }
