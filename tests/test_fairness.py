@@ -55,3 +55,13 @@ def test_tpr_gap_is_the_female_tpr_minus_the_male_tpr():
     per_occupation = _report()["per_occupation"]
     assert per_occupation[N]["tpr_gap"]["value"] == pytest.approx(3 / 4 - 1 / 2)
     assert per_occupation[S]["tpr_gap"]["value"] == pytest.approx(1 / 2 - 4 / 4)
+
+
+def test_a_model_that_misses_more_women_than_men_has_a_negative_gap():
+    report = fairness.evaluate(
+        [N] * 4,
+        [N, S, N, N],  # women: one of two found; men: both found
+        ["female", "female", "male", "male"],
+        {N: 0.5},
+    )
+    assert report["per_occupation"][N]["tpr_gap"]["value"] == pytest.approx(-0.5)
