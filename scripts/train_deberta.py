@@ -80,6 +80,12 @@ def _fit(learning_rate: float, train_frame, dev_frame):
         accumulation=ACCUMULATION,
         eval_every=EVAL_EVERY,
         patience=PATIENCE,
+        on_evaluation=lambda row: print(
+            f"lr={learning_rate:g} step={row['step']} epoch={row['epoch']} "
+            f"train_loss={row['train_loss']:.4f} dev_loss={row['dev_loss']:.4f} "
+            f"dev_macro_f1={row['dev_macro_f1']:.4f}",
+            flush=True,
+        ),
     )
     return model, rows, time.perf_counter() - started
 
