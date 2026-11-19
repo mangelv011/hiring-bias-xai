@@ -19,14 +19,30 @@ ROWS = (
 SHARE_WOMEN = {N: 0.9, S: 0.1}
 
 
-def _report(**kwargs):
-    y_true, gender, y_pred = zip(*ROWS, strict=True)
+def _report(copies=1, **kwargs):
+    y_true, gender, y_pred = zip(*(ROWS * copies), strict=True)
     return fairness.evaluate(y_true, y_pred, gender, SHARE_WOMEN, **kwargs)
 
 
 def test_accuracy_has_a_confidence_interval_around_the_point_estimate():
     accuracy = _report(n_boot=200)["accuracy"]
     assert accuracy["ci_low"] <= accuracy["value"] <= accuracy["ci_high"]
+
+
+def _metrics(report):
+    """Every {"value": ...} entry of a report."""
+    for key, entry in report.items():
+        if key == "value":
+            yield report
+        elif isinstance(entry, dict):
+            yield from _metrics(entry)
+
+
+def test_every_metric_has_an_interval_around_its_point_estimate():
+    metrics = list(_metrics(_report(copies=10, n_boot=200)))
+    assert len(metrics) == 2 + 3 * 2 + 2  # accuracy, F1, 3 per occupation x 2, RMS, Pearson
+    for metric in metrics:
+        assert metric["ci_low"] <= metric["value"] <= metric["ci_high"]
 
 
 def test_accuracy_interval_matches_the_normal_approximation():
