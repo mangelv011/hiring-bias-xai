@@ -94,3 +94,25 @@ def test_the_script_stops_when_its_point_values_disagree_with_the_metrics_file(r
     path.write_text(json.dumps(metrics))
     with pytest.raises(ValueError, match="rms_tpr_gap"):
         run()
+
+
+def test_the_script_records_how_many_bootstrap_resamples_it_used(run):
+    assert run()["main_model"]["n_bootstrap"] == 30
+
+
+def test_the_script_stops_when_the_stored_gap_share_correlation_differs(run):
+    path = run.results / "metrics_baseline.json"
+    metrics = json.loads(path.read_text())
+    metrics["test"]["gap_share_pearson"]["value"] -= 0.01
+    path.write_text(json.dumps(metrics))
+    with pytest.raises(ValueError, match="gap_share_pearson"):
+        run()
+
+
+def test_the_script_stops_when_a_bio_has_two_predictions(run, tmp_path):
+    run()
+    path = tmp_path / "artifacts" / "predictions" / "deberta_test.csv"
+    lines = path.read_text().splitlines()
+    path.write_text("\n".join([*lines, lines[1]]) + "\n")
+    with pytest.raises(pd.errors.MergeError):
+        run()
