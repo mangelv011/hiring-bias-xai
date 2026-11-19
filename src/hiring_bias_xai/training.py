@@ -38,7 +38,8 @@ def train(
 ) -> list[dict]:
     """Fine-tune `model` and return one row per evaluation on the dev bios.
 
-    Training stops after `patience` evaluations in a row without a higher dev macro-F1.
+    Training stops after `patience` evaluations in a row without a higher dev macro-F1, and
+    the model ends with the weights of the evaluation that had the highest one.
     """
     network = model.network
     targets = torch.tensor([model.labels.index(label) for label in train_labels])
@@ -48,7 +49,8 @@ def train(
     scheduler = get_linear_schedule_with_warmup(
         optimizer, math.ceil(WARMUP_RATIO * total_steps), total_steps
     )
-    rows, step, losses, best_f1, stale = [], 0, [], -1.0, 0
+    rows, step, losses, best_f1, best_weights, stale = [], 0, [], -1.0, None, 0
+    stopped = False
     for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_texts))
         for start in range(0, len(order) - batch_size + 1, batch_size):
@@ -79,8 +81,16 @@ def train(
                 losses = []
                 if rows[-1]["dev_macro_f1"] > best_f1:
                     best_f1, stale = rows[-1]["dev_macro_f1"], 0
+                    best_weights = {
+                        name: tensor.to("cpu", copy=True)
+                        for name, tensor in network.state_dict().items()
+                    }
                 else:
                     stale += 1
-                if stale >= patience:
-                    return rows
+                stopped = stale >= patience
+                if stopped:
+                    break
+        if stopped:
+            break
+    network.load_state_dict(best_weights)
     return rows
