@@ -11,7 +11,8 @@ OCCUPATIONS = (
 )  # fmt: skip
 
 _GENDERED = re.compile(
-    r"\b(?:he|she|her|his|him|hers|himself|herself|mr|mrs|ms)\b", re.IGNORECASE
+    r"\b(?:(?:he|she|her|his|him|hers|himself|herself)(?:['’](?:s|d|ll)?)?|mr|mrs|ms)(?!\w)",
+    re.IGNORECASE,
 )
 
 
