@@ -10,6 +10,7 @@ from scipy import stats
 from hiring_bias_xai.config import SEED
 
 Z_95 = stats.norm.ppf(0.975)
+ALPHA = 0.05
 
 
 def fisher_ci(r: float, n: int) -> tuple[float, float]:
@@ -93,6 +94,30 @@ def occupation_tests(y_true, y_pred, gender) -> dict:
         name: {"tpr_gap": gap, "p_raw": p, "p_holm": p_holm}
         for name, (gap, p), p_holm in zip(names, rows, adjusted, strict=True)
     }
+
+
+def compute(y_true, y_pred, gender, share_women, *, n_boot=1000, n_perm=1000, seed=SEED) -> dict:
+    """Every gap statistic of one screener, from its predictions on the test bios.
+
+    `share_women` maps each occupation to its share of women in the training subsample.
+    """
+    tests = occupation_tests(y_true, y_pred, gender)
+    names = list(tests)
+    gap = [tests[name]["tpr_gap"] for name in names]
+    share = [share_women[name] for name in names]
+    return (
+        {"n_occupations": len(names)}
+        | correlations(gap, share, n_boot=n_boot, seed=seed)
+        | {
+            "leave_one_out": leave_one_out(gap, share, names),
+            "rms_tpr_gap": rms_permutation_test(y_true, y_pred, gender, n_perm=n_perm, seed=seed),
+            "alpha": ALPHA,
+            "n_significant_holm": sum(row["p_holm"] < ALPHA for row in tests.values()),
+            "occupations": {
+                name: {"share_women": share_women[name]} | row for name, row in tests.items()
+            },
+        }
+    )
 
 
 def _pearson_rows(x, y):
