@@ -43,6 +43,10 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             },
         },
     )
+    _write_json(
+        results_dir / "showcase_occupations.json",
+        data.showcase_occupations(frames["train"], frames["test"]),
+    )
 
 
 if __name__ == "__main__":
