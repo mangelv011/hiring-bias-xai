@@ -60,3 +60,29 @@ def test_the_learning_rate_warms_up_over_six_percent_of_the_steps_then_decays_li
     expected = {1: 1e-3 / 3, 2: 2e-3 / 3, 3: 1e-3, 26: 1e-3 * 24 / 47, 50: 0.0}
     for step, value in expected.items():
         assert rate[step] == pytest.approx(value)
+
+
+def test_each_evaluation_gets_a_row_and_the_last_step_is_always_evaluated(model):
+    # 32 bios in batches of 8 give 4 steps per epoch, 8 in two epochs. Evaluating every 3 steps
+    # gives steps 3 and 6, plus the final step 8.
+    texts, labels = _bios(16)
+    rows = train(
+        model,
+        texts,
+        labels,
+        texts[:4],
+        labels[:4],
+        learning_rate=1e-3,
+        epochs=2,
+        batch_size=8,
+        eval_every=3,
+    )
+    assert [(row["step"], row["epoch"]) for row in rows] == [(3, 1), (6, 2), (8, 2)]
+    assert set(rows[0]) == {
+        "step",
+        "epoch",
+        "train_loss",
+        "learning_rate",
+        "dev_loss",
+        "dev_macro_f1",
+    }
