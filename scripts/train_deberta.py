@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 import torch
+from sklearn.metrics import f1_score
 
 from hiring_bias_xai import data, fairness
 from hiring_bias_xai.config import RESULTS_DIR, artifacts_dir
@@ -79,13 +80,24 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     report = fairness.evaluate(
         test_frame["occupation"], predicted, test_frame["gender"], _share_women(train_frame)
     )
+    train_f1 = float(
+        f1_score(train_frame["occupation"], _predict(model, train_frame["text"]), average="macro")
+    )
     columns = ["base_learning_rate", "step", "epoch", "train_loss", "dev_loss", "dev_macro_f1"]
     pd.DataFrame(log)[[*columns, "learning_rate"]].to_csv(
         results_dir / "training_log.csv", index=False
     )
     _write_json(
         results_dir / "metrics_deberta.json",
-        {"hyperparameters": {"learning_rate": best_learning_rate}, "test": report},
+        {
+            "hyperparameters": {"learning_rate": best_learning_rate},
+            "overfitting_check": {
+                "train_macro_f1": train_f1,
+                "test_macro_f1": report["macro_f1"]["value"],
+                "gap": train_f1 - report["macro_f1"]["value"],
+            },
+            "test": report,
+        },
     )
 
 
