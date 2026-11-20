@@ -121,6 +121,19 @@ def test_each_panel_lists_its_words_sorted_by_contribution_with_the_largest_at_t
     assert offsets[:, 1].tolist() == pytest.approx([0, 1, 2, 3])
 
 
+def test_every_dot_has_its_interval_and_there_is_a_zero_line(figure):
+    surgeon, _ = _data_axes(figure)
+    segments = [seg.tolist() for seg in _intervals(surgeon).get_segments()]
+    assert segments == [
+        [[0.10, 0], [0.50, 0]],
+        [[0.05, 1], [0.35, 1]],
+        [[-0.30, 2], [0.10, 2]],
+        [[-0.60, 3], [-0.20, 3]],
+    ]
+    zero_lines = [line for line in surgeon.lines if list(line.get_xdata()) == [0, 0]]
+    assert len(zero_lines) == 1
+
+
 def _summary(gap):
     return {"score_gap": {"value": gap}}
 
