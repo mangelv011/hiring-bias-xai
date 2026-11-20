@@ -150,3 +150,33 @@ def test_a_correlation_that_is_undefined_is_nan():
     spearman, _ = checks.rank_agreement(np.zeros(5), np.arange(5.0))
     assert np.isnan(spearman)
     assert np.isnan(checks.rank_agreement(np.array([1.0]), np.array([2.0]))[0])
+
+
+class _AnyAlpha(BagOfWords):
+    """Nurse logit 5 when the bio has the word alpha at all: a second alpha is redundant."""
+
+    def score(self, text):
+        logits = np.zeros(28)
+        logits[NURSE] = 5.0 if "alpha" in text.split() else 0.0
+        return logits
+
+
+def test_leave_one_out_is_the_fall_in_log_odds_when_that_one_word_is_deleted():
+    classifier = BagOfWords({"nurse": WEIGHTS})
+    values = checks.loo_values(classifier, WORDS, NURSE)
+    np.testing.assert_allclose(values, [3.0, 2.0, -1.0, 0.0], atol=1e-6)
+    assert len(classifier.calls) == 1
+
+
+def test_a_redundant_word_has_no_leave_one_out_value_but_its_group_does():
+    words = ["alpha", "beta", "alpha"]
+    classifier = _AnyAlpha({})
+    np.testing.assert_allclose(checks.loo_values(classifier, words, NURSE), [0, 0, 0], atol=1e-6)
+    drop = checks.drop_without(classifier, words, [[0], [0, 2]], NURSE)
+    np.testing.assert_allclose(drop, [0.0, 5.0], atol=1e-6)
+
+
+def test_deleting_a_group_rejoins_the_other_words_with_single_spaces():
+    classifier = BagOfWords({})
+    checks.drop_without(classifier, ["a", "b", "c"], [[1]], NURSE)
+    assert classifier.calls == [["a b c", "a c"]]
