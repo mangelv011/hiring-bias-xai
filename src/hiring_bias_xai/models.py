@@ -239,3 +239,39 @@ class DebertaModel(_Screener):
         return Representations(
             self._in_input_order(layers, positions), self._in_input_order(final, positions)
         )
+
+    def states(self, inputs) -> tuple[torch.Tensor, tuple[torch.Tensor, ...]]:
+        """Logits and the token-level states of one batch from `batches`.
+
+        The states are the output of the embeddings and of each transformer layer, each of shape
+        (batch, token, hidden_size).
+        """
+        with torch.inference_mode(), autocast(self.network):
+            output = self.network(**inputs, output_hidden_states=True)
+        return output.logits.float(), output.hidden_states
+
+    def patched_logits(
+        self, inputs, layer: int, replacement: torch.Tensor, mask: torch.Tensor
+    ) -> torch.Tensor:
+        """Logits of one batch with the output of `layer` replaced where `mask` is True.
+
+        `layer` 0 is the embeddings, `layer` k the output of transformer layer k. `replacement`
+        has the shape of that output, (batch, token, hidden_size); `mask` is (batch, token).
+        """
+        module = (
+            self.network.deberta.embeddings
+            if layer == 0
+            else self.network.deberta.encoder.layer[layer - 1]
+        )
+
+        def patch(_, __, output):
+            hidden = output[0] if isinstance(output, tuple) else output
+            hidden = torch.where(mask[..., None], replacement.to(hidden.dtype), hidden)
+            return (hidden, *output[1:]) if isinstance(output, tuple) else hidden
+
+        handle = module.register_forward_hook(patch)
+        try:
+            with torch.inference_mode(), autocast(self.network):
+                return self.network(**inputs).logits.float()
+        finally:
+            handle.remove()
