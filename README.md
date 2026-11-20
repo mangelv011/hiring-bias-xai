@@ -62,15 +62,15 @@ No shuffle reached the observed RMS TPR gap, so the p-value is the smallest this
 
 The per-occupation gaps are descriptive. Only the Holm-adjusted ones support a claim that a gap is not zero. For the main model they are: women favoured in dietitian, model, nurse, paralegal, physician and teacher; men favoured in attorney, chiropractor, pastor and surgeon. The other 18 occupations show no gap at that level; that does not show their gaps are zero.
 
-### F2: two bios, and the words that moved the score
+### F2: a woman and a man, and the words that moved the score
 
-![Gendered words pushed the main model to photographer by 4.3 log-odds in its largest gender-driven error and carry 21% of the weight in its most gendered correct call.](results/figures/f2_shapley_cases.png)
+![Gendered words added 3.2 log-odds to a wrong call for a woman and 2.0 for a man.](results/figures/f2_shapley_cases.png)
 
-Two showcase-subset bios, main model, `delete` removal, 40 random word orders (each with its reverse) per bio. Each panel shows the bio with its eight largest words underlined, and a bar per word: its Shapley value for the predicted occupation, in log-odds, positive towards it. Gendered words, the ones `data.scrub` removes, are in the highlight colour. Under a deuteranopia simulation they stay apart from the grey ([check](docs/figure_checks/f2_deuteranopia.png)).
+Two showcase-subset bios, main model, `delete` removal, 40 random word orders (each with its reverse) per bio, both misclassified. The cases mirror F1: a woman whose true occupation is one of the three male-dominated showcase occupations, and a man in one of the three female-dominated ones. Each panel shows the bio with its eight largest units underlined, and a bar per unit: its Shapley value for the predicted occupation, in log-odds, positive towards it. Gendered words, the ones `data.scrub` removes (a unit whose core, without punctuation at its ends, is one of them), are in the highlight colour. The panel header gives the sum over all gendered units of the bio, which is the number in the title. Under a deuteranopia simulation they stay apart from the grey ([check](docs/figure_checks/f2_deuteranopia.png)).
 
-The two bios come from rules, not from a hand pick. Error: among the bios the model gets wrong, the one whose gendered words add the most to the log-odds of the predicted occupation (`test-70337`, a fan-fiction page labelled model, predicted photographer, +4.35). Correct: among the bios it gets right, the one where gendered words carry the largest share of the total absolute value (`test-94741`, a nurse, 21%). Bios with a run of six or more digits are excluded, because they may hold a registry number. Both are extremes of their groups (`results/f2_cases.json`), not typical cases.
+The bios come from rules fixed beforehand: in each group, the misclassified bio whose gendered units add the most to the log-odds of the predicted occupation (`test-30717`, a composer predicted as rapper, +3.2 over 11 units; `test-9467`, a model predicted as poet, +2.0 over 2 units). Bios under 15 units, and bios with six or more digits in a row, are excluded. Both are the largest of their group (114 and 154 errors), not typical cases. In both, the largest single units are topic words (songs, career, play), and one gendered unit alone is worth +0.6 and +1.0. If a group had no qualifying bio the figure would say so.
 
-The values carry sampling noise and the figure shows no interval per word: the run stored one seed. In the pilot two seeds agreed on the main model with a median Spearman correlation of 0.89 over all words at 40 orders, below the 0.9 the pilot asked for. On the baseline model the other words agreed less than the ten largest, and 7 of the 8 largest were shared on average ([ADR 0003](docs/decisions/0003-shapley-attribution.md)). Read single-word values in one bio as indications; #7 aggregates over bios.
+The values carry sampling noise and the figure shows no interval per word: the run stored one seed. In the pilot two seeds agreed on the main model with a median Spearman correlation of 0.89 over all words at 40 orders, below the 0.9 the pilot asked for. On the baseline model the other words agreed less than the ten largest, and 7 of the 8 largest were shared on average. Whitespace units glue some words, as in `shoot...she`: 1.2% of units, and 0.28% of gendered units (`results/word_units.json`). See [ADR 0003](docs/decisions/0003-shapley-attribution.md). Read single-word values in one bio as indications; #7 aggregates over bios.
 
 ## How to run
 
@@ -101,6 +101,7 @@ The Shapley run needs the GPU and nothing else running. Run the pilots first, th
 uv run python scripts/shapley_pilot.py   # writes results/shapley_pilot.json
 uv run python scripts/shapley_run.py     # writes attributions to HBX_ARTIFACTS and results/shapley_summary.json
 uv run python scripts/shapley_stability.py   # CPU, baseline model: results/shapley_stability.json
+uv run python scripts/word_units.py      # counts glued whitespace units: results/word_units.json
 uv run python scripts/figure_f2.py       # reads the saved attributions and predictions, writes F2 and results/f2_cases.json
 ```
 
