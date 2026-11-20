@@ -54,3 +54,9 @@ def test_contribution_is_the_womens_mean_minus_the_mens_with_absent_words_counti
     assert table["contribution"].to_dict() == pytest.approx({"a": 3 / 2, "b": 5 / 6, "c": -2 / 3})
     assert table["n_bios"].to_dict() == {"a": 3, "b": 3, "c": 2}
 
+
+def test_importance_is_the_mean_over_the_bios_that_contain_the_word_of_both_genders():
+    table = _by_word(gap_decomposition.decompose(BIOS, min_bios=1).table)
+    assert table["importance"].to_dict() == pytest.approx({"a": 7 / 3, "b": 5 / 3, "c": 3 / 2})
+
+
