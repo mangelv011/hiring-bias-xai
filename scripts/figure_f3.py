@@ -48,6 +48,10 @@ def title(panels: Sequence[Panel]) -> str:
         for p in stable
     ]
     small = " and ".join(_name(p.occupation) for p in unstable)
+    if not unstable:
+        return f"Gendered words are {' and '.join(clauses)}."
+    if not stable:
+        return f"The {small} gaps are too small to split."
     return f"Gendered words are {' and '.join(clauses)}; the {small} gap is too small to split."
 
 
