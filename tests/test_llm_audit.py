@@ -75,3 +75,18 @@ def test_a_rerun_skips_the_requests_already_answered(tmp_path):
         again.ask([{"role": "user", "content": "other"}])
     assert len(server.requests) == 2
     assert len(log.read_text().splitlines()) == 2
+
+
+def test_base_url_and_model_come_from_the_environment_with_the_local_server_as_default(
+    monkeypatch, tmp_path
+):
+    monkeypatch.delenv("HBX_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("HBX_LLM_MODEL", raising=False)
+    default = llm_audit.Client(tmp_path / "a.jsonl")
+    assert (default.base_url, default.model) == ("http://127.0.0.1:11400/v1", "pc-equilibrado")
+    monkeypatch.setenv("HBX_LLM_BASE_URL", "http://example.test/v1")
+    monkeypatch.setenv("HBX_LLM_MODEL", "other")
+    from_env = llm_audit.Client(tmp_path / "a.jsonl")
+    assert (from_env.base_url, from_env.model) == ("http://example.test/v1", "other")
+    explicit = llm_audit.Client(tmp_path / "a.jsonl", base_url="http://x/v1", model="m")
+    assert (explicit.base_url, explicit.model) == ("http://x/v1", "m")
