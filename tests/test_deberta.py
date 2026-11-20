@@ -256,3 +256,32 @@ def test_batches_yield_padded_inputs_sorted_by_length_with_the_positions_of_thei
     assert [list(positions) for positions, _ in batches] == [[2, 0], [1, 3]]
     assert [tuple(inputs["input_ids"].shape) for _, inputs in batches] == [(2, 4), (2, 7)]
     assert not model.network.training
+
+
+def test_mean_pooled_representations_average_the_states_of_the_non_padding_tokens(
+    tiny_network, tiny_tokenizer
+):
+    # One text at a time there is no padding, so the plain mean over its tokens (the two special
+    # tokens included) is the reference; batch size 3 pads the shorter texts.
+    model = _model(tiny_network, tiny_tokenizer, batch_size=3)
+    layers, _ = model.representations(TEXTS, pooling="mean")
+    assert layers.shape == (4, 3, 32)
+    for row, text in zip(layers, TEXTS, strict=True):
+        with torch.no_grad():
+            states = model.network.deberta(
+                **model.tokenizer([text], return_tensors="pt"), output_hidden_states=True
+            ).hidden_states
+        expected = torch.stack([state[0].mean(dim=0) for state in states]).numpy()
+        np.testing.assert_allclose(row, expected, atol=1e-5)
+
+
+def test_representations_pool_at_the_cls_token_unless_told_otherwise(tiny_network, tiny_tokenizer):
+    model = _model(tiny_network, tiny_tokenizer)
+    cls = model.representations(TEXTS)[0]
+    np.testing.assert_array_equal(cls, model.representations(TEXTS, pooling="cls")[0])
+    assert not np.allclose(cls, model.representations(TEXTS, pooling="mean")[0])
+
+
+def test_representations_refuse_an_unknown_pooling(tiny_network, tiny_tokenizer):
+    with pytest.raises(ValueError, match="pooling"):
+        _model(tiny_network, tiny_tokenizer).representations(TEXTS, pooling="max")
