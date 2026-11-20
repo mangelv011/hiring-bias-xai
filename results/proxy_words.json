@@ -1,0 +1,223 @@
+{
+  "gendered_sums": {
+    "composer": -1.0857726552017575,
+    "dietitian": 0.9164778661410625,
+    "model": 0.7959176507889626,
+    "nurse": 1.971131360502819,
+    "software_engineer": 0.053767880284872505,
+    "surgeon": -1.1213278441187366
+  },
+  "occupations": {
+    "composer": [
+      {
+        "ci_high": -0.013614762269372842,
+        "ci_low": -0.16158924674946432,
+        "contribution": -0.08303056070550552,
+        "word": "and"
+      },
+      {
+        "ci_high": -0.007399402478661398,
+        "ci_low": -0.1144552634298902,
+        "contribution": -0.06063460013851085,
+        "word": "jazz"
+      },
+      {
+        "ci_high": -0.0038412311991637745,
+        "ci_low": -0.05887656121882176,
+        "contribution": -0.030335323712986473,
+        "word": "has"
+      },
+      {
+        "ci_high": -0.0016698356786277934,
+        "ci_low": -0.06310570392078427,
+        "contribution": -0.027142597804770435,
+        "word": "include"
+      },
+      {
+        "ci_high": -0.001652205411423391,
+        "ci_low": -0.030571360563261655,
+        "contribution": -0.014373584408330212,
+        "word": "an"
+      }
+    ],
+    "dietitian": [
+      {
+        "ci_high": 0.9637169254204102,
+        "ci_low": 0.11543696742771063,
+        "contribution": 0.5458199533090093,
+        "word": "dietitian"
+      },
+      {
+        "ci_high": 0.4315248320881736,
+        "ci_low": 0.06546465682081111,
+        "contribution": 0.2378888531886878,
+        "word": "eating"
+      },
+      {
+        "ci_high": 0.13533998557893762,
+        "ci_low": 0.0061229198632292885,
+        "contribution": 0.07068085250274656,
+        "word": "the"
+      },
+      {
+        "ci_high": 0.03914230725700642,
+        "ci_low": 0.001036471602323604,
+        "contribution": 0.020380679255146923,
+        "word": "registered"
+      },
+      {
+        "ci_high": 0.04570593836975964,
+        "ci_low": 0.0008052432809765009,
+        "contribution": 0.02016406302456672,
+        "word": "that"
+      }
+    ],
+    "model": [
+      {
+        "ci_high": 1.1679035207765591,
+        "ci_low": 0.7607133613861145,
+        "contribution": 0.9549092083466646,
+        "word": "freeones"
+      },
+      {
+        "ci_high": 0.6717095056907434,
+        "ci_low": 0.43459989139443034,
+        "contribution": 0.5455016038131119,
+        "word": "ranked"
+      },
+      {
+        "ci_high": 0.5923198149806767,
+        "ci_low": 0.35630100187907915,
+        "contribution": 0.4777976482484657,
+        "word": "born"
+      },
+      {
+        "ci_high": 0.4037584259746704,
+        "ci_low": 0.2565205498346796,
+        "contribution": 0.3268001963349935,
+        "word": "gallery"
+      },
+      {
+        "ci_high": 0.40302561534906634,
+        "ci_low": 0.2578742449368063,
+        "contribution": 0.3251182767224193,
+        "word": "currently"
+      }
+    ],
+    "nurse": [
+      {
+        "ci_high": 0.12241890486737705,
+        "ci_low": 0.01576086273146787,
+        "contribution": 0.06863345013665482,
+        "word": "doctors"
+      },
+      {
+        "ci_high": 0.05638172420523765,
+        "ci_low": 0.007531217369890332,
+        "contribution": 0.03191837652680675,
+        "word": "appointment"
+      },
+      {
+        "ci_high": 0.06090291487823379,
+        "ci_low": 0.005963545332980065,
+        "contribution": 0.03132594268368691,
+        "word": "llc"
+      },
+      {
+        "ci_high": 0.014662435382610584,
+        "ci_low": 0.000986088691791711,
+        "contribution": 0.006692706797607877,
+        "word": "their"
+      }
+    ],
+    "software_engineer": [
+      {
+        "ci_high": 0.19685532888588364,
+        "ci_low": 0.027979127781758113,
+        "contribution": 0.11437045132032997,
+        "word": "the"
+      },
+      {
+        "ci_high": 0.19249875987674264,
+        "ci_low": 0.018289332989221814,
+        "contribution": 0.10071644124778967,
+        "word": "tech"
+      },
+      {
+        "ci_high": 0.20452702011111645,
+        "ci_low": 0.000723317459388665,
+        "contribution": 0.09301563420116644,
+        "word": "technical"
+      },
+      {
+        "ci_high": 0.08473793698983664,
+        "ci_low": 0.005408897003716011,
+        "contribution": 0.04351113587948565,
+        "word": "years"
+      }
+    ],
+    "surgeon": [
+      {
+        "ci_high": -0.013274154864438031,
+        "ci_low": -0.2966954776242761,
+        "contribution": -0.15920621503942828,
+        "word": "medical"
+      },
+      {
+        "ci_high": -0.015944764606940397,
+        "ci_low": -0.1293602202821321,
+        "contribution": -0.07186831342082875,
+        "word": "dental"
+      },
+      {
+        "ci_high": -0.00423577079811518,
+        "ci_low": -0.06429379872198879,
+        "contribution": -0.03381205116524113,
+        "word": "currently"
+      },
+      {
+        "ci_high": -0.003930581612436183,
+        "ci_low": -0.043370851884884404,
+        "contribution": -0.023441412951111445,
+        "word": "for"
+      },
+      {
+        "ci_high": -0.004486443860460176,
+        "ci_low": -0.045010546620029554,
+        "contribution": -0.02335564137151809,
+        "word": "center"
+      }
+    ]
+  },
+  "rule": "For each showcase occupation, in the rows of the main model of results/gap_decomposition.csv: keep the words that are not gendered words, whose 95% interval of the gap contribution excludes 0, and whose contribution has the sign of the gendered sum of that occupation; take the 5 with the largest absolute contribution (ties in alphabetical order). The mask list is the union over the occupations.",
+  "screener": "deberta",
+  "top_per_occupation": 5,
+  "words": [
+    "an",
+    "and",
+    "appointment",
+    "born",
+    "center",
+    "currently",
+    "dental",
+    "dietitian",
+    "doctors",
+    "eating",
+    "for",
+    "freeones",
+    "gallery",
+    "has",
+    "include",
+    "jazz",
+    "llc",
+    "medical",
+    "ranked",
+    "registered",
+    "tech",
+    "technical",
+    "that",
+    "the",
+    "their",
+    "years"
+  ]
+}
