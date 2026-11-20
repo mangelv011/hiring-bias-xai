@@ -1,9 +1,11 @@
 import random
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 
+from hiring_bias_xai import training
 from hiring_bias_xai.models import DebertaModel
 from hiring_bias_xai.training import seed_everything, train
 
@@ -239,3 +241,60 @@ def test_training_cuts_the_bios_to_the_tokenizer_max_length(tiny_network, tiny_t
         eval_every=100,
     )  # fmt: skip
     assert set(widths) == {5}
+
+
+def _frame(n_per_class, name):
+    texts, labels = _bios(n_per_class)
+    return pd.DataFrame({"id": [f"{name}-{i}" for i in range(len(texts))], "text": texts}).assign(
+        occupation=labels
+    )
+
+
+@pytest.fixture
+def fit(monkeypatch, tiny_network, tiny_tokenizer):
+    """fit(**settings): `fit_deberta` on a tiny network; the arguments `pretrained` got are kept."""
+    calls = []
+
+    def pretrained(cls, max_length, batch_size=32):
+        calls.append((max_length, batch_size, torch.rand(1).item()))
+        return cls(tiny_network(), tiny_tokenizer(max_length), batch_size)
+
+    monkeypatch.setattr(DebertaModel, "pretrained", classmethod(pretrained))
+    settings = {
+        "device": "cpu",
+        "max_length": 64,
+        "eval_batch_size": 8,
+        "epochs": 30,
+        "batch_size": 4,
+        "accumulation": 1,
+        "eval_every": 40,
+    }
+
+    def run(learning_rate=3e-3, **changes):
+        return training.fit_deberta(
+            learning_rate, _frame(16, "train"), _frame(4, "dev"), **(settings | changes)
+        )
+
+    run.calls = calls
+    return run
+
+
+def test_fit_returns_the_model_with_the_best_dev_weights_the_run_rows_and_the_seconds(fit):
+    # 32 train bios in batches of 4 make 8 steps per epoch, 240 in 30 epochs: 6 evaluations.
+    model, rows, seconds = fit()
+    assert [row["step"] for row in rows] == [40, 80, 120, 160, 200, 240]
+    assert max(row["dev_macro_f1"] for row in rows) == 1.0
+    assert model.predict(["alpha alpha alpha", "gamma gamma gamma"]) == [NURSE, SURGEON]
+    assert 0 < seconds < 600
+
+
+def test_fit_builds_the_model_with_the_given_lengths_after_seeding_the_generators(fit):
+    fit(max_length=48, eval_batch_size=3, epochs=1)
+    expected = torch.rand(1, generator=torch.Generator().manual_seed(42)).item()
+    assert fit.calls == [(48, 3, expected)]
+
+
+def test_fit_reports_each_evaluation_as_it_is_logged(fit):
+    seen = []
+    fit(epochs=1, eval_every=4, on_evaluation=seen.append)
+    assert [row["step"] for row in seen] == [4, 8]
