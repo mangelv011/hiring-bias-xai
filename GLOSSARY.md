@@ -17,7 +17,7 @@ A property of the person the screening decision must not depend on: gender or or
 _Avoid_: sensitive feature, demographic
 
 **Origin group**:
-One of four groups signalled by a name: Spain, Morocco, Romania, Hispanic America (Colombia, Ecuador and Venezuela).
+One of five groups signalled by a name: Spain, Morocco, Romania, Hispanic America (Colombia, Ecuador and Venezuela) and the United Kingdom, which is the reference group. The name check can merge or drop groups the model cannot tell apart.
 _Avoid_: ethnicity, nationality, Latin America
 
 **Showcase occupations**:
@@ -65,6 +65,28 @@ _Avoid_: embedding, features, hidden states (unqualified)
 **Screener**:
 A classifier viewed as the party making screening decisions, including the local LLM.
 _Avoid_: judge
+
+## LLM audit
+
+**Name header**:
+The first line `Name: <first name> <surname>` added above a bio, with the pronouns of the bio set to match the gender of the name. The name comes from the INE lists of an origin group.
+_Avoid_: name swap (that term is for editing a name inside a text)
+
+**Arm**:
+One way of presenting the same bio to the LLM: no header, neutral header (`Candidate ID: <n>`), name header for one origin group and gender, or gender swap with no header.
+_Avoid_: condition, variant
+
+**Manipulation check**:
+Asking the LLM for the origin and gender of each bare full name, to see whether a name header carries the signal it is meant to carry. Groups it cannot tell apart are merged or dropped by the rule of ADR 0008.
+_Avoid_: sanity check, validation
+
+**Qualified candidate**:
+A candidate whose bio really is of the job in the ad. The TPR of the LLM is the share of qualified candidates it says yes to.
+_Avoid_: positive, good candidate
+
+**Noise floor**:
+How much the LLM's decisions and TPR change when nothing that matters changes: an identical rerun and a whitespace edit. An effect smaller than the floor is not read as an effect.
+_Avoid_: baseline noise, error margin
 
 ## Bias measurement
 
