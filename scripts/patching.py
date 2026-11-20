@@ -4,9 +4,9 @@ Clean is the original showcase bio, corrupted its `counterfactual.swap_gender`. 
 are those whose swap moves the true-class log-odds by more than the 95th percentile of the move
 under the removal control (`data.scrub`) over all bios, and whose two token sequences have the
 same length. For each layer output, the clean states are patched into the corrupted run at the
-positions where the tokens differ and at all positions (`patching.patch_pairs`); the restored
-share of the true-class log-odds is summarised in `results/patching.csv` and the counts in
-`results/patching.json`. Forward passes only; needs the saved main model and the GPU, with
+positions where the tokens differ and at all the other positions (`patching.patch_pairs`); the
+restored share of the true-class log-odds is summarised in `results/patching.csv` and the counts
+in `results/patching.json`. Patching all positions is a check, not a row: it must give share 1. Forward passes only; needs the saved main model and the GPU, with
 nothing else running.
 """
 
@@ -63,10 +63,11 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             )
             if position_set == "all":
                 worst = max(worst, float(np.abs(shares - 1).max()))
-            rows.append(
-                {"layer": layer, "position_set": position_set}
-                | patching.summarise(shares, N_BOOT, SEED)
-            )
+            else:
+                rows.append(
+                    {"layer": layer, "position_set": position_set}
+                    | patching.summarise(shares, N_BOOT, SEED)
+                )
     if worst > MAX_ALL_POSITIONS_ERROR:
         raise RuntimeError(f"patching all positions left a share {worst:.3g} away from 1")
     pd.DataFrame(rows).to_csv(results_dir / "patching.csv", index=False)

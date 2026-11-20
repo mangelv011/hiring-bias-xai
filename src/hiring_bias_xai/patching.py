@@ -8,7 +8,7 @@ from hiring_bias_xai.config import SEED
 from hiring_bias_xai.models import DebertaModel, log_odds
 
 N_BOOT = 1000
-POSITION_SETS = ("differing", "all")
+POSITION_SETS = ("differing", "others", "all")
 
 
 def restored_share(clean: np.ndarray, corrupted: np.ndarray, patched: np.ndarray) -> np.ndarray:
@@ -87,7 +87,8 @@ def patch_pairs(
     (`clean`) and of the corrupted one (`corrupted`), shape (n,), and of the corrupted run with
     the clean states patched in (`patched`), shape (n, n_layers + 1, 2): layer 0 is the
     embeddings, then each transformer layer; the last axis follows `POSITION_SETS`, the
-    positions where the two token sequences differ, then all positions.
+    positions where the two token sequences differ, all the other positions, then all
+    positions.
     """
     label_index = np.asarray(label_index)
     n_outputs = model.network.config.num_hidden_layers + 1
@@ -109,10 +110,9 @@ def patch_pairs(
         corrupted_logits, _ = model.states(corrupted_in)
         out["clean"][rows] = true_class_log_odds(clean_logits.cpu().numpy(), target)
         out["corrupted"][rows] = true_class_log_odds(corrupted_logits.cpu().numpy(), target)
-        masks = (
-            clean_in["input_ids"] != corrupted_in["input_ids"],
-            corrupted_in["attention_mask"].bool(),
-        )
+        everywhere = corrupted_in["attention_mask"].bool()
+        differing = clean_in["input_ids"] != corrupted_in["input_ids"]
+        masks = (differing, everywhere & ~differing, everywhere)
         for layer in range(n_outputs):
             for k, mask in enumerate(masks):
                 logits = model.patched_logits(corrupted_in, layer, states[layer], mask)
