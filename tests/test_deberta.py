@@ -106,6 +106,35 @@ def test_a_saved_model_loads_back_from_the_artifacts_directory(
     np.testing.assert_array_equal(loaded.predict_proba(texts), model.predict_proba(texts))
 
 
+def test_a_model_saved_under_a_name_is_kept_apart_from_the_main_checkpoint(
+    monkeypatch, tmp_path, tiny_network, tiny_tokenizer
+):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    main = _model(tiny_network, tiny_tokenizer, max_length=5)
+    other = DebertaModel(tiny_network(seed=1, spread=3.0), tiny_tokenizer(5))
+    main.save()
+    other.save(name="deberta-scrubbed")
+    assert (tmp_path / "models" / "deberta-scrubbed" / "config.json").is_file()
+    texts = ["alpha beta gamma delta epsilon", "zeta eta"]
+    np.testing.assert_array_equal(
+        DebertaModel.load().predict_proba(texts), main.predict_proba(texts)
+    )
+    np.testing.assert_array_equal(
+        DebertaModel.load(name="deberta-scrubbed").predict_proba(texts), other.predict_proba(texts)
+    )
+
+
+@pytest.mark.parametrize("name", ["../deberta", "a/b", "a\\b", "", ".", "Deberta"])
+def test_a_checkpoint_name_that_is_not_a_plain_lowercase_word_is_refused(
+    name, monkeypatch, tmp_path, tiny_network, tiny_tokenizer
+):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    with pytest.raises(ValueError, match="checkpoint name"):
+        _model(tiny_network, tiny_tokenizer).save(name=name)
+    with pytest.raises(ValueError, match="checkpoint name"):
+        DebertaModel.load(name=name)
+
+
 def test_load_takes_no_path_so_only_the_project_folder_in_the_artifacts_directory_is_read():
     assert list(inspect.signature(DebertaModel.load).parameters) == ["batch_size"]
 
