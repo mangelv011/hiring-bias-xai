@@ -45,9 +45,7 @@ def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, flo
 
 
 def _interval(resampled: np.ndarray) -> tuple[float, float]:
-    """The 2.5th and 97.5th percentiles, ignoring the resamples that gave NaN; NaN if all did."""
-    if np.isnan(resampled).all():
-        return float("nan"), float("nan")
+    """The 2.5th and 97.5th percentiles, ignoring the resamples that gave NaN (no flips)."""
     low, high = np.nanpercentile(resampled, [2.5, 97.5])
     return float(low), float(high)
 
