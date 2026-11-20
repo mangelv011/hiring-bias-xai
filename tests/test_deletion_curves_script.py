@@ -134,3 +134,53 @@ def test_words_are_removed_with_unk_not_deleted(run):
     texts = [text for call in run.fakes["deberta"].calls for text in call]
     assert any("[UNK]" in text for text in texts)
     assert all(len(text.split()) == 20 for text in texts)
+
+
+def _areas(results):
+    return json.loads((results / "deletion_areas.json").read_text())
+
+
+def test_areas_are_the_mean_of_the_curve_over_the_eleven_fractions(run):
+    results = run()
+    table = _curves(results)
+    areas = _areas(results)["screeners"]["deberta"]
+    for order in ("morf", "lerf", "random"):
+        curve = table.query("screener == 'deberta' and order == @order")
+        assert areas["logodds_drop"]["area"][order]["value"] == pytest.approx(
+            curve["mean_logodds_drop"].mean()
+        )
+        assert areas["agreement"]["area"][order]["value"] == pytest.approx(
+            curve["mean_agreement"].mean()
+        )
+
+
+def test_the_differences_of_areas_carry_bootstrap_intervals_that_contain_the_estimate(run):
+    areas = _areas(run())["screeners"]["deberta"]["logodds_drop"]
+    area = {order: areas["area"][order]["value"] for order in ("morf", "lerf", "random")}
+    for key, expected in (
+        ("morf_minus_random", area["morf"] - area["random"]),
+        ("random_minus_lerf", area["random"] - area["lerf"]),
+    ):
+        entry = areas[key]
+        assert entry["value"] == pytest.approx(expected)
+        assert entry["ci_low"] <= entry["value"] <= entry["ci_high"]
+    assert areas["area"]["morf"]["ci_low"] <= area["morf"] <= areas["area"]["morf"]["ci_high"]
+
+
+def test_each_screener_records_what_was_expected_the_rule_and_whether_it_passed(run):
+    record = _areas(run())
+    assert record["removal"] == "unk"
+    assert record["n_bios"] == 4
+    assert "half up" in record["rounding"]
+    for name in SCREENERS:
+        entry = record["screeners"][name]
+        assert entry["expected"]
+        assert entry["rule"]
+        assert entry["passed"] is True
+
+
+def test_a_screener_whose_attributions_do_not_beat_random_fails_and_the_failure_is_kept(run):
+    run.save_attributions({word: -weight for word, weight in WEIGHTS.items()})
+    entry = _areas(run())["screeners"]["deberta"]
+    assert entry["passed"] is False
+    assert entry["logodds_drop"]["morf_minus_random"]["value"] < 0
