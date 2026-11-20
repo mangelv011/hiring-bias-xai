@@ -24,7 +24,8 @@ SCREENERS = ("deberta", "baseline")
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 64
 N_BOOT = counterfactual_effects.N_BOOT
-HAND_CHECK_FILE = "counterfactual_hand_check.csv"
+TOP_CUES = 25
+HAND_CHECK_FILE ="counterfactual_hand_check.csv"
 
 
 def _load(name: str):
@@ -59,7 +60,8 @@ def _flags(subset: pd.DataFrame, names: frozenset[str]) -> tuple[pd.Series, dict
         "n_noun": sum(bool(bio) for bio in nouns),
         "n_name": sum(bool(bio) for bio in found),
         "by_occupation": {name: int(count) for name, count in by_occupation.items()},
-        "cues": dict(sorted(cues.items(), key=lambda item: (-item[1], item[0]))),
+        "n_distinct_cues": len(cues),
+        "top_cues": dict(sorted(cues.items(), key=lambda item: (-item[1], item[0]))[:TOP_CUES]),
     }
 
 
