@@ -120,3 +120,23 @@ def test_the_default_sample_is_10000_train_bios():
     spec.loader.exec_module(module)
     assert module.N_TRAIN == 10_000
     assert module.MODELS == ("pretrained", "deberta")
+
+
+def test_the_pretrained_encoder_gets_the_maximum_length_and_batch_size_of_the_main_model(
+    monkeypatch, tiny_network, tiny_tokenizer
+):
+    spec = importlib.util.spec_from_file_location("probing_features", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    main = DebertaModel(tiny_network(), tiny_tokenizer(77))
+    calls = []
+    monkeypatch.setattr(DebertaModel, "load", classmethod(lambda cls, batch_size=32: main))
+    monkeypatch.setattr(
+        DebertaModel,
+        "pretrained",
+        classmethod(
+            lambda cls, max_length, batch_size: calls.append((max_length, batch_size)) or main
+        ),
+    )
+    module._load("pretrained")
+    assert calls == [(77, module.BATCH_SIZE)]
