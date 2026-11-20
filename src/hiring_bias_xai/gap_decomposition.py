@@ -145,13 +145,15 @@ def decompose(
     columns["weight"] = (f_female + f_male) / 2 * (m_female - m_male)
     gendered = np.array([data.is_gendered_word(word) for word in vocabulary], dtype=bool)
     columns["gendered"] = gendered
-    table = pd.DataFrame(columns)
-    kept = table.iloc[order][frequent[order] | is_top[order]].reset_index(drop=True)
     full = np.array([bio.score for bio in bios])
     empty = np.array([bio.empty for bio in bios])
     score_gap = full[female].mean() - full[~female].mean()
     exact = (full - empty)[female].mean() - (full - empty)[~female].mean()
     boot_contribution, boot_score_gap = _bootstrap(values, full, female, n_boot, seed)
+    low, high = np.percentile(boot_contribution, [2.5, 97.5], axis=0)
+    columns["contribution_ci_low"], columns["contribution_ci_high"] = low, high
+    table = pd.DataFrame(columns)
+    kept = table.iloc[order][frequent[order] | is_top[order]].reset_index(drop=True)
     boot_total = boot_contribution.sum(axis=1)
     total = contribution.sum()
     decomposed_gap = {"value": float(total), **_interval(boot_total)}
