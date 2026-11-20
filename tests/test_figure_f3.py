@@ -76,6 +76,7 @@ _MODEL_SUMMARY = {
     "score_gap": _shares(5.402, 4.444, 6.404),
     "decomposed_gap": _shares(5.402, 4.444, 6.404),
     "gap_unstable": False,
+    "top_words": ["w"] * 10,  # only the number of words is read
     "top_share": _shares(0.61, 0.51, 0.77),
     "gendered_share": _shares(0.15, 0.12, 0.19),
 }
