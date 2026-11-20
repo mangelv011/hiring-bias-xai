@@ -262,3 +262,10 @@ def test_the_example_names_the_true_occupation_and_lists_the_largest_words_by_ab
         11.0,
         10.0,
     ]
+
+
+def test_the_example_counts_every_occurrence_of_the_top_word_including_earlier_ones(run):
+    words = ["python", *[f"w{i}" for i in range(10)], "Python,", *[f"v{i}" for i in range(4)]]
+    case = checks.Case("test-2", words, np.eye(16)[11] * 5, np.zeros(16))  # the top word is word 11
+    example = run.module._explain(case, 0.0, run.fake)
+    assert [entry["position"] for entry in example["occurrences"]] == [0, 11]
