@@ -50,8 +50,12 @@ _Avoid_: baseline (unqualified)
 The fine-tuned DeBERTa-v3-small classifier; the one whose decisions and internals the audit explains.
 _Avoid_: transformer, DeBERTa (unqualified), the model
 
+**Scrubbed model**:
+The main model's recipe trained on scrubbed bios, with the same learning rate, epochs and seed. Saved as the checkpoint `deberta-scrubbed`. The main model is its counterpart, the original model, when the two are compared.
+_Avoid_: debiased model, fair model
+
 **Checkpoint**:
-The saved weights and tokenizer of the main model at its best dev macro-F1, kept in the artifacts directory.
+The saved weights and tokenizer of a DeBERTa model at its best dev macro-F1, kept in the artifacts directory under a name: `deberta` for the main model, `deberta-scrubbed` for the scrubbed model.
 _Avoid_: snapshot, saved model
 
 **Representation**:
@@ -156,7 +160,7 @@ _Avoid_: gender marker, gender term
 
 **Scrubbing**:
 Removing gender words from a bio so that only indirect signal remains.
-_Avoid_: anonymizing, masking
+_Avoid_: anonymizing, masking (a different step: see proxy-word masking)
 
 **Probe**:
 A logistic regression on standardised representations, trained to read gender from one layer of an encoder. Its accuracy on the showcase subset is compared with references (the majority class, the occupation alone, TF-IDF) and with a permutation test that shuffles gender within occupation and refits it. A probe that reads gender does not show that the model uses it.
@@ -227,3 +231,17 @@ _Avoid_: bias share
 **Usage part and weight part**:
 The split of a word's gap contribution into the difference in how often women's and men's bios contain it, and the difference in its mean value when present. They add up to the contribution.
 _Avoid_: frequency effect, coefficient effect
+
+## Mitigation
+
+**Proxy word**:
+A word that is not gendered, whose gap contribution has the sign of the occupation's gendered sum, that the gender the gap favours uses at least 3 times as often as the other gender (shares smoothed by 0.01), and that at least 5% of that gender's bios contain. The model can read gender from it. A word the model weighs heavily but both genders use alike, such as *the*, is not one.
+_Avoid_: bias word, stand-in word
+
+**Proxy-word masking**:
+Deleting the proxy words from a bio before the model reads it. It needs no retraining.
+_Avoid_: scrubbing
+
+**Mitigation condition**:
+One pairing of a model and a test text, lettered a to e: (a) original model on raw bios, (b) original model on scrubbed bios, (c) scrubbed model on raw bios, (d) scrubbed model on scrubbed bios, (e) original model with proxy words deleted. All five are scored on the same test bios outside the showcase subset.
+_Avoid_: scenario, arm
