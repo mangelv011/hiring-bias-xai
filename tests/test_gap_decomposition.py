@@ -223,6 +223,16 @@ def test_shares_are_flagged_unstable_when_the_interval_of_the_total_gap_includes
     assert unstable["gendered_share"]["value"] is None
 
 
+def test_each_contribution_has_a_95_percent_interval_from_the_same_resamples():
+    draws = [_contributions(women, men) for women, men in _resamples(BIOS, 40, seed=9)]
+    table = _by_word(gap_decomposition.decompose(BIOS, min_bios=1, n_boot=40, seed=9).table)
+    for word in "abc":
+        low, high = _interval([d.get(word, 0.0) for d in draws])
+        assert table.loc[word, ["contribution_ci_low", "contribution_ci_high"]].to_numpy() == (
+            pytest.approx([low, high])
+        )
+
+
 def test_the_resampling_is_reproducible_with_the_seed_and_defaults_to_the_project_seed():
     # guard: the oracle tests already pin the draws for a given seed; this pins the default
     first = gap_decomposition.decompose(BIOS, min_bios=1, n_boot=30, seed=1).summary
