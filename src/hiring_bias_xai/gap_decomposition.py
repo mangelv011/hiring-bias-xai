@@ -52,29 +52,34 @@ def _matrices(bios: list[Bio], vocabulary: list[str]) -> tuple[np.ndarray, np.nd
     return values, present
 
 
-def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS) -> Decomposition:
+def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS, top: int = TOP) -> Decomposition:
     """The words of one occupation with their contribution to the women-minus-men score gap.
 
     `bios` are all the bios of the occupation, both genders. The table has the words in at least
-    `min_bios` bios, largest |contribution| first.
+    `min_bios` bios and the `top` words of largest |contribution| (flagged in `top`), largest
+    |contribution| first. Importance is left empty for a word in fewer than `min_bios` bios.
     """
     vocabulary = sorted({word for bio in bios for word in bio.values})
     values, present = _matrices(bios, vocabulary)
     female = np.array([bio.gender == "female" for bio in bios])
     contribution = values[female].mean(axis=0) - values[~female].mean(axis=0)
     n_bios = present.sum(axis=0)
-    importance = values.sum(axis=0) / n_bios  # every word of the vocabulary is in some bio
+    frequent = n_bios >= min_bios
+    importance = np.where(frequent, values.sum(axis=0) / n_bios, np.nan)  # n_bios >= 1
+    order = np.argsort(-np.abs(contribution), kind="stable")
+    is_top = np.zeros(len(vocabulary), dtype=bool)
+    is_top[order[:top]] = True
     table = pd.DataFrame(
         {
             "word": vocabulary,
             "n_bios": n_bios,
             "importance": importance,
             "contribution": contribution,
+            "top": is_top,
         }
     )
-    table = table[table["n_bios"] >= min_bios]
-    order = np.argsort(-table["contribution"].abs().to_numpy(), kind="stable")
-    return Decomposition(table.iloc[order].reset_index(drop=True), {})
+    kept = table.iloc[order]
+    return Decomposition(kept[frequent[order] | is_top[order]].reset_index(drop=True), {})
 
 
 def _key(word: str) -> str:
