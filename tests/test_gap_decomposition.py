@@ -194,7 +194,7 @@ def test_top_share_has_two_intervals_one_that_reselects_the_top_words_and_one_wi
     assert [share["fixed_ci_low"], share["fixed_ci_high"]] == pytest.approx(_interval(fixed))
 
 
-def test_the_gendered_sum_is_the_sum_of_the_gendered_contributions_with_an_interval_and_needs_no_division():
+def test_the_gendered_sum_adds_the_gendered_contributions_and_has_an_interval():
     # D: she = 9/2, he = -1/2, x = 1/2; the gendered words add up to 4.
     summary = gap_decomposition.decompose(GENDERED_BIOS, min_bios=1, n_boot=40, seed=5).summary
     sums = []
