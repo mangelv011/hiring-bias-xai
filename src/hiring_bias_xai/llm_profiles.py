@@ -87,3 +87,25 @@ def sample_profiles(
         ):
             jobs.append(draw(pool, n).assign(job=job, match=match, hard=hard))
     return pd.concat(jobs).reset_index(drop=True)
+
+
+def analysis_groups(groups: dict, decision: dict) -> dict:
+    """The name pools to analyse: each group of `decision["groups"]` (the merge rule of
+    `llm_audit.merge_decision`) under the label "A + B", with the names of its members pooled,
+    each once. Dropped groups are not in `decision["groups"]` and so are left out."""
+    pools = {}
+    for members in decision["groups"]:
+        pool = {"first_names": {"female": [], "male": []}, "surnames": []}
+        for member in members:
+            for sex, names in groups[member]["first_names"].items():
+                pool["first_names"][sex] += [n for n in names if n not in pool["first_names"][sex]]
+            pool["surnames"] += [s for s in groups[member]["surnames"] if s not in pool["surnames"]]
+        pools[" + ".join(members)] = pool
+    return pools
+
+
+def arm_labels(pools: dict) -> list[str]:
+    """`none`, `neutral`, `swap` and one `name|<group>|<gender>` arm per pool and gender."""
+    return ["none", "neutral", "swap"] + [
+        f"name|{group}|{gender}" for group in pools for gender in ("female", "male")
+    ]
