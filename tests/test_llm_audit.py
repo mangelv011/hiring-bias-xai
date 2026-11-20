@@ -143,3 +143,21 @@ def test_every_showcase_occupation_has_a_job_ad_and_the_paraphrases_differ():
     assert len(set(prompts)) == 3
     assert all("reason" in prompt and "decision" in prompt for prompt in prompts)
     assert all(prompt.index('"reason"') < prompt.index('"decision"') for prompt in prompts)
+
+
+def test_a_strict_name_guess_parses_and_anything_else_is_invalid():
+    assert llm_audit.parse_name_guess('{"origin": "Romania", "gender": "female"}') == {
+        "origin": "Romania",
+        "gender": "female",
+    }
+    assert llm_audit.parse_name_guess('{"origin": "unclear", "gender": "unclear"}') is not None
+    invalid = [
+        '{"origin": "France", "gender": "male"}',
+        '{"origin": "Spain", "gender": "man"}',
+        '{"origin": "Spain"}',
+        '{"origin": "Spain", "gender": "male", "reason": "x"}',
+        '```json\n{"origin": "Spain", "gender": "male"}\n```',
+        "Spain, male",
+        None,
+    ]
+    assert [llm_audit.parse_name_guess(text) for text in invalid] == [None] * len(invalid)
