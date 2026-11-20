@@ -100,6 +100,8 @@ def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS, top: int = TOP) -> D
         "n_male": int((~female).sum()),
         "score_gap": {"value": float(score_gap)},
         "decomposed_gap": {"value": float(contribution.sum())},
+        "top_share": {"value": float(contribution[is_top].sum() / contribution.sum())},
+        "top_words": [vocabulary[i] for i in order[:top]],
         "gendered_share": {"value": float(contribution[gendered].sum() / contribution.sum())},
         "empty_score_drift": float(score_gap - contribution.sum()),
         "decomposition_error": float(abs(contribution.sum() - exact)),
