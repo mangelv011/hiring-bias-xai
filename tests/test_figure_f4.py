@@ -123,6 +123,40 @@ def test_the_conditions_are_named_next_to_the_data_and_there_is_no_legend(figure
 
 def test_the_axis_names_the_quantity_and_starts_at_the_zero_reference(figure):
     ax = _ax(figure)
-    assert ax.get_xlabel() == "Share of bios whose predicted occupation changes"
+    assert ax.get_xlabel() == "Share of bios whose prediction changes"
     assert ax.get_xlim()[0] == 0
     assert any(list(line.get_xdata()) == [0, 0] for line in ax.lines)
+
+
+def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
+    # guard: the style sets 7 pt and new_figure's width; this pins both for F4
+    assert figure.get_size_inches()[0] == 3.3
+    texts = [t for t in figure.findobj(matplotlib.text.Text) if t.get_text().strip()]
+    assert min(t.get_fontsize() for t in texts) >= 7
+
+
+def test_nothing_is_drawn_outside_the_figure(figure):
+    box = figure.bbox
+    ax = _ax(figure)
+    low, high = sorted(ax.get_xlim())
+    hidden = {  # labels of ticks outside the axis limits are not drawn
+        id(label)
+        for tick, label in zip(ax.get_xticks(), ax.get_xticklabels(), strict=False)
+        if not low <= tick <= high
+    }
+    for t in figure.findobj(matplotlib.text.Text):
+        if t.get_text().strip() and t.get_visible() and id(t) not in hidden:
+            extent = t.get_window_extent()
+            assert extent.x0 >= box.x0 - 1 and extent.x1 <= box.x1 + 1, t.get_text()
+            assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
+
+
+def test_main_saves_the_figure_from_the_csv(f4, table, tmp_path):
+    table.to_csv(tmp_path / "counterfactual_gender.csv", index=False)
+    fig = f4.main(tmp_path)
+    assert sorted(p.name for p in (tmp_path / "figures").iterdir()) == [
+        "f4_flip_rates.pdf",
+        "f4_flip_rates.png",
+    ]
+    assert fig._suptitle.get_text() == f4.title(table)
+    plt.close(fig)
