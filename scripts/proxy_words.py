@@ -22,6 +22,8 @@ COLUMNS = [
     "contribution_ci_low",
     "contribution_ci_high",
     "gendered",
+    "freq_female",
+    "freq_male",
 ]
 
 
@@ -51,6 +53,11 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
             "rule": proxy_words.RULE,
             "screener": SCREENER,
             "top_per_occupation": proxy_words.TOP,
+            "usage": {
+                "ratio": proxy_words.RATIO,
+                "smoothing": proxy_words.SMOOTHING,
+                "min_share": proxy_words.MIN_SHARE,
+            },
             "gendered_sums": sums,
             "occupations": {
                 o: [
@@ -59,11 +66,14 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
                         "contribution": row.contribution,
                         "ci_low": row.contribution_ci_low,
                         "ci_high": row.contribution_ci_high,
+                        "freq_female": row.freq_female,
+                        "freq_male": row.freq_male,
                     }
                     for row in rows.itertuples()
                 ]
                 for o, rows in chosen.items()
             },
+            "occupations_without_words": sorted(o for o, rows in chosen.items() if rows.empty),
             "words": sorted({word for rows in chosen.values() for word in rows["word"]}),
         },
     )

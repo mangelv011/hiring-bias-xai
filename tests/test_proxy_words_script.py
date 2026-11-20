@@ -127,7 +127,14 @@ def test_the_file_holds_the_rule_the_sums_and_the_contribution_with_its_interval
     assert out["gendered_sums"]["nurse"] == -2.0
     assert sorted(out["gendered_sums"]) == sorted(MALE_DOMINATED + FEMALE_DOMINATED)
     (pager,) = out["occupations"]["surgeon"]
-    assert pager == {"word": "pager", "contribution": 3.0, "ci_low": 2.9, "ci_high": 3.1}
+    assert pager == {
+        "word": "pager",
+        "contribution": 3.0,
+        "ci_low": 2.9,
+        "ci_high": 3.1,
+        "freq_female": 0.5,
+        "freq_male": 0.0,
+    }
 
 
 def test_a_word_both_genders_use_alike_is_left_out_whatever_its_contribution(run):
