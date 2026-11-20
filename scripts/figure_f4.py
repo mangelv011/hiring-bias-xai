@@ -30,14 +30,20 @@ def _main_model(table: pd.DataFrame) -> pd.DataFrame:
 
 
 def title(table: pd.DataFrame) -> str:
-    """The finding: the pooled flip rates of the swap and of the removal control."""
+    """The finding: how the pooled flip rate of the swap compares with the removal control.
+
+    "More" or "less" only when the 95% intervals do not overlap; otherwise "no more".
+    """
     by_condition = _main_model(table)
-    swap = by_condition["swap"].loc[POOLED, "flip_rate"]
-    removal = by_condition["removal"].loc[POOLED, "flip_rate"]
-    return (
-        f"Swapping pronouns flips {swap:.1%} of the main model's decisions; "
-        f"removing them flips {removal:.1%}."
-    )
+    swap = by_condition["swap"].loc[POOLED]
+    removal = by_condition["removal"].loc[POOLED]
+    if swap["flip_rate_ci_low"] > removal["flip_rate_ci_high"]:
+        comparison = "more often than"
+    elif swap["flip_rate_ci_high"] < removal["flip_rate_ci_low"]:
+        comparison = "less often than"
+    else:
+        comparison = "no more often than"
+    return f"Swapping pronouns changes the main model's decisions {comparison} deleting them."
 
 
 def build(table: pd.DataFrame):
@@ -62,6 +68,14 @@ def build(table: pd.DataFrame):
             values["flip_rate_ci_high"].iloc[0] + 0.004,
             ys[0],
             label,
+            color=colour,
+            va="center",
+            ha="left",
+        )
+        ax.text(
+            values["flip_rate_ci_high"].iloc[-1] + 0.004,
+            ys[-1],
+            f"{values['flip_rate'].iloc[-1]:.1%}",
             color=colour,
             va="center",
             ha="left",
