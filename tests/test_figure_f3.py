@@ -134,6 +134,19 @@ def test_every_dot_has_its_interval_and_there_is_a_zero_line(figure):
     assert len(zero_lines) == 1
 
 
+def _hex(colours):
+    return [matplotlib.colors.to_hex(c).upper() for c in colours]
+
+
+def test_gendered_words_are_in_the_highlight_colour_and_the_others_in_grey(figure):
+    surgeon, _ = _data_axes(figure)
+    expected = [plotting.NEUTRAL, plotting.HIGHLIGHT, plotting.NEUTRAL, plotting.HIGHLIGHT]
+    assert _hex(_dots(surgeon).get_facecolor()) == expected
+    assert _hex(_intervals(surgeon).get_color()) == expected
+    labels = _hex(t.get_color() for t in surgeon.get_yticklabels())
+    assert labels == [plotting.HIGHLIGHT if c == plotting.HIGHLIGHT else "#333333" for c in expected]
+
+
 def _summary(gap):
     return {"score_gap": {"value": gap}}
 
