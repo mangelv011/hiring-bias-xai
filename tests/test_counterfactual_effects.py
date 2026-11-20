@@ -28,3 +28,33 @@ def test_a_prediction_outside_the_share_table_is_an_error():
     with pytest.raises(KeyError):
         effects.moves_toward_new_gender(["male"], ["nurse"], ["poet"], SHARE)
 
+
+
+def test_summarise_gives_rates_and_means_with_intervals_that_contain_them():
+    rng = np.random.default_rng(0)
+    flip = rng.random(200) < 0.3
+    change = rng.normal(-0.5, 1.0, 200)
+    summary = effects.summarise(flip, change, n_boot=200)
+    assert summary["n"] == 200
+    assert summary["n_flips"] == int(flip.sum())
+    assert summary["flip_rate"] == pytest.approx(flip.mean())
+    assert summary["mean_log_odds_change"] == pytest.approx(change.mean())
+    for name in ("flip_rate", "mean_log_odds_change"):
+        assert summary[f"{name}_ci_low"] < summary[name] < summary[f"{name}_ci_high"]
+
+
+def test_summarise_is_deterministic_and_has_no_direction_without_one():
+    flip, change = np.array([True, False, False, True]), np.array([1.0, 0.0, -1.0, 2.0])
+    first, second = effects.summarise(flip, change, n_boot=50), effects.summarise(flip, change, 50)
+    assert first == second
+    assert np.isnan(first["toward_share"])
+    assert np.isnan(first["toward_share_ci_low"])
+
+
+def test_summarise_degenerate_samples_have_degenerate_intervals():
+    summary = effects.summarise(np.ones(5, dtype=bool), np.full(5, 2.0), n_boot=20)
+    assert (summary["flip_rate_ci_low"], summary["flip_rate_ci_high"]) == (1.0, 1.0)
+    assert (summary["mean_log_odds_change_ci_low"], summary["mean_log_odds_change_ci_high"]) == (
+        2.0,
+        2.0,
+    )
