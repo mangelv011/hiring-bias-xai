@@ -43,11 +43,19 @@ Full counts per split, occupation and gender, and the share of women per occupat
 
 `scrub` removes `he, she, her, his, him, hers, himself, herself, mr, mrs, ms` as whole words, ignoring case, together with an attached `'s`, `'d`, `'ll` or bare apostrophe on a pronoun and the period after a title. This is the list of De-Arteaga et al. (2019), section 4. Their first-name removal is not applied: the loader does not detect names inside the text. The title "Ms" also matches the degree abbreviation "MS" (Master of Science); 138 of the 39,642 dev bios contain the capitalised form.
 
+## First-name list
+
+Used by the counterfactual swap (#8, [ADR 0005](decisions/0005-counterfactual-gender-swap.md)) to flag bios that contain a first name. It is not part of Bias in Bios.
+
+- Source: US Social Security Administration, national baby names, 1880 to 2025 (`names.zip`, files `yobYYYY.txt` with `name,sex,count`). Licence: public domain as a work of the US federal government; the SSA page refused automated access, so this was not re-read there. Attribution: Social Security Administration, "Beyond the Top 1000 Names" national data.
+- The SSA server returns HTTP 403 to scripts, so the pinned copy is an Internet Archive capture of the same URL (`url` and `sha256` in `results/first_names.json`). `scripts/fetch_first_names.py` downloads it, checks the sha256 before reading anything, parses the `yobYYYY.txt` members as text in memory and writes the names with at least 10,000 births over all years and both sexes (2,808 names) to `HBX_ARTIFACTS/names/first_names.txt`. A different hash stops the script.
+- Limits: US births only, so names common elsewhere are missing. Some surnames and place names are also first names (Lee, Anderson, Austin); the flag counts a name only when the entity recogniser reads it as a person.
+
 ## Known issues
 
 - **Binary gender.** The audit says nothing about non-binary people.
 - **The gender label is derived from the text.** The pronouns that define the label are in the input, so a model can read it directly. The scrubbed variant and the probing control task address this; scrubbing leaves other signals (names inside the text, topics, wording).
-- **First names can stay in the text.** They leak gender and sometimes origin. This was not counted. The audit does not use them as an origin signal; origin groups enter only through counterfactual name headers.
+- **First names can stay in the text.** They leak gender and sometimes origin. In the showcase subset 631 of 1,721 bios contain one from the list above (a lower bound: the recogniser misses some lone names). The audit does not use them as an origin signal; origin groups enter only through counterfactual name headers.
 - **Source is web text.** The bios are short professional summaries, not CVs.
 - **Skewed occupations**, as above. Rare occupations have few test bios, so their per-occupation metrics are noisy.
 - **Label noise.** The occupation label comes from the title sentence. This project did not audit it.
