@@ -1,5 +1,5 @@
 {
-  "direction_basis": "training share of women, the share F1 uses (not independent of F1)",
+  "direction_basis": "training share of women, the share F1 uses (not independent of F1); for the removal control the new gender is taken to be the opposite one, as a reference",
   "edits": {
     "removal_changed": 1706,
     "swap_changed": 1689
