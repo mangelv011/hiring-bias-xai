@@ -8,6 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.collections
 import matplotlib.colors
 import matplotlib.pyplot as plt
+import matplotlib.text
 import pandas as pd
 import pytest
 
@@ -188,12 +189,37 @@ def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_ther
     surgeon, model = _data_axes(figure)
     assert surgeon.get_title(loc="left") == (
         "Surgeon (male-dominated), gap -0.8 [-1.5, +0.1]\n"
-        "its interval includes 0, so the shares are not given"
+        "interval includes 0: no shares given"
     )
     assert model.get_title(loc="left") == (
         "Model (female-dominated), gap +5.4 [+4.4, +6.4]\n"
-        "top 10 words: 61% [51%, 77%]; gendered: 15% [12%, 19%]"
+        "top 10 words: 61% [51%, 77%]\n"
+        "gendered words: 15% [12%, 19%]"
     )
+
+
+def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
+    # guard: the style sets 7 pt and new_figure's width; this pins both for F3
+    assert figure.get_size_inches()[0] == 3.3
+    texts = [t for t in figure.findobj(matplotlib.text.Text) if t.get_text().strip()]
+    assert texts
+    assert min(t.get_fontsize() for t in texts) >= 7
+
+
+def test_nothing_is_drawn_outside_the_figure(figure):
+    # panel headers start at the axes, so each line must be short enough to end inside the figure
+    box = figure.bbox
+    hidden = set()  # labels of ticks outside the axis limits are not drawn
+    for ax in figure.axes:
+        low, high = sorted(ax.get_xlim())
+        for tick, label in zip(ax.get_xticks(), ax.get_xticklabels(), strict=False):
+            if not low <= tick <= high:
+                hidden.add(id(label))
+    for t in figure.findobj(matplotlib.text.Text):
+        if t.get_text().strip() and t.get_visible() and id(t) not in hidden:
+            extent = t.get_window_extent()
+            assert extent.x0 >= box.x0 - 1 and extent.x1 <= box.x1 + 1, t.get_text()
+            assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
 
 
 def _summary(gap):
