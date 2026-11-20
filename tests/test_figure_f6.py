@@ -237,3 +237,11 @@ def test_main_saves_the_figure_from_the_two_csv_files(f6, probing, patching, tmp
     ]
     assert fig._suptitle.get_text() == f6.title(probing, patching)
     plt.close(fig)
+
+
+def test_the_effect_has_left_the_edited_words_only_when_the_whole_interval_is_below_one_half(
+    f6, probing, patching
+):
+    differing = patching["position_set"] == "differing"
+    patching.loc[differing & (patching["layer"] == 1), ["mean", "mean_ci_high"]] = (0.45, 0.55)
+    assert f6.title(probing, patching).endswith("leaves the edited words by layer 2.")
