@@ -167,6 +167,31 @@ def test_the_gaps_have_95_percent_intervals_from_resampling_bios_within_each_gen
     ] == pytest.approx(_interval(decomposed))
 
 
+def test_top_share_has_two_intervals_one_that_reselects_the_top_words_and_one_with_them_fixed():
+    # D of "a" and "b" are close, so which one is the largest changes between resamples.
+    bios = [
+        _bio("female", {"a": 3.0, "b": 0.0}),
+        _bio("female", {"a": 0.0, "b": 3.0}),
+        _bio("female", {"a": 1.0, "b": 1.0}),
+        _bio("male", {"a": 0.0, "b": 0.0}),
+        _bio("male", {"a": 0.0, "b": 1.0}),
+    ]
+    resamples = _resamples(bios, 60, seed=3)
+    reselected, fixed, tops = [], [], set()
+    for women, men in resamples:
+        d = _contributions(women, men)
+        best = max(d, key=lambda w: abs(d[w]))
+        tops.add(best)
+        reselected.append(d[best] / sum(d.values()))
+        fixed.append(d["a"] / sum(d.values()))  # "a" is the top word of the full sample
+    assert tops == {"a", "b"}  # the data does make the top word change
+    summary = gap_decomposition.decompose(bios, min_bios=1, top=1, n_boot=60, seed=3).summary
+    assert summary["top_words"] == ["a"]
+    share = summary["top_share"]
+    assert [share["ci_low"], share["ci_high"]] == pytest.approx(_interval(reselected))
+    assert [share["fixed_ci_low"], share["fixed_ci_high"]] == pytest.approx(_interval(fixed))
+
+
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
     # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
     # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
