@@ -31,26 +31,12 @@ def _load(name: str, batch_size: int):
     return model
 
 
-def _is_current(file: Path, words: list[str], target: int, removal: str, n_permutations: int):
-    """Whether `file` holds the attribution this run would compute for the bio."""
-    try:
-        saved = attribution.load(file)
-    except (FileNotFoundError, ValueError):
-        return False
-    return (
-        saved.words == words
-        and saved.target == target
-        and saved.removal == removal
-        and len(saved.orders) == 2 * n_permutations
-    )
-
-
 def _run_screener(name: str, model, subset, removal: str, n_permutations: int) -> None:
     started, done = time.perf_counter(), 0
     for position, bio in enumerate(subset.itertuples()):
         file = attribution.path(name, bio.id)
         target = model.labels.index(bio.occupation)
-        if not _is_current(file, bio.text.split(), target, removal, n_permutations):
+        if not attribution.is_current(file, bio.text.split(), target, removal, n_permutations):
             (result,) = attribution.shapley(
                 model, [bio.text], [bio.occupation], n_permutations, removal, seed=(SEED, position)
             )

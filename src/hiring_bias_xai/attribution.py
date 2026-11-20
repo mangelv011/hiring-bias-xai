@@ -215,3 +215,19 @@ def load(file_path: Path) -> Attribution:
     except (OSError, EOFError, ValueError, KeyError, zipfile.BadZipFile) as error:
         raise ValueError(f"{file_path.name} is not a valid attribution file: {error}") from error
     return result
+
+
+def is_current(
+    file_path: Path, words: list[str], target: int, removal: str, n_permutations: int
+) -> bool:
+    """Whether `file_path` holds the attribution a run with these settings would compute."""
+    try:
+        saved = load(file_path)
+    except (FileNotFoundError, ValueError):
+        return False
+    return (
+        saved.words == words
+        and saved.target == target
+        and saved.removal == removal
+        and len(saved.orders) == 2 * n_permutations
+    )
