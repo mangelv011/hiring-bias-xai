@@ -122,3 +122,31 @@ def test_the_bootstrap_of_a_curve_gives_one_bound_per_step():
     assert low.shape == high.shape == (2,)
     np.testing.assert_allclose(low[0], 0)
     assert 1.0 <= low[1] <= high[1] <= 3.0
+
+
+def test_identical_values_agree_completely():
+    values = np.arange(12.0)
+    assert checks.rank_agreement(values, values) == (1.0, 1.0)
+
+
+def test_reversed_values_correlate_at_minus_one_and_share_the_top_ten_in_the_middle():
+    values = np.arange(1.0, 13.0)  # 12 words: the top 10 by size are words 2 to 11
+    spearman, overlap = checks.rank_agreement(values, values[::-1])
+    assert spearman == pytest.approx(-1.0)
+    assert overlap == 0.8  # reversed, the top 10 are words 0 to 9: eight in common
+
+
+def test_the_top_words_are_the_largest_in_absolute_value_so_a_sign_flip_still_overlaps():
+    one = np.array([3.0, -3.0, 0.1, 0.2])
+    other = np.array([3.0, 3.0, 0.2, 0.1])
+    assert checks.rank_agreement(one, other, top=2)[1] == 1.0
+
+
+def test_a_bio_with_fewer_words_than_the_top_size_overlaps_over_all_its_words():
+    assert checks.rank_agreement(np.array([1.0, 2.0, 3.0]), np.array([3.0, 1.0, 2.0]))[1] == 1.0
+
+
+def test_a_correlation_that_is_undefined_is_nan():
+    spearman, _ = checks.rank_agreement(np.zeros(5), np.arange(5.0))
+    assert np.isnan(spearman)
+    assert np.isnan(checks.rank_agreement(np.array([1.0]), np.array([2.0]))[0])
