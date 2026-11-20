@@ -69,14 +69,16 @@ def _shares(value, low, high):
 # too close to 0 to split; the model gap is not.
 _SURGEON_SUMMARY = {
     "score_gap": _shares(-0.774, -1.540, 0.076),
-    "decomposed_gap": _shares(-0.774, -1.540, 0.076),
+    "decomposed_gap": _shares(
+        -0.7, -1.5, 0.1
+    ),  # differs a little from the score gap, as in the data
     "gap_unstable": True,
     "top_share": _shares(0.45, -1.81, 1.98),
     "gendered_share": _shares(1.45, -8.15, 8.56),
 }
 _MODEL_SUMMARY = {
     "score_gap": _shares(5.402, 4.444, 6.404),
-    "decomposed_gap": _shares(5.402, 4.444, 6.404),
+    "decomposed_gap": _shares(5.3, 4.3, 6.3),
     "gap_unstable": False,
     "top_words": ["w"] * 10,  # only the number of words is read
     "top_share": _shares(0.61, 0.51, 0.77),
@@ -291,6 +293,32 @@ def test_main_saves_the_figure_and_records_which_occupations_it_picked(f3, resul
 
 def _summary(gap):
     return {"score_gap": {"value": gap}}
+
+
+def test_a_tie_in_the_absolute_score_gap_goes_to_the_occupation_listed_first(f3):
+    showcase = {
+        "male_dominated": [{"occupation": o} for o in ("surgeon", "composer")],
+        "female_dominated": [{"occupation": o} for o in ("nurse", "model")],
+    }
+    summaries = {
+        "surgeon": _summary(-0.5),
+        "composer": _summary(0.5),
+        "nurse": _summary(2.0),
+        "model": _summary(-2.0),
+    }
+    assert f3.pick(summaries, showcase) == {
+        "male_dominated": "surgeon",
+        "female_dominated": "nurse",
+    }
+
+
+def test_the_title_is_bold_and_left_aligned_and_the_axis_has_one_row_per_word(figure):
+    title = figure._suptitle
+    assert title.get_fontweight() == "bold"
+    assert title.get_ha() == "left"
+    surgeon, model = _data_axes(figure)
+    assert surgeon.get_ylim() == (3.5, -0.5)  # four words, first on top, no empty rows
+    assert model.get_ylim() == (2.5, -0.5)
 
 
 def test_each_panel_is_the_showcase_occupation_of_its_kind_with_the_largest_absolute_score_gap(f3):
