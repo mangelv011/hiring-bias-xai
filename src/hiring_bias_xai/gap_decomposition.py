@@ -134,6 +134,7 @@ def decompose(
     values, present = _matrices(bios, vocabulary)
     female = np.array([bio.gender == "female" for bio in bios])
     contribution = values[female].mean(axis=0) - values[~female].mean(axis=0)
+    total = contribution.sum()
     n_bios = present.sum(axis=0)
     frequent = n_bios >= min_bios
     importance = np.where(frequent, values.sum(axis=0) / n_bios, np.nan)  # n_bios >= 1
@@ -172,7 +173,6 @@ def decompose(
     table = pd.DataFrame(columns)[COLUMNS]
     kept = table.iloc[order][frequent[order] | is_top[order]].reset_index(drop=True)
     boot_total = boot_contribution.sum(axis=1)
-    total = contribution.sum()
     decomposed_gap = {"value": float(total), **_interval(boot_total)}
     fixed = _interval(_share(boot_contribution[:, is_top].sum(axis=1), boot_total))
     summary = {
@@ -191,21 +191,17 @@ def decompose(
             "value": _value(_share(contribution[gendered].sum(), total)),
             **_interval(_share(boot_contribution[:, gendered].sum(axis=1), boot_total)),
         },
-        "empty_score_drift": float(score_gap - contribution.sum()),
-        "decomposition_error": float(abs(contribution.sum() - exact)),
+        "empty_score_drift": float(score_gap - total),
+        "decomposition_error": float(abs(total - exact)),
     }
     return Decomposition(kept, summary)
-
-
-def _key(word: str) -> str:
-    return data.word_core(word) or word
 
 
 def bio_from_attribution(saved: Attribution, gender: str) -> Bio:
     """The per-word values of one stored attribution, with its full and empty scores."""
     values: dict[str, float] = {}
     for word, value in zip(saved.words, saved.values, strict=True):
-        key = _key(word)
+        key = data.word_core(word) or word
         values[key] = values.get(key, 0.0) + float(value)
     scores = log_odds(saved.logits, saved.target)[saved.index]
     return Bio(gender, values, float(scores[0, -1]), float(scores[0, 0]))
