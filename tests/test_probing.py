@@ -173,3 +173,51 @@ def test_the_tfidf_reference_chooses_its_c_from_its_own_grid():
         np.asarray(train_texts), train_gender, probing.TFIDF_C_GRID, make=probing.new_tfidf
     )
     assert chosen in probing.TFIDF_C_GRID
+
+
+def test_probe_counts_shuffles_that_tie_with_the_probe_and_reports_the_null_mean(monkeypatch):
+    # Hits with accuracy 0.75 for the real labels, then for three shuffles 0.75, 0.5 and 0.9.
+    def hits(accuracy, n=20):
+        return np.arange(n) < round(accuracy * n)
+
+    accuracies = iter([0.75, 0.75, 0.5, 0.9])
+    seen = []
+
+    def fake(c, train_x, labels, test_x, test_gender):
+        seen.append(np.array(labels))
+        return hits(next(accuracies))
+
+    monkeypatch.setattr(probing, "_hits_after_fitting", fake)
+    train_gender = np.array(["f", "m"] * 20)
+    train_occ = np.repeat(["a", "b"], 20)
+    x = np.zeros((40, 2))
+    x[:, 0] = np.arange(40) % 2
+    result = probing.probe(
+        x, train_gender, train_occ, np.zeros((20, 2)), np.array(["f"] * 20), np.ones(20, bool),
+        n_permutations=3, n_boot=40, seed=7,
+    )  # fmt: skip
+    assert result["all"]["p_value"] == pytest.approx((1 + 2) / (1 + 3))  # 0.75 and 0.9 count
+    assert result["all"]["null_mean"] == pytest.approx((0.75 + 0.5 + 0.9) / 3)
+    assert result["all"]["ci_low"] == probing.accuracy_ci(hits(0.75), 40, 7)["ci_low"]
+    rng = np.random.default_rng(7)
+    expected = [probing.shuffle_within(train_gender, train_occ, rng) for _ in range(3)]
+    for got, wanted in zip(seen[1:], expected, strict=True):
+        assert (got == wanted).all()
+
+
+def test_the_tfidf_reference_reads_word_pairs_and_chooses_c_from_its_own_grid(monkeypatch):
+    # The two genders use the same words in the other order, so only 2-grams tell them apart.
+    train = ["alpha beta here", "beta alpha here"] * 20
+    gender = np.array(["f", "m"] * 20)
+    predicted = probing.tfidf_predictions(train, gender, ["alpha beta here", "beta alpha here"])
+    assert list(predicted) == ["f", "m"]
+    calls = []
+    real = probing.select_c
+
+    def spy(features, labels, grid=probing.C_GRID, make=probing.new_probe):
+        calls.append((grid, make))
+        return real(features, labels, grid, make)
+
+    monkeypatch.setattr(probing, "select_c", spy)
+    probing.tfidf_predictions(train, gender, train[:2])
+    assert calls == [(probing.TFIDF_C_GRID, probing.new_tfidf)]
