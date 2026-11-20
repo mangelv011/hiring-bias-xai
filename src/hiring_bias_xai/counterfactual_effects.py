@@ -29,7 +29,10 @@ def moves_toward_new_gender(
 
 
 N_BOOT = 1000
-DIRECTION_BASIS = "training share of women, the share F1 uses (not independent of F1)"
+DIRECTION_BASIS = (
+    "training share of women, the share F1 uses (not independent of F1); for the removal "
+    "control the new gender is taken to be the opposite one, as a reference"
+)
 
 
 def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -127,15 +130,10 @@ def table(
             for condition, edited in (("swap", "swapped"), ("removal", "removed")):
                 flip = (bios[edited] != bios["original"]).to_numpy()
                 change = (bios[f"lo_{edited}"] - bios["lo_original"]).to_numpy()
-                swap = condition == "swap"
-                toward = (
-                    moves_toward_new_gender(
-                        bios["gender"], bios["original"], bios[edited], share_women
-                    )
-                    if swap
-                    else None
+                toward = moves_toward_new_gender(
+                    bios["gender"], bios["original"], bios[edited], share_women
                 )
                 row = {"screener": screener, "occupation": occupation, "subset": subset}
                 row |= {"condition": condition} | summarise(flip, change, toward, n_boot=n_boot)
-                rows.append(row | {"direction_basis": DIRECTION_BASIS if swap else ""})
+                rows.append(row | {"direction_basis": DIRECTION_BASIS})
     return pd.DataFrame(rows)
