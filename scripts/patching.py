@@ -6,8 +6,8 @@ under the removal control (`data.scrub`) over all bios, and whose two token sequ
 same length. For each layer output, the clean states are patched into the corrupted run at the
 positions where the tokens differ and at all the other positions (`patching.patch_pairs`); the
 restored share of the true-class log-odds is summarised in `results/patching.csv` and the counts
-in `results/patching.json`. Patching all positions is a check, not a row: it must give share 1. Forward passes only; needs the saved main model and the GPU, with
-nothing else running.
+in `results/patching.json`. Patching all positions is a check, not a row: it must give share 1.
+Forward passes only; needs the saved main model and the GPU, with nothing else running.
 """
 
 import time

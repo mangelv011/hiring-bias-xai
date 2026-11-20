@@ -6,7 +6,7 @@
   "n_patched": 168,
   "n_unequal_length": 11,
   "n_unequal_length_eligible": 1,
-  "seconds": 29.7,
+  "seconds": 32.4,
   "settings": {
     "batch_size": 32,
     "n_boot": 1000,
