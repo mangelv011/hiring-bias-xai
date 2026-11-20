@@ -14,10 +14,20 @@ a bio's value for a word is the sum over its occurrences, and a word absent from
 from typing import NamedTuple
 
 import numpy as np
+import pandas as pd
 
 from hiring_bias_xai import data
 from hiring_bias_xai.attribution import Attribution
 from hiring_bias_xai.models import log_odds
+
+
+MIN_BIOS = 20
+TOP = 10
+
+
+class Decomposition(NamedTuple):
+    table: pd.DataFrame  # one row per reported word, largest |contribution| first
+    summary: dict
 
 
 class Bio(NamedTuple):
@@ -25,6 +35,38 @@ class Bio(NamedTuple):
     values: dict[str, float]  # Shapley value of each word for the target, summed over occurrences
     score: float  # log-odds score of the full bio
     empty: float  # log-odds score of the empty bio
+
+
+def _matrices(bios: list[Bio], vocabulary: list[str]) -> tuple[np.ndarray, np.ndarray]:
+    """Value of each word (column) in each bio (row), 0 where absent, and whether it is present.
+
+    A word can be present with value exactly 0, so presence is tracked on its own.
+    """
+    column = {word: i for i, word in enumerate(vocabulary)}
+    values = np.zeros((len(bios), len(vocabulary)))
+    present = np.zeros(values.shape, dtype=bool)
+    for row, bio in enumerate(bios):
+        for word, value in bio.values.items():
+            values[row, column[word]] = value
+            present[row, column[word]] = True
+    return values, present
+
+
+def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS) -> Decomposition:
+    """The words of one occupation with their contribution to the women-minus-men score gap.
+
+    `bios` are all the bios of the occupation, both genders. The table has the words in at least
+    `min_bios` bios, largest |contribution| first.
+    """
+    vocabulary = sorted({word for bio in bios for word in bio.values})
+    values, present = _matrices(bios, vocabulary)
+    female = np.array([bio.gender == "female" for bio in bios])
+    contribution = values[female].mean(axis=0) - values[~female].mean(axis=0)
+    n_bios = present.sum(axis=0)
+    table = pd.DataFrame({"word": vocabulary, "n_bios": n_bios, "contribution": contribution})
+    table = table[table["n_bios"] >= min_bios]
+    order = np.argsort(-table["contribution"].abs().to_numpy(), kind="stable")
+    return Decomposition(table.iloc[order].reset_index(drop=True), {})
 
 
 def _key(word: str) -> str:
