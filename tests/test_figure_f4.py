@@ -106,9 +106,7 @@ def test_each_condition_has_a_dot_and_an_interval_per_row_swap_in_the_highlight(
     assert removal.get_offsets()[:, 0].tolist() == pytest.approx([0.063, 0.080, 0.057, 0.063])
     assert set(_hex(swap.get_facecolor())) == {plotting.HIGHLIGHT}
     assert set(_hex(removal.get_facecolor())) == {plotting.NEUTRAL}
-    intervals = [
-        c for c in ax.collections if isinstance(c, matplotlib.collections.LineCollection)
-    ]
+    intervals = [c for c in ax.collections if isinstance(c, matplotlib.collections.LineCollection)]
     ends = [[seg.tolist() for seg in c.get_segments()] for c in intervals]
     assert [seg[0][0] for seg in ends[0]] == pytest.approx([0.060, 0.057, 0.037, 0.057])
     assert [seg[1][0] for seg in ends[0]] == pytest.approx([0.127, 0.120, 0.093, 0.081])
