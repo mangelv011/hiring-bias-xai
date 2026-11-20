@@ -42,3 +42,37 @@ def test_a_proxy_word_pushes_the_gap_the_way_the_gendered_sum_does():
 def test_with_a_gendered_sum_of_exactly_zero_no_word_pushes_the_same_way():
     table = _table(("up", 1.0, 0.5, 1.5, False), ("down", -1.0, -1.5, -0.5, False))
     assert _words(table, gendered_sum=0.0) == []
+
+
+def test_only_the_five_words_with_the_largest_absolute_contribution_are_kept_largest_first():
+    # Seven passing words with contributions 1 to 7 in either sign; the gendered sum is positive,
+    # so the negative ones drop out first and the five largest positive ones remain.
+    table = _table(
+        *[(f"w{n}", float(n), n - 0.5, n + 0.5, False) for n in range(1, 8)],
+        ("big_negative", -50.0, -51.0, -49.0, False),
+    )
+    assert _words(table) == ["w7", "w6", "w5", "w4", "w3"]
+
+
+def test_the_number_of_words_kept_is_the_top_argument():
+    table = _table(*[(f"w{n}", float(n), n - 0.5, n + 0.5, False) for n in range(1, 8)])
+    assert _words(table, top=2) == ["w7", "w6"]
+
+
+def test_equal_absolute_contributions_are_ordered_alphabetically():
+    table = _table(
+        ("delta", 2.0, 1.0, 3.0, False),
+        ("alpha", 2.0, 1.0, 3.0, False),
+        ("charlie", 2.0, 1.0, 3.0, False),
+        ("bravo", 2.0, 1.0, 3.0, False),
+    )
+    assert _words(table, top=3) == ["alpha", "bravo", "charlie"]
+
+
+def test_the_largest_negative_contribution_ranks_by_its_size():
+    table = _table(
+        ("small", -1.0, -1.5, -0.5, False),
+        ("large", -3.0, -3.5, -2.5, False),
+        ("medium", -2.0, -2.5, -1.5, False),
+    )
+    assert _words(table, gendered_sum=-1.0) == ["large", "medium", "small"]
