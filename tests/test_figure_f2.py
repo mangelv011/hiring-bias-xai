@@ -323,7 +323,7 @@ def run(f2, monkeypatch, tmp_path):
         f2.main(results_dir)
         return results_dir
 
-    go.subset, go.model = subset, model
+    go.subset, go.model, go.results_dir = subset, model, results_dir
     return go
 
 
@@ -394,6 +394,7 @@ def test_the_record_holds_the_pick_of_each_group_with_its_score_and_size(run):
         assert pick["bio_id"] == best[0]
         assert pick["gendered_push"] == pytest.approx(best[1])
         assert pick["predicted"] != pick["true"]
+        assert pick["true"] == {"female": "surgeon", "male": "nurse"}[gender]
         text = run.subset.set_index("id").loc[pick["bio_id"], "text"]
         assert pick["words"] == len(text.split())
 
@@ -413,6 +414,7 @@ def test_a_bio_whose_stored_prediction_differs_from_the_saved_one_is_counted_as_
     results.save_predictions("deberta", run.subset, changed)
     record = json.loads((run() / "f2_cases.json").read_text())
     assert record["n_skipped"] == 1
+    assert record["n_bios"] == 8  # the skipped bio is still one of the subset
 
 
 def test_every_value_label_stays_inside_its_axes_so_it_does_not_run_into_the_word_labels(figure):
@@ -421,3 +423,27 @@ def test_every_value_label_stays_inside_its_axes_so_it_does_not_run_into_the_wor
         for label in ax.texts:
             extent = label.get_window_extent()
             assert box.x0 <= extent.x0 and extent.x1 <= box.x1, label.get_text()
+
+
+def test_the_count_of_wrong_calls_of_a_group_leaves_out_bios_of_other_occupations(run):
+    wrong_women = _expected_groups(run)["female"][0]
+    guesses = run.model.predict(list(run.subset["text"]))
+    first_wrong = next(i for i in range(4) if run.subset.loc[i, "occupation"] != guesses[i])
+    run.subset.loc[first_wrong, "occupation"] = "dentist"  # not a male-dominated occupation
+    record = json.loads((run() / "f2_cases.json").read_text())
+    assert record["women_in_male_dominated"]["n_wrong"] == wrong_women - 1
+
+
+def test_the_count_of_wrong_calls_of_a_group_leaves_out_the_right_calls(run):
+    wrong_women = _expected_groups(run)["female"][0]
+    guesses = run.model.predict(list(run.subset["text"]))
+    first_wrong = next(i for i in range(4) if run.subset.loc[i, "occupation"] != guesses[i])
+    # The guess becomes a male-dominated occupation and this woman's true one: a right call.
+    run.subset.loc[first_wrong, "occupation"] = guesses[first_wrong]
+    rows = [{"occupation": o, "share_women": 0.1} for o in [*MALE_DOMINATED, guesses[first_wrong]]]
+    results.write_json(
+        run.results_dir / "showcase_occupations.json",
+        {"male_dominated": rows, "female_dominated": []},
+    )
+    record = json.loads((run() / "f2_cases.json").read_text())
+    assert record["women_in_male_dominated"]["n_wrong"] == wrong_women - 1

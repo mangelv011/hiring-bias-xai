@@ -100,6 +100,12 @@ def test_main_writes_the_statistics_of_the_showcase_subset(units, monkeypatch, t
     record = json.loads((tmp_path / "word_units.json").read_text())
     assert record["n_units"] == 6
     assert record["n_glued"] == 1
+    assert record["n_bios"] == 2
     assert record["n_gendered_units"] == 2
     assert record["n_glued_with_gendered_part"] == 1
     assert "whitespace" in record["rule"]
+
+
+def test_units_are_split_on_any_run_of_white_space(units):
+    stats = units.unit_statistics(["She said\nthat  \t it"])
+    assert stats["n_units"] == 4

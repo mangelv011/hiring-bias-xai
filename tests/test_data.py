@@ -465,3 +465,11 @@ def test_a_word_is_gendered_when_its_core_is_one_of_the_scrubbed_words(word):
 )
 def test_a_word_that_only_contains_a_scrubbed_word_is_not_gendered(word):
     assert not data.is_gendered_word(word)
+
+
+@pytest.mark.parametrize(
+    "word",
+    ["\u201cshe", "\u2014he", "[her]", "'his'", "him!?", "*she*", "\u00abshe\u00bb"],
+)
+def test_any_punctuation_at_the_ends_of_a_gendered_word_is_ignored(word):
+    assert data.is_gendered_word(word)

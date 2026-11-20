@@ -180,3 +180,16 @@ def test_the_sentence_wraps_when_the_next_word_would_pass_the_line_and_not_befor
         (2, 0, 0, "kl"),
         (2, 3, 1, "x"),
     ]
+
+
+def test_digits_in_different_units_do_not_make_a_run(f2):
+    # "123" and "456" next to each other are two numbers, not a run of six digits.
+    case = f2.Case(
+        "test-1",
+        ["she", "123", "456"] + [f"w{i}" for i in range(12)],
+        "surgeon",
+        "nurse",
+        "female",
+        np.array([2.0] + [0.0] * 14),
+    )
+    assert _pick(f2, [case]) is case
