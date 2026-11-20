@@ -30,6 +30,7 @@ REFERENCES = (
 OCCUPATION_ONLY = "occupation_only"
 LABEL_GAP = 0.07  # least distance between the labels of panel a, as a share of its y range
 LABEL_ROOM = 2.0  # room right of the last layer for the labels, in layers
+LAST_LAYER_NOTE = "Last layer:\nthe classifier\nreads only [CLS],\nso edited words\ngive 0%."
 HALF = 0.5  # the share of the effect that marks where it has left the edited words
 
 
@@ -38,29 +39,30 @@ def _all_bios(probing: pd.DataFrame) -> pd.DataFrame:
 
 
 def title(probing: pd.DataFrame, patching: pd.DataFrame) -> str:
-    """The finding: in how many layers a probe reads gender beyond the occupation alone, and the
-    first layer where the effect of the swap has left the edited words.
+    """The finding: whether a probe reads gender beyond the occupation alone once the pronouns
+    are removed, and the first layer where the effect of the swap has left the edited words.
 
-    A probe counts when its interval starts above the interval of the occupation-only reference.
-    The effect has left the edited words when the interval of the restored share is below one
-    half.
+    A probe counts when its interval starts above the interval of the occupation-only reference;
+    the title says "stays readable" if all do, "in only some layers" if some do. The effect has
+    left the edited words when the interval of the restored share is below one half.
     """
     rows = _all_bios(probing)
     probes = rows[rows["model"].isin([name for name, _, _ in MODELS])]
     reference = rows[rows["model"] == OCCUPATION_ONLY].iloc[0]
     above = int((probes["ci_low"] > reference["ci_high"]).sum())
-    count = f"all {len(probes)}" if above == len(probes) else f"{above} of {len(probes)}"
+    if above == len(probes):
+        readable = "Gender stays readable after the pronouns are removed"
+    elif above:
+        readable = "Gender stays readable in only some layers after the pronouns are removed"
+    else:
+        readable = "Gender is not readable beyond the occupation once the pronouns are removed"
     differing = patching[patching["position_set"] == "differing"].sort_values("layer")
     left = differing[differing["mean_ci_high"] < HALF]
     if left.empty:
         where = "stays in the edited words in every layer"
     else:
         where = f"leaves the edited words by layer {left['layer'].iloc[0]}"
-    return (
-        f"Gender is readable from scrubbed bios in {count} layers "
-        f"({probes['accuracy'].min():.0%} to {probes['accuracy'].max():.0%}, against "
-        f"{reference['accuracy']:.0%} from the occupation alone), and the swap's effect {where}."
-    )
+    return f"{readable}, and the swap's effect {where}."
 
 
 def _spread(positions: list[float], gap: float) -> list[float]:
@@ -113,7 +115,7 @@ def _patch_panel(ax, patching: pd.DataFrame) -> None:
     for value, name in ((0, "zero"), (1, "one")):
         ax.plot([layers[0], layers[-1]], [value, value], color=DARK, lw=0.6, label=name)
     for position_set, colour, label in (
-        ("all", NEUTRAL, "all positions\n(100% by construction)"),
+        ("others", NEUTRAL, "all other words"),
         ("differing", HIGHLIGHT, "edited words only"),
     ):
         rows = patching[patching["position_set"] == position_set].sort_values("layer")
@@ -121,8 +123,9 @@ def _patch_panel(ax, patching: pd.DataFrame) -> None:
             rows["layer"], rows["mean_ci_low"], rows["mean_ci_high"], color=colour, alpha=0.25, lw=0
         )
         ax.plot(rows["layer"], rows["mean"], color=colour, lw=1.2, label=position_set)
-        y = rows["mean"].iloc[-1] + (-0.1 if position_set == "all" else 0.12)
+        y = rows["mean"].iloc[-1] + (-0.1 if position_set == "others" else 0.12)
         ax.text(layers[-1] + 0.15, y, label, color=colour, va="center", ha="left")
+    ax.text(0.02, 0.48, LAST_LAYER_NOTE, transform=ax.transAxes, color=DARK, va="center", ha="left")
     _set_layers(ax, layers)
     ax.set_yticks([0, 0.5, 1])
     ax.yaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
