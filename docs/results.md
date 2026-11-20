@@ -235,7 +235,7 @@ Cost on the laptop: encoding the 11,721 bios took 26 s (pretrained) and 25 s (ma
 
 **In short:** scrubbing the pronouns narrows the gender gap by about a fifth for half a point of macro-F1, and the gap that remains is still more than twice what chance gives. Deleting six proxy words leaves it where it was.
 
-<p align="center"><img src="../results/figures/f7_mitigation.png" width="520" alt="Scrubbing pronouns moves the gender gap from 0.14 to 0.12 and macro-F1 from 0.784 to 0.779; deleting proxy words barely moves either; every condition stays above the band that chance gives."></p>
+<p align="center"><img src="../results/figures/f7_mitigation.png" width="520" alt="Scrubbing pronouns moves the gender gap from 0.14 to 0.12 and macro-F1 from 0.784 to 0.779; deleting proxy words moves neither by much; every condition stays above the band that chance gives."></p>
 
 [F3](#f3-which-words-make-up-the-gap-between-women-and-men) and [F4](#f4-does-changing-only-the-gender-change-the-decision) show that pronouns push the model's decisions towards one gender, and [F6](#f6-gender-inside-the-model) that other words and the model's own states still carry gender. So I try two fixes and measure what each one does to the gap and to accuracy. Design, the rules and the alternatives I did not run (LEACE, INLP) are in [ADR 0007](decisions/0007-mitigation.md).
 
@@ -261,7 +261,7 @@ The share of bios the model gets right changes by -0.02 points in (d), with an i
 
 - **Scrubbing narrows the gap by a fifth and costs half a point.** The scrubbed model on scrubbed bios (d) brings the gap from 0.143 to 0.115. Scrubbing only the bios the original model reads (b) gets 0.119 with no retraining, for 0.8 points of macro-F1. Conditions (c) and (d) differ by less than their intervals.
 - **The gap that is left is more than twice the chance level.** Every condition stays above 0.050, the 95th percentile of what shuffled genders give; the lowest, (c), is 0.110. In every condition the probability that chance explains the gap is at most 1 in 1,001.
-- **The jobs with the largest gaps hardly move.** The table gives women minus men in true positive rate: how many more qualified women than qualified men the model passes on, per 100 of each.
+- **The jobs with the largest gaps move by a few points.** The table gives women minus men in true positive rate: how many more qualified women than qualified men the model passes on, per 100 of each.
 
 | Job | a | b | c | d | e |
 |---|---|---|---|---|---|
