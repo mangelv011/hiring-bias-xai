@@ -87,6 +87,8 @@ def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS, top: int = TOP) -> D
     m_female, m_male = np.nan_to_num(columns["value_female"]), np.nan_to_num(columns["value_male"])
     columns["usage"] = (f_female - f_male) * (m_female + m_male) / 2
     columns["weight"] = (f_female + f_male) / 2 * (m_female - m_male)
+    gendered = np.array([data.is_gendered_word(word) for word in vocabulary], dtype=bool)
+    columns["gendered"] = gendered
     table = pd.DataFrame(columns)
     kept = table.iloc[order][frequent[order] | is_top[order]].reset_index(drop=True)
     full = np.array([bio.score for bio in bios])
@@ -98,6 +100,7 @@ def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS, top: int = TOP) -> D
         "n_male": int((~female).sum()),
         "score_gap": {"value": float(score_gap)},
         "decomposed_gap": {"value": float(contribution.sum())},
+        "gendered_share": {"value": float(contribution[gendered].sum() / contribution.sum())},
         "empty_score_drift": float(score_gap - contribution.sum()),
         "decomposition_error": float(abs(contribution.sum() - exact)),
     }
