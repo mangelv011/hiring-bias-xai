@@ -192,6 +192,17 @@ def test_top_share_has_two_intervals_one_that_reselects_the_top_words_and_one_wi
     assert [share["fixed_ci_low"], share["fixed_ci_high"]] == pytest.approx(_interval(fixed))
 
 
+def test_the_gendered_share_has_an_interval_from_the_same_resamples():
+    shares = []
+    for women, men in _resamples(GENDERED_BIOS, 40, seed=5):
+        d = _contributions(women, men)
+        shares.append((d.get("she", 0) + d.get("he", 0)) / sum(d.values()))
+    share = gap_decomposition.decompose(GENDERED_BIOS, min_bios=1, n_boot=40, seed=5).summary[
+        "gendered_share"
+    ]
+    assert [share["ci_low"], share["ci_high"]] == pytest.approx(_interval(shares))
+
+
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
     # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
     # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
