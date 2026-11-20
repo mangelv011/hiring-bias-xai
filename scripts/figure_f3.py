@@ -60,17 +60,21 @@ def _interval(share: dict) -> str:
 
 
 def header(panel: Panel) -> str:
-    """Two lines: the occupation with its total score gap, then the shares or why there are none."""
+    """The occupation with its total score gap, then the shares or why there are none.
+
+    Each line is short because the header starts at the axes and must end inside the figure.
+    """
     gap = panel.summary["score_gap"]
     first = (
         f"{_name(panel.occupation).capitalize()} ({panel.kind.replace('_', '-')}), "
         f"gap {gap['value']:+.1f} [{gap['ci_low']:+.1f}, {gap['ci_high']:+.1f}]"
     )
     if panel.summary["gap_unstable"]:
-        return first + "\nits interval includes 0, so the shares are not given"
+        return first + "\ninterval includes 0: no shares given"
     return (
-        f"{first}\ntop {len(panel.summary['top_words'])} words: {_interval(panel.summary['top_share'])}; "
-        f"gendered: {_interval(panel.summary['gendered_share'])}"
+        f"{first}\ntop {len(panel.summary['top_words'])} words: "
+        f"{_interval(panel.summary['top_share'])}\n"
+        f"gendered words: {_interval(panel.summary['gendered_share'])}"
     )
 
 
