@@ -204,6 +204,24 @@ def test_the_gendered_share_has_an_interval_from_the_same_resamples():
     assert [share["ci_low"], share["ci_high"]] == pytest.approx(_interval(shares))
 
 
+@pytest.mark.filterwarnings("error")
+def test_shares_are_flagged_unstable_when_the_interval_of_the_total_gap_includes_zero():
+    stable = gap_decomposition.decompose(GENDERED_BIOS, min_bios=1).summary
+    assert stable["gap_unstable"] is False
+    # Women's values cancel out and men's are 0: the total gap is exactly 0, so no share exists.
+    bios = [
+        _bio("female", {"a": 1.0}),
+        _bio("female", {"a": -1.0}),
+        _bio("male", {"a": 0.0}),
+        _bio("male", {"a": 0.0}),
+    ]
+    unstable = gap_decomposition.decompose(bios, min_bios=1).summary
+    assert unstable["gap_unstable"] is True
+    assert unstable["decomposed_gap"]["value"] == 0
+    assert unstable["top_share"]["value"] is None
+    assert unstable["gendered_share"]["value"] is None
+
+
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
     # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
     # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
