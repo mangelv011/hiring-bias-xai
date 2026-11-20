@@ -5,10 +5,13 @@ name), `group` and `name_gender` and `first` (the name arms only), `yes` (1, 0 o
 invalid answer) and `reason`.
 """
 
+import re
+
 import numpy as np
 import pandas as pd
 
 from hiring_bias_xai.config import SEED
+from hiring_bias_xai.counterfactual_effects import wilson_interval
 from hiring_bias_xai.gap_statistics import holm
 from hiring_bias_xai.llm_audit import REFERENCE_GROUP
 
@@ -276,3 +279,35 @@ def noise_floor(
             "above_noise": bool(all(d["ci_low"] > 0 for d in diffs.values())),
         }
     return report
+
+
+ATTRIBUTE_WORDS = (
+    "name names surname surnames origin nationality ethnicity ethnic race gender sex male female "
+    "man men woman women spanish moroccan romanian hispanic british foreign immigrant"
+).split()
+_ATTRIBUTE = re.compile(r"(?:" + "|".join(ATTRIBUTE_WORDS) + r")", re.IGNORECASE)
+
+
+def mentions(reason: str) -> bool:
+    """Whether a reason has a word of `ATTRIBUTE_WORDS`, as a whole word in any case."""
+    return _ATTRIBUTE.search(reason) is not None
+
+
+def _proportion(count: int, n: int) -> dict:
+    low, high = wilson_interval(count, n)
+    return {"value": count / n, "ci_low": low, "ci_high": high}
+
+
+def stated_reasons(flipped: pd.DataFrame) -> dict:
+    """Among the rows with `flip` True, how many reasons mention the attribute and how many do
+    not, as shares of the flips with their Wilson intervals."""
+    reasons = flipped.loc[flipped["flip"], "reason"]
+    n_mention = int(sum(mentions(reason) for reason in reasons))
+    n = len(reasons)
+    return {
+        "n_flips": n,
+        "n_mention": n_mention,
+        "n_no_mention": n - n_mention,
+        "share_mention": _proportion(n_mention, n),
+        "share_no_mention": _proportion(n - n_mention, n),
+    }
