@@ -9,6 +9,7 @@ from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
 import numpy as np
+import pandas as pd
 from scipy.stats import spearmanr
 
 from hiring_bias_xai.attribution import remove_words
@@ -143,3 +144,23 @@ def loo_values(classifier: Classifier, words: Sequence[str], target: int) -> np.
     """Leave-one-out occlusion: the value of each word is the fall in the log-odds of the target
     occupation when that word alone is deleted."""
     return drop_without(classifier, words, [[i] for i in range(len(words))], target)
+
+
+def stratified_sample(subset: pd.DataFrame, n: int, seed) -> np.ndarray:
+    """Positions in `subset` of `n` bios: equal shares from each occupation and gender group.
+
+    The groups are visited in sorted (occupation, gender) order. Each gets `n // groups` bios,
+    and the first `n % groups` groups one more. Each draws without replacement from one
+    generator seeded with `seed`. A group too small for its share raises, so the sample never
+    silently has fewer than `n` bios. The positions are sorted.
+    """
+    groups = subset.groupby(["occupation", "gender"]).indices
+    base, extra = divmod(n, len(groups))
+    rng = np.random.default_rng(seed)
+    chosen = []
+    for rank, (name, positions) in enumerate(sorted(groups.items())):
+        size = base + (rank < extra)
+        if len(positions) < size:
+            raise ValueError(f"{name} has {len(positions)} bios, fewer than its share of {size}")
+        chosen.append(rng.choice(positions, size=size, replace=False))
+    return np.sort(np.concatenate(chosen))
