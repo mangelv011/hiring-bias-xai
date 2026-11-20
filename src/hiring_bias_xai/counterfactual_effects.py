@@ -94,6 +94,21 @@ def hand_check_sample(ids: Sequence[str], n: int, seed: int = SEED) -> list[str]
     return [ids[i] for i in sorted(chosen)]
 
 
+def hand_check_summary(checks: pd.DataFrame) -> dict:
+    """The incoherent share of a hand check with its Wilson interval.
+
+    `checks` has one row per bio: `coherent` ("yes" or "no") and, for every "no", a `reason`.
+    """
+    if not checks["coherent"].isin(["yes", "no"]).all():
+        raise ValueError("coherent must be yes or no for every bio")
+    incoherent = checks["coherent"] == "no"
+    if (checks.loc[incoherent, "reason"].fillna("").str.strip() == "").any():
+        raise ValueError("every incoherent bio needs a reason")
+    n, k = len(checks), int(incoherent.sum())
+    low, high = wilson_interval(k, n)
+    return {"n": n, "n_incoherent": k, "incoherent_share": k / n, "ci_low": low, "ci_high": high}
+
+
 def table(
     scored: pd.DataFrame, share_women: Mapping[str, float], screener: str, n_boot: int = N_BOOT
 ) -> pd.DataFrame:
