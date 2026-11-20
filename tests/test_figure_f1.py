@@ -319,10 +319,16 @@ def _assert_labels_are_clear(fig):
             if isinstance(c, matplotlib.collections.PathCollection)
         ]
     )
+    renderer = fig.canvas.get_renderer()
+    fixed = {
+        t.get_text(): t.get_window_extent(renderer) for t in ax.texts if not hasattr(t, "xyann")
+    }
     names = list(boxes)
     for i, name in enumerate(names):
         box = boxes[name]
         assert not path.intersects_bbox(box, filled=False), f"{name} crosses the fitted line"
+        for text, extent in fixed.items():
+            assert not box.overlaps(extent), f"{name} overlaps {text!r}"
         for other in names[i + 1 :]:
             assert not box.overlaps(boxes[other]), f"{name} overlaps {other}"
         inside = (
