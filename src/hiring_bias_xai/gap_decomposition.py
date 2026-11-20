@@ -63,7 +63,15 @@ def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS) -> Decomposition:
     female = np.array([bio.gender == "female" for bio in bios])
     contribution = values[female].mean(axis=0) - values[~female].mean(axis=0)
     n_bios = present.sum(axis=0)
-    table = pd.DataFrame({"word": vocabulary, "n_bios": n_bios, "contribution": contribution})
+    importance = values.sum(axis=0) / n_bios  # every word of the vocabulary is in some bio
+    table = pd.DataFrame(
+        {
+            "word": vocabulary,
+            "n_bios": n_bios,
+            "importance": importance,
+            "contribution": contribution,
+        }
+    )
     table = table[table["n_bios"] >= min_bios]
     order = np.argsort(-table["contribution"].abs().to_numpy(), kind="stable")
     return Decomposition(table.iloc[order].reset_index(drop=True), {})
