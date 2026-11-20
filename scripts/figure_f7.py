@@ -41,27 +41,20 @@ def _verdict(change: dict) -> int:
 
 
 def title(report: dict) -> str:
-    """The finding for condition d: what scrubbing does to the gap and to macro-F1.
+    """The finding for condition d, in plain words: by how much scrubbing changes the gap.
 
-    The gap and macro-F1 "fall" or "rise" only when the interval of the paired change excludes 0.
+    The gap narrows or widens only when the interval of the paired change excludes 0.
     """
-    block = _block(report, HEADLINE)
-    gap_change = block["change_from_a"]["rms_tpr_gap"]
-    f1_change = block["change_from_a"]["macro_f1"]
     before = _block(report, ORIGINAL)["rms_tpr_gap"]["value"]
-    after = block["rms_tpr_gap"]["value"]
-    gap = {
-        -1: f"cuts the gender gap from {before:.2f} to {after:.2f}",
-        0: f"does not change the gender gap ({before:.2f} to {after:.2f})",
-        1: f"raises the gender gap from {before:.2f} to {after:.2f}",
-    }[_verdict(gap_change)]
-    points = abs(f1_change["value"]) * 100
-    accuracy = {
-        -1: f"for {points:.1f} points of macro-F1",
-        0: "and leaves macro-F1 unchanged",
-        1: f"and macro-F1 by {points:.1f} points",
-    }[_verdict(f1_change)]
-    return f"Scrubbing pronouns {gap} {accuracy}"
+    after = _block(report, HEADLINE)["rms_tpr_gap"]["value"]
+    change = round(100 * abs(after - before) / before)
+    verdict = _verdict(_block(report, HEADLINE)["change_from_a"]["rms_tpr_gap"])
+    if verdict == 0:
+        return "Removing pronouns leaves no clear change in the gap between women and men."
+    if verdict == 1:
+        return f"Removing pronouns widens the gap between women and men by {change}%."
+    remains = "; most of it remains" if after > before / 2 else ""
+    return f"Removing pronouns narrows the gap between women and men by {change}%{remains}."
 
 
 def build(report: dict):
