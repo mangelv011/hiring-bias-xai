@@ -58,3 +58,14 @@ def test_summarise_degenerate_samples_have_degenerate_intervals():
         2.0,
         2.0,
     )
+
+
+def test_the_toward_share_is_taken_over_the_flips_and_empty_without_flips():
+    flip = np.array([True, True, True, False, False])
+    toward = np.array([True, True, False, False, False])
+    summary = effects.summarise(flip, np.zeros(5), toward, n_boot=100)
+    assert summary["toward_share"] == pytest.approx(2 / 3)
+    assert summary["toward_share_ci_low"] <= 2 / 3 <= summary["toward_share_ci_high"]
+    none = effects.summarise(np.zeros(5, dtype=bool), np.zeros(5), np.zeros(5, dtype=bool), 20)
+    assert np.isnan(none["toward_share"])
+    assert np.isnan(none["toward_share_ci_low"])
