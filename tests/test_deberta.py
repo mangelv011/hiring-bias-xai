@@ -345,9 +345,7 @@ def test_patching_the_embeddings_at_some_positions_is_the_same_as_swapping_those
     at_two = torch.zeros(1, 6, dtype=torch.bool)
     at_two[0, 2] = True
     patched = model.patched_logits(corrupted, 0, states[0], at_two)
-    np.testing.assert_allclose(
-        patched.numpy(), model.logits(["alpha beta gamma eta"]), atol=1e-5
-    )
+    np.testing.assert_allclose(patched.numpy(), model.logits(["alpha beta gamma eta"]), atol=1e-5)
 
 
 def test_patching_does_not_change_later_runs_of_the_model(tiny_network, tiny_tokenizer):
