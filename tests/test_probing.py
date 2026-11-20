@@ -221,3 +221,8 @@ def test_the_tfidf_reference_reads_word_pairs_and_chooses_c_from_its_own_grid(mo
     monkeypatch.setattr(probing, "select_c", spy)
     probing.tfidf_predictions(train, gender, train[:2])
     assert calls == [(probing.TFIDF_C_GRID, probing.new_tfidf)]
+
+
+def test_the_c_grids_are_the_ones_the_adr_names():
+    assert probing.C_GRID == (1e-4, 1e-3, 1e-2, 1e-1, 1.0)
+    assert probing.TFIDF_C_GRID == (0.1, 1.0, 10.0, 100.0)

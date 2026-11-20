@@ -165,3 +165,44 @@ def test_the_json_records_the_settings_the_flag_counts_and_the_seconds_of_every_
 def test_an_unknown_part_is_refused(run):
     with pytest.raises(ValueError, match="part"):
         run("llama")
+
+
+def test_the_defaults_are_100_shuffles_and_1000_resamples():
+    spec = importlib.util.spec_from_file_location("probing_script", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.N_PERMUTATIONS == 100
+    assert module.N_BOOT == 1000
+
+
+def test_layers_are_written_as_whole_numbers_and_references_leave_them_empty(run):
+    results = run("pretrained", "deberta", "references")
+    lines = (results / "probing.csv").read_text().splitlines()
+    layers = {line.split(",")[1] for line in lines[1:]}
+    assert layers == {"0", "1", "2", ""}
+
+
+def test_the_probe_gets_the_shuffle_count_the_resamples_the_seed_and_the_workers(run, monkeypatch):
+    calls = []
+    real = run.module.probing.probe
+
+    def spy(*args):
+        calls.append(args[6:])
+        return real(*args)
+
+    monkeypatch.setattr(run.module.probing, "probe", spy)
+    run("pretrained")
+    assert set(calls) == {(N_PERMUTATIONS, 30, 42, run.module.N_JOBS)}
+
+
+def test_the_text_that_goes_to_the_tfidf_reference_is_scrubbed(run, monkeypatch):
+    seen = []
+    real = run.module.probing.tfidf_predictions
+
+    def spy(train_texts, train_gender, test_texts):
+        seen.append(list(test_texts))
+        return real(train_texts, train_gender, test_texts)
+
+    monkeypatch.setattr(run.module.probing, "tfidf_predictions", spy)
+    run("references")
+    assert seen and not any("She" in text for text in seen[0])
