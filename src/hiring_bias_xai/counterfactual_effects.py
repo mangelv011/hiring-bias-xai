@@ -32,6 +32,15 @@ def moves_toward_new_gender(
 N_BOOT = 1000
 
 
+def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """The 95% Wilson score interval of a share of `successes` in `n` trials."""
+    share = successes / n
+    scale = 1 + z**2 / n
+    centre = (share + z**2 / (2 * n)) / scale
+    half = z * np.sqrt(share * (1 - share) / n + z**2 / (4 * n**2)) / scale
+    return max(0.0, float(centre - half)), min(1.0, float(centre + half))
+
+
 def _interval(resampled: np.ndarray) -> tuple[float, float]:
     """The 2.5th and 97.5th percentiles, ignoring the resamples that gave NaN; NaN if all did."""
     if np.isnan(resampled).all():
