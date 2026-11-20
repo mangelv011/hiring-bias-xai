@@ -128,35 +128,43 @@ def _set_passed(stability, *flags):
 
 PASSED_DELETION = "Shapley finds the words the model relies on"
 FAILED_DELETION = "Shapley's top words matter no more than random ones"
-UNSTABLE = "its single-word rankings are unstable"
-HOLD_UP = "its single-word rankings hold up"
+DEPENDS = "their order depends on how it is computed"
+STEADY = "their order barely depends on how it is computed"
+
+
+def _set_spearman(stability, name, low, high):
+    stat = stability["checks"][name]["spearman"]
+    stat["median"] = (low + high) / 2
+    stat["median_ci"] = [low, high]
 
 
 @pytest.mark.parametrize(
-    ("deletion", "flags", "expected"),
+    ("deletion", "removal", "method", "expected"),
     [
-        (True, (False, False, False), f"{PASSED_DELETION}, but {UNSTABLE}."),
-        (True, (False, False, True), f"{PASSED_DELETION}, but {HOLD_UP} in 1 of 3 checks."),
-        (True, (True, True, True), f"{PASSED_DELETION}, and {HOLD_UP}."),
-        (False, (False, False, False), f"{FAILED_DELETION}, and {UNSTABLE}."),
-        (False, (True, True, False), f"{FAILED_DELETION}, and {HOLD_UP} in 2 of 3 checks."),
+        # the seed check (0.84 to 0.93 in the fixture) is the noise of rerunning the same method
+        (True, (0.41, 0.53), (0.40, 0.43), f"{PASSED_DELETION}, but {DEPENDS}."),
+        (True, (0.85, 0.90), (0.40, 0.43), f"{PASSED_DELETION}, but {DEPENDS}."),
+        (True, (0.85, 0.90), (0.80, 0.95), f"{PASSED_DELETION}, and {STEADY}."),
+        (True, (0.70, 0.84), (0.84, 0.90), f"{PASSED_DELETION}, but {DEPENDS}."),
+        (False, (0.41, 0.53), (0.40, 0.43), f"{FAILED_DELETION}, and {DEPENDS}."),
+        (False, (0.85, 0.90), (0.86, 0.95), f"{FAILED_DELETION}, and {STEADY}."),
     ],
 )
-def test_the_title_states_the_finding_without_numbers_from_the_data(
-    f5, areas, stability, deletion, flags, expected
+def test_the_title_compares_other_ways_of_computing_with_the_noise_of_a_rerun(
+    f5, areas, stability, deletion, removal, method, expected
 ):
     areas["screeners"]["deberta"]["passed"] = deletion
-    _set_passed(stability, *flags)
+    _set_spearman(stability, "removal", *removal)
+    _set_spearman(stability, "method", *method)
     assert f5.title(areas, stability) == expected
 
 
 @pytest.mark.parametrize("deletion", [True, False])
-@pytest.mark.parametrize(
-    "flags", [(False,) * 3, (True, False, False), (True, True, False), (True,) * 3]
-)
-def test_the_title_fits_in_two_lines_in_every_case(f5, curves, areas, stability, deletion, flags):
+@pytest.mark.parametrize("method", [(0.40, 0.43), (0.85, 0.95)])
+def test_the_title_fits_in_two_lines_in_every_case(f5, curves, areas, stability, deletion, method):
     areas["screeners"]["deberta"]["passed"] = deletion
-    _set_passed(stability, *flags)
+    _set_spearman(stability, "removal", *method)
+    _set_spearman(stability, "method", *method)
     figure = f5.build(curves, areas, stability)
     figure.canvas.draw()
     title = figure._suptitle
@@ -213,15 +221,16 @@ def test_the_deletion_axes_name_the_quantities_and_stop_at_half_of_the_words(fig
     assert top.spines["bottom"].get_bounds() == (0, 0.5)
 
 
-def test_checks_are_rows_sorted_by_the_median_correlation_with_pass_or_fail_in_the_label(figure):
+def test_checks_are_rows_sorted_by_the_median_correlation_and_say_what_changed(figure):
     _, bottom = _axes(figure)
-    labels = [t.get_text() for t in bottom.get_yticklabels()]
-    assert [label.split("\n")[0] for label in labels] == [
-        "leave-one-out vs Shapley",
-        "seed 7 vs 42",
-        "[UNK] vs delete",
+    labels = [t.get_text().replace("\n", " ") for t in bottom.get_yticklabels()]
+    assert labels == [
+        "leave-one-out instead of Shapley",
+        "same method, another seed",
+        "[UNK] instead of deleting",
     ]
-    assert [label.split("\n")[1] for label in labels] == ["passed", "failed", "failed"]
+    assert not any(word in " ".join(labels) for word in ("passed", "failed"))
+    assert "main run" in bottom.get_xlabel()
     assert bottom.yaxis_inverted()
 
 
@@ -244,7 +253,7 @@ def test_each_row_has_a_correlation_dot_in_the_highlight_and_an_overlap_dot_in_g
 def test_the_two_measures_are_named_next_to_the_data_and_zero_is_marked(figure):
     _, bottom = _axes(figure)
     texts = " ".join(t.get_text() for t in bottom.texts)
-    assert "rank correlation" in texts and "top-10 overlap" in texts
+    assert "rank correlation" in texts and "shared top-10 words" in texts
     assert bottom.get_legend() is None
     assert any(list(line.get_xdata()) == [0, 0] for line in bottom.lines)
 
@@ -325,75 +334,49 @@ def test_no_curve_label_sits_on_a_curve_or_on_the_zero_line(f5, curves, areas, s
             assert not _points_in(box, line), (text.get_text(), line.get_label())
 
 
-def test_value_labels_clear_their_dots_and_the_threshold_marks_of_their_row(
+def test_value_labels_stand_right_of_their_interval_and_clear_their_dots(
     f5, curves, areas, stability
 ):
-    measured = {  # the medians and thresholds of the run, with tight intervals
-        "seed": ((0.89, 0.9), (0.80, 0.7)),
-        "removal": ((0.47, 0.8), (0.50, 0.5)),
-        "method": ((0.42, 0.7), (0.50, 0.5)),
-    }
-    for name, (correlation, overlap) in measured.items():
+    measured = {"seed": (0.89, 0.80), "removal": (0.47, 0.50), "method": (0.42, 0.50)}
+    for name, medians in measured.items():
         check = stability["checks"][name]
-        for metric, (median, threshold) in (("spearman", correlation), ("top10_overlap", overlap)):
+        for metric, median in zip(("spearman", "top10_overlap"), medians, strict=True):
             check[metric]["median"] = median
-            check[metric]["median_ci"] = [median - 0.001, median + 0.001]
-            check["thresholds"][f"median_{metric}"] = threshold
+            check[metric]["median_ci"] = [median - 0.001, median + 0.03]
     figure = f5.build(curves, areas, stability)
     figure.canvas.draw()
     _, bottom = _axes(figure)
     dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
     radius = (dots[0].get_sizes()[0] ** 0.5) / 2 * figure.dpi / 72
-    marks = [line for line in bottom.lines if line.get_marker() == "|"]
-    mark_points = [
-        bottom.transData.transform((x, y))
-        for line in marks
-        for x, y in zip(line.get_xdata(), line.get_ydata(), strict=True)
-    ]
-    values = [t for t in bottom.texts if re.fullmatch(r"\d\.\d\d", t.get_text().split()[0])]
+    values = [t for t in bottom.texts if re.fullmatch(r"\d\.\d\d", t.get_text())]
+    assert len(values) == 6
     for dot in dots:
         for x, y in dot.get_offsets():
             px, py = bottom.transData.transform((x, y))
+            high = bottom.transData.transform((x + 0.03, y))[0]
             (label,) = [
                 t
                 for t in values
                 if abs(t.get_window_extent().get_points()[:, 1].mean() - py) < 3
-                and t.get_text().split()[0] == f"{x:.2f}"
+                and t.get_text() == f"{x:.2f}"
             ]
             box = label.get_window_extent()
-            assert box.x0 >= px + radius + 2 or box.x1 <= px - radius - 2, label.get_text()
-            for mx, my in mark_points:
-                if abs(my - py) < 3:
-                    assert not box.x0 - 1 <= mx <= box.x1 + 1, (label.get_text(), mx)
+            assert box.x0 >= max(px + radius, high) + 2, label.get_text()
 
 
-def test_the_series_names_stand_right_of_every_dot_mark_and_value(figure):
+def test_the_series_names_stand_right_of_every_value_label(figure):
     _, bottom = _axes(figure)
-    names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "top-10 overlap")]
+    names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "shared top-10 words")]
     assert len(names) == 2
-    right_edge = max(
-        bottom.transData.transform((x, 0))[0]
-        for line in bottom.lines
-        if line.get_marker() == "|"
-        for x in line.get_xdata()
-    )
+    values = [t for t in bottom.texts if re.fullmatch(r"\d\.\d\d", t.get_text())]
+    right_edge = max(t.get_window_extent().x1 for t in values)
     assert all(t.get_window_extent().x0 > right_edge for t in names)
 
 
-def test_each_row_marks_the_pass_threshold_of_both_measures(figure):
+def test_no_pass_threshold_is_drawn(figure):
     _, bottom = _axes(figure)
-    marks = [line for line in bottom.lines if line.get_marker() == "|"]
-    positions = sorted(
-        (round(float(x), 2), round(float(y), 2))
-        for line in marks
-        for x, y in zip(line.get_xdata(), line.get_ydata(), strict=True)
-    )
-    # rows sorted by correlation: method (0), seed (1), removal (2); correlation marks sit above
-    # the row centre (-0.18), overlap marks below it (+0.18)
-    assert positions == sorted(
-        [(0.7, -0.18), (0.9, 0.82), (0.8, 1.82), (0.5, 0.18), (0.7, 1.18), (0.5, 2.18)]
-    )
-    assert "threshold" in bottom.get_xlabel()
+    assert not [line for line in bottom.lines if line.get_marker() == "|"]
+    assert "threshold" not in bottom.get_xlabel()
 
 
 def test_curve_labels_stay_apart_when_curves_end_below_zero(f5, curves, areas, stability):
@@ -409,31 +392,18 @@ def test_curve_labels_stay_apart_when_curves_end_below_zero(f5, curves, areas, s
     plt.close(figure)
 
 
-def test_a_value_on_its_threshold_is_labelled_to_the_right_of_its_dot(f5, curves, areas, stability):
-    stability["checks"]["seed"]["spearman"]["median"] = 0.9
-    stability["checks"]["seed"]["spearman"]["median_ci"] = [0.899, 0.901]
-    stability["checks"]["seed"]["thresholds"]["median_spearman"] = 0.9
-    figure = f5.build(curves, areas, stability)
-    figure.canvas.draw()
-    _, bottom = _axes(figure)
-    label = next(t for t in bottom.texts if t.get_text() == "0.90")
-    dot_x = bottom.transData.transform((0.9, 0))[0]
-    assert label.get_window_extent().x0 > dot_x
-    plt.close(figure)
-
-
 def test_the_measure_names_stand_on_the_rows_of_the_last_check(figure):
     _, bottom = _axes(figure)
     last_row = {
         round(bottom.transData.transform((0, y))[1])
         for y in (2 - 0.18, 2 + 0.18)  # the correlation and overlap dots of the third row
     }
-    names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "top-10 overlap")]
+    names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "shared top-10 words")]
     centres = {round(t.get_window_extent().get_points()[:, 1].mean()) for t in names}
     assert all(any(abs(c - y) <= 3 for y in last_row) for c in centres)
 
 
-def test_the_dots_are_drawn_above_the_threshold_marks_and_lines(figure):
+def test_the_dots_are_drawn_above_the_lines(figure):
     _, bottom = _axes(figure)
     dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
     lines = [c for c in bottom.collections if isinstance(c, matplotlib.collections.LineCollection)]
