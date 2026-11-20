@@ -57,6 +57,7 @@ def cases(f2):
 @pytest.fixture
 def figure(f2, cases):
     fig = f2.build(*cases)
+    fig.set_dpi(plotting.DPI)  # the resolution the figure is saved at
     fig.canvas.draw()
     yield fig
     plt.close(fig)
@@ -230,9 +231,10 @@ def run(f2, monkeypatch, tmp_path):
     ] * 2
     ids = [f"test-{i}" for i in range(8)]
     guesses = model.predict(texts)
-    # Odd bios are called right, even ones wrong.
+    # Bios 1, 3 and 5 are called right, the other five wrong.
     occupations = [
-        g if i % 2 else ("surgeon" if g != "surgeon" else "nurse") for i, g in enumerate(guesses)
+        g if i in (1, 3, 5) else ("surgeon" if g != "surgeon" else "nurse")
+        for i, g in enumerate(guesses)
     ]
     subset = _subset(ids, texts, occupations)
     results_dir = tmp_path / "results"
@@ -263,8 +265,30 @@ def test_main_saves_the_figure_and_the_record_of_the_two_picked_bios(run):
     assert "share" in record["rule_correct"]
     assert record["n_bios"] == 8
     assert record["n_skipped"] == 0
+    assert (record["n_errors"], record["n_correct"]) == (5, 3)
     for key in ("error", "correct"):
         assert record[key]["bio_id"].startswith("test-")
         assert record[key]["predicted"] in data.OCCUPATIONS
     assert record["error"]["true"] != record["error"]["predicted"]
     assert record["correct"]["true"] == record["correct"]["predicted"]
+
+
+def test_a_label_longer_than_14_characters_is_cut_with_an_ellipsis(f2):
+    words = ["x" * 30, "she"]
+    error = f2.Case("test-1", words, "a", "b", np.array([5.0, 1.0]))
+    correct = f2.Case("test-2", ["a", "she"], "b", "b", np.array([1.0, 1.0]))
+    fig = f2.build(error, correct)
+    (error_ax, _) = _bar_axes(fig)
+    assert [t.get_text() for t in error_ax.get_yticklabels()] == ["x" * 13 + "\u2026", "she"]
+    plt.close(fig)
+
+
+def test_each_value_is_written_beyond_the_end_of_its_bar_on_the_side_it_points_to(figure):
+    error_ax, _ = _bar_axes(figure)
+    for bar, label in zip(error_ax.patches, error_ax.texts, strict=True):
+        end = error_ax.transData.transform([(bar.get_x() + bar.get_width(), 0)])[0][0]
+        extent = label.get_window_extent()
+        if bar.get_width() >= 0:
+            assert extent.x0 > end
+        else:
+            assert extent.x1 < end

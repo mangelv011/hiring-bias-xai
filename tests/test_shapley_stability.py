@@ -126,3 +126,43 @@ def test_the_default_design_matches_the_cost_pilot_and_the_run():
     module = _load_script()
     assert (module.BIOS, module.PERMUTATIONS, module.SEEDS) == (50, (5, 10, 20, 40), (0, 1))
     assert (module.TOP, module.SHOWN) == (10, 8)
+
+
+def test_the_top_words_are_those_with_the_largest_values_of_both_seeds_together():
+    # Seed one has one large word (0), seed two two (2 and 3). Together the top two are 0 and 2;
+    # looking at seed one alone would take 0 and 1.
+    result = _load_script().agreement(
+        np.array([10.0, 0.0, 0.0, 0.0]), np.array([0.0, 0.0, 10.0, 9.0]), top=2, shown=2
+    )
+    assert result["spearman_top"] == pytest.approx(-1.0)
+
+
+def test_the_overlap_looks_at_the_shown_words_of_each_seed_not_at_the_top_group():
+    # Largest word of seed one: 1. Of seed two: 0. With a top group of 3 the second seed's list
+    # would contain word 1 too.
+    result = _load_script().agreement(
+        np.array([8.0, 9.0, 1.0, 0.0]), np.array([9.0, 1.0, 8.0, 0.0]), top=3, shown=1
+    )
+    assert result["top_overlap"] == 0.0
+
+
+def test_medians_skip_undefined_bios_and_are_none_when_none_is_defined():
+    module = _load_script()
+    assert module._median([1.0, 0.0, 0.0]) == 0.0
+    assert module._median([float("nan"), 1.0, 3.0]) == 2.0
+    assert module._median([float("nan")]) is None
+
+
+def test_the_bios_are_a_seeded_random_sample_of_the_subset(stability, monkeypatch):
+    from hiring_bias_xai import attribution
+
+    seen = []
+    real = attribution.shapley
+
+    def spy(model, texts, targets, *args, **kwargs):
+        seen.append(list(texts))
+        return real(model, texts, targets, *args, **kwargs)
+
+    monkeypatch.setattr(attribution, "shapley", spy)
+    stability(BagOfWords({"nurse": WEIGHTS}))
+    assert seen[0] == list(_subset_frame().sample(6, random_state=42)["text"])
