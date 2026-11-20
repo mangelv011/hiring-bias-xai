@@ -210,6 +210,7 @@ def test_a_unit_that_only_contains_a_gendered_word_is_not_highlighted(f2):
 
 
 def _title_lines(fig):
+    fig.canvas.draw()
     (title,) = [t for t in fig.texts if t.get_fontweight() == "bold"]
     return title.get_text(), title._get_wrapped_text().count("\n") + 1
 
@@ -265,8 +266,14 @@ def test_the_figure_says_that_per_word_values_carry_sampling_noise(figure):
 
 def test_each_case_is_named_above_its_sentence_by_gender_true_and_predicted_occupation(figure):
     headers = [t.get_text() for t in figure.texts]
-    assert "Woman, true surgeon, predicted nurse (test-1)" in headers
-    assert "Man, true nurse, predicted surgeon (test-2)" in headers
+    # Gendered units of the woman's bio: She, her and she (2.0 + 1.2 + 0.0); of the man's: He, his.
+    assert (
+        "Woman, true surgeon, predicted nurse (test-1). Gendered words: +3.2 over 3 units."
+        in headers
+    )
+    assert (
+        "Man, true nurse, predicted surgeon (test-2). Gendered words: +1.5 over 2 units." in headers
+    )
 
 
 MALE_DOMINATED = ["surgeon", "composer", "software_engineer"]

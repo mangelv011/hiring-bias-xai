@@ -1,20 +1,23 @@
-"""F2: which words drove the main model's screening decision, for two showcase-subset bios.
+"""F2: which words drove the main model's wrong screening decisions for women and for men.
 
-Both cases come from the saved Shapley values of the main model, with values recomputed for the
-occupation it predicted. The cases are picked by rules, not by hand:
+Two showcase-subset bios, from the saved Shapley values of the main model, with values recomputed
+for the occupation it predicted. The cases mirror the finding of F1 and are picked by rules fixed
+before looking at the bios:
 
-- Error case: among the bios the main model gets wrong, the one where the gendered words add the
-  most to the log-odds of the predicted (wrong) occupation: the largest sum of their Shapley
-  values, and that sum must be above zero.
-- Correct case: among the bios it gets right, the one where gendered words carry the largest share
-  of the total absolute Shapley value.
-
-A tie goes to the bio that comes first in the subset. Bios with a run of 6 or more digits are
-never picked, because they may hold an identifier (a licence or a registry number). A bio is also
-left out when the stored full-bio logits predict another occupation than the saved prediction
-does (the stored bio is the words rejoined with single spaces).
+- Women whose true occupation is one of the three male-dominated showcase occupations and whom
+  the main model gets wrong: the bio where the gendered words add the most to the log-odds of the
+  predicted (wrong) occupation, that is, the largest sum of their Shapley values, which must be
+  above zero.
+- Men in the three female-dominated showcase occupations whom it gets wrong: the same score.
+- A gendered word is a word unit whose core, without punctuation at its ends, is a scrubbed word.
+- A tie goes to the bio that comes first in the subset. Bios under 15 word units, and bios with a
+  run of 6 or more digits (they may hold an identifier such as a licence number), are never
+  picked. A bio is also left out when the stored full-bio logits predict another occupation than
+  the saved prediction does (the stored bio is the words rejoined with single spaces).
+- If a group has no qualifying bio, the figure and the record say so; no other rule replaces it.
 """
 
+import json
 import re
 from collections.abc import Sequence
 from pathlib import Path
@@ -29,6 +32,7 @@ from hiring_bias_xai.config import RESULTS_DIR
 
 SCREENER = "deberta"
 IDENTIFIER = re.compile(r"[0-9]{6,}")
+MIN_UNITS = 15
 
 
 class Case(NamedTuple):
@@ -36,20 +40,16 @@ class Case(NamedTuple):
     words: list[str]
     true: str
     predicted: str
+    gender: str
     values: np.ndarray  # Shapley value of each word for the predicted occupation
 
 
-def is_gendered(word: str) -> bool:
-    """Whether the word is one of the gendered words `data.scrub` removes (the list of F2)."""
-    return data._GENDERED.search(word) is not None
-
-
 def _gendered_mask(case: Case) -> np.ndarray:
-    return np.array([is_gendered(word) for word in case.words], dtype=bool)
+    return np.array([data.is_gendered_word(word) for word in case.words], dtype=bool)
 
 
 def _eligible(case: Case) -> bool:
-    return IDENTIFIER.search(" ".join(case.words)) is None
+    return len(case.words) >= MIN_UNITS and IDENTIFIER.search(" ".join(case.words)) is None
 
 
 def gendered_push(case: Case) -> float:
@@ -57,28 +57,18 @@ def gendered_push(case: Case) -> float:
     return float(case.values[_gendered_mask(case)].sum())
 
 
-def gendered_share(case: Case) -> float:
-    """Share of the total absolute Shapley value that gendered words carry; NaN if it is zero."""
-    total = np.abs(case.values).sum()
-    return float(np.abs(case.values[_gendered_mask(case)]).sum() / total) if total else np.nan
+def pick(cases: Sequence[Case], gender: str, occupations: Sequence[str]) -> Case | None:
+    """The misclassified bio of `gender` in `occupations` with the largest `gendered_push`.
 
-
-def pick_error(cases: Sequence[Case]) -> Case:
-    """The wrong call with the largest `gendered_push`, which must be above zero."""
-    scored = [(gendered_push(c), c) for c in cases if c.true != c.predicted and _eligible(c)]
-    scored = [(score, case) for score, case in scored if score > 0]
-    if not scored:
-        raise ValueError("no error has gendered words pushing towards the predicted occupation")
-    return max(scored, key=lambda pair: pair[0])[1]  # max keeps the first of equal scores
-
-
-def pick_correct(cases: Sequence[Case]) -> Case:
-    """The right call with the largest `gendered_share`."""
-    scored = [(gendered_share(c), c) for c in cases if c.true == c.predicted and _eligible(c)]
-    scored = [(share, case) for share, case in scored if not np.isnan(share)]
-    if not scored:
-        raise ValueError("no correct call has a gendered share")
-    return max(scored, key=lambda pair: pair[0])[1]
+    The push must be above zero and the bio eligible; None if no bio qualifies.
+    """
+    scored = [
+        (gendered_push(c), c)
+        for c in cases
+        if c.gender == gender and c.true in occupations and c.true != c.predicted and _eligible(c)
+    ]
+    scored = [(push, case) for push, case in scored if push > 0]
+    return max(scored, key=lambda pair: pair[0])[1] if scored else None  # max keeps the first
 
 
 def load_cases(subset: pd.DataFrame, predicted: Sequence[str]) -> tuple[list[Case], int]:
@@ -90,20 +80,20 @@ def load_cases(subset: pd.DataFrame, predicted: Sequence[str]) -> tuple[list[Cas
         if saved.logits[saved.index[0, -1]].argmax() != column:
             skipped += 1
             continue
-        cases.append(Case(bio.id, saved.words, bio.occupation, label, saved.values_for(column)))
+        values = saved.values_for(column)
+        cases.append(Case(bio.id, saved.words, bio.occupation, label, bio.gender, values))
     return cases, skipped
 
 
 TOP_WORDS = 8
 FIGURE_NAME = "f2_shapley_cases"
-RULE_ERROR = (
-    "Among the showcase-subset bios the main model gets wrong, the one where the gendered words "
-    "add the most to the log-odds of the predicted occupation (largest sum of their Shapley "
-    "values, above zero)."
-)
-RULE_CORRECT = (
-    "Among the bios it gets right, the one where gendered words carry the largest share of the "
-    "total absolute Shapley value."
+RULE = (
+    "Women whose true occupation is one of the three male-dominated showcase occupations, and "
+    "men whose true occupation is one of the three female-dominated ones, whom the main model "
+    "gets wrong: in each group, the bio where the gendered words add the most to the log-odds of "
+    "the predicted occupation (largest sum of their Shapley values, above zero). A gendered word "
+    "is a word unit whose core is a scrubbed word. Bios under 15 word units or with six or more "
+    "digits in a row are never picked. A group with no qualifying bio is shown as empty."
 )
 DARK = "#333333"
 FONT_PT = plotting.MIN_FONT_PT
@@ -202,7 +192,7 @@ def _bars(fig, case: Case, order: np.ndarray, rect) -> None:
     for tick, i in zip(ax.get_yticklabels(), order, strict=True):
         tick.set_color(plotting.HIGHLIGHT if gendered[i] else DARK)
     ax.tick_params(axis="y", length=0)
-    pad = 0.2 * np.abs(values).max()  # room for the value written at the end of a bar
+    pad = 0.35 * np.abs(values).max()  # room for the value written at the end of a bar
     ax.set_xlim(min(0.0, values.min() - pad), max(0.0, values.max() + pad))
     for row, value in enumerate(values):
         ax.annotate(
@@ -216,8 +206,32 @@ def _bars(fig, case: Case, order: np.ndarray, rect) -> None:
     ax.set_xlabel(f"Shapley value for {_name(case.predicted)} (log-odds)")
 
 
-def build(error: Case, correct: Case):
-    """For each case, the bio with its eight largest words underlined and a bar for each."""
+GROUPS = (
+    ("Woman", "women_in_male_dominated", "female", "male_dominated"),
+    ("Man", "men_in_female_dominated", "male", "female_dominated"),
+)
+
+
+def _title(woman: Case | None, man: Case | None) -> str:
+    if woman and man:
+        return (
+            f"Gendered words added {gendered_push(woman):+.1f} log-odds to a wrong call for a "
+            f"woman and {gendered_push(man):+.1f} for a man."
+        )
+    for case, who, other in ((woman, "a woman", "man"), (man, "a man", "woman")):
+        if case:
+            return (
+                f"Gendered words added {gendered_push(case):+.1f} log-odds to a wrong call for "
+                f"{who}; no misclassified {other} qualified."
+            )
+    return "No misclassified woman or man met the rules, so there is no case to show."
+
+
+def build(woman: Case | None, man: Case | None):
+    """For each group, the bio with its eight largest words underlined and a bar for each.
+
+    A group without a case gets a one-line panel that says so.
+    """
     fig, probe = plotting.new_figure(1.0)
     probe.remove()
     fig.set_size_inches(plotting.WIDTH_INCHES, 4)  # room for the wrapped texts that are measured
@@ -227,25 +241,31 @@ def build(error: Case, correct: Case):
     char_pt = _char_width_pt(fig)
     text_width = width - 2 * MARGIN_PT
     capacity = int(text_width // char_pt)
-    title = (
-        f"Gendered words added {gendered_push(error):+.1f} log-odds towards "
-        f"{_name(error.predicted)} in the main model's largest gender-driven error, and carry "
-        f"{gendered_share(correct):.0%} of the weight in its most gendered correct call."
-    )
+    title = _title(woman, man)
     note = "Per-word values carry sampling noise; no per-word interval is shown."
     title_pt = _text_height_pt(fig, title, fontweight="bold")
     note_pt = _text_height_pt(fig, note)
     panels = []
-    for kind, case in (("Error", error), ("Correct", correct)):
+    for (label, _, _, side), case in zip(GROUPS, (woman, man), strict=True):
+        if case is None:
+            kind = "male" if side == "male_dominated" else "female"
+            header = f"{label} in a {kind}-dominated occupation: no bio met the rules."
+            panels.append((header, _text_height_pt(fig, header), None, None, 0))
+            continue
+        units = int(_gendered_mask(case).sum())
         header = (
-            f"{kind}: true {_name(case.true)}, predicted {_name(case.predicted)} ({case.bio_id})"
+            f"{label}, true {_name(case.true)}, predicted {_name(case.predicted)} "
+            f"({case.bio_id}). Gendered words: {gendered_push(case):+.1f} over {units} units."
         )
         order = np.argsort(-np.abs(case.values), kind="stable")[:TOP_WORDS]
         sentence_pt = (_layout(case.words, capacity)[-1][0] + 1) * LINE_PT + 2
         panels.append((header, _text_height_pt(fig, header), case, order, sentence_pt))
     bars_pt = TOP_WORDS * BAR_PT
     total = 2 * MARGIN_PT + title_pt + note_pt
-    total += sum(GAP_PT * 2 + h + s + bars_pt + AXIS_PT for _, h, _, _, s in panels)
+    for _, header_pt, case, _, sentence_pt in panels:
+        total += GAP_PT + header_pt
+        if case is not None:
+            total += sentence_pt + GAP_PT + bars_pt + AXIS_PT
     fig.set_size_inches(plotting.WIDTH_INCHES, total / 72)
     left = MARGIN_PT / width
     fig.text(left, 1 - MARGIN_PT / total, title, wrap=True, va="top", fontweight="bold")
@@ -253,7 +273,10 @@ def build(error: Case, correct: Case):
     for header, header_pt, case, order, sentence_pt in panels:
         cursor -= GAP_PT
         fig.text(left, cursor / total, header, wrap=True, va="top")
-        cursor -= header_pt + sentence_pt
+        cursor -= header_pt
+        if case is None:
+            continue
+        cursor -= sentence_pt
         top = {int(i) for i in order}
         _sentence(fig, case, (MARGIN_PT, cursor, text_width, sentence_pt), char_pt, capacity, top)
         cursor -= GAP_PT + bars_pt
@@ -264,13 +287,13 @@ def build(error: Case, correct: Case):
     return fig
 
 
-def _record(case: Case, name: str, score: float) -> dict:
+def _record(case: Case) -> dict:
     return {
         "bio_id": case.bio_id,
         "true": case.true,
         "predicted": case.predicted,
         "words": len(case.words),
-        name: score,
+        "gendered_push": gendered_push(case),
     }
 
 
@@ -278,20 +301,29 @@ def main(results_dir: Path = RESULTS_DIR):
     subset = data.load_showcase_subset(results_dir / "showcase_subset_ids.csv")
     predicted = results.load_predictions(SCREENER, subset)
     cases, skipped = load_cases(subset, list(predicted))
-    error, correct = pick_error(cases), pick_correct(cases)
-    fig = build(error, correct)
+    showcase = json.loads((results_dir / "showcase_occupations.json").read_text())
+    picks, record = [], {}
+    for _, key, gender, side in GROUPS:
+        group = [row["occupation"] for row in showcase[side]]
+        n_wrong = sum(
+            c.gender == gender and c.true in group and c.true != c.predicted for c in cases
+        )
+        picked = pick(cases, gender, group)
+        picks.append(picked)
+        record[key] = {
+            "n_wrong": n_wrong,
+            "pick": _record(picked) if picked else None,
+        }
+    fig = build(*picks)
     plotting.save(fig, FIGURE_NAME, results_dir / "figures")
     results.write_json(
         results_dir / "f2_cases.json",
         {
-            "rule_error": RULE_ERROR,
-            "rule_correct": RULE_CORRECT,
+            "rule": RULE,
+            "min_units": MIN_UNITS,
             "n_bios": len(subset),
             "n_skipped": skipped,
-            "n_errors": sum(c.true != c.predicted for c in cases),
-            "n_correct": sum(c.true == c.predicted for c in cases),
-            "error": _record(error, "gendered_push", gendered_push(error)),
-            "correct": _record(correct, "gendered_share", gendered_share(correct)),
+            **record,
         },
     )
     return fig
