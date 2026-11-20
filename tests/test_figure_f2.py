@@ -77,13 +77,25 @@ def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
     assert min(t.get_fontsize() for t in texts) >= 7
 
 
+def _drawn_texts(fig):
+    """Texts with content, without the tick labels of ticks outside the axis limits (not drawn)."""
+    hidden = set()
+    for ax in fig.axes:
+        low, high = sorted(ax.get_xlim())
+        for tick, label in zip(ax.get_xticks(), ax.get_xticklabels(), strict=False):
+            if not low <= tick <= high:
+                hidden.add(id(label))
+    return [
+        t for t in fig.findobj(matplotlib.text.Text) if t.get_text().strip() and id(t) not in hidden
+    ]
+
+
 def test_nothing_is_drawn_outside_the_figure(figure):
     box = figure.bbox
-    for t in figure.findobj(matplotlib.text.Text):
-        if t.get_text().strip():
-            extent = t.get_window_extent()
-            assert extent.x0 >= box.x0 - 1 and extent.x1 <= box.x1 + 1, t.get_text()
-            assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
+    for t in _drawn_texts(figure):
+        extent = t.get_window_extent()
+        assert extent.x0 >= box.x0 - 1 and extent.x1 <= box.x1 + 1, t.get_text()
+        assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
 
 
 def test_each_case_has_horizontal_bars_for_its_eight_largest_values_sorted_by_size(figure):
@@ -93,8 +105,8 @@ def test_each_case_has_horizontal_bars_for_its_eight_largest_values_sorted_by_si
     assert labels == expected  # top to bottom
     widths = [p.get_width() for p in error_ax.patches]
     assert widths == pytest.approx([3.0, 2.0, -1.5, 1.2, 0.9, -0.7, 0.6, -0.4])
-    ys = [p.get_y() + p.get_height() / 2 for p in error_ax.patches]
-    assert ys == sorted(ys, reverse=True)
+    assert [p.get_y() + p.get_height() / 2 for p in error_ax.patches] == pytest.approx(range(8))
+    assert error_ax.yaxis_inverted()  # the largest value is the first bar, at the top
     assert len(correct_ax.patches) == 8
     # Ties (here the zeros and the two 0.5) keep the order of the words in the bio.
     assert [t.get_text() for t in correct_ax.get_yticklabels()] == [
@@ -217,7 +229,11 @@ def run(f2, monkeypatch, tmp_path):
         "He is a dentist and his clinic is open today",
     ] * 2
     ids = [f"test-{i}" for i in range(8)]
-    occupations = ["surgeon", "nurse", "nurse", "dentist"] * 2
+    guesses = model.predict(texts)
+    # Odd bios are called right, even ones wrong.
+    occupations = [
+        g if i % 2 else ("surgeon" if g != "surgeon" else "nurse") for i, g in enumerate(guesses)
+    ]
     subset = _subset(ids, texts, occupations)
     results_dir = tmp_path / "results"
     results_dir.mkdir()
