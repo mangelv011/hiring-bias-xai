@@ -34,6 +34,38 @@ def test_an_archive_that_unpacks_to_too_much_is_refused():
         first_names.parse(archive, min_count=1, max_bytes=100)
 
 
+def test_an_archive_that_unpacks_to_exactly_the_cap_is_parsed():
+    archive = _archive({"yob1990.txt": "Maria,F,60\n"})  # 11 bytes
+    assert first_names.parse(archive, min_count=1, max_bytes=11) == ["Maria"]
+
+
+class _Response:
+    def __init__(self, content):
+        self.content = content
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self, size):
+        return self.content[:size]
+
+
+def test_the_download_cap_stops_a_body_one_byte_over_and_allows_one_at_the_cap(monkeypatch):
+    monkeypatch.setattr(first_names, "MAX_DOWNLOAD_BYTES", 10)
+    monkeypatch.setattr(
+        first_names.urllib.request, "urlopen", lambda url, timeout: _Response(b"x" * 11)
+    )
+    with pytest.raises(ValueError, match="larger than"):
+        first_names._fetch("https://example.org/names.zip")
+    monkeypatch.setattr(
+        first_names.urllib.request, "urlopen", lambda url, timeout: _Response(b"x" * 10)
+    )
+    assert first_names._fetch("https://example.org/names.zip") == b"x" * 10
+
+
 @pytest.mark.parametrize(
     "line", ["Maria,F,sixty", "Maria,F,", "Maria,X,5", "Mar1a,F,5", "Maria,F,5,6"]
 )

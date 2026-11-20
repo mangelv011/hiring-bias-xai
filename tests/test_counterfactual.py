@@ -25,6 +25,8 @@ def test_pronouns_swap_both_ways(text, swapped):
         ("SHE RUNS", "HE RUNS"),
         ("Ask Him. HIMSELF", "Ask Her. HERSELF"),
         ("sHe", "he"),
+        ("ShE", "he"),
+        ("HiM", "her"),
     ],
 )
 def test_capitalisation_is_kept(text, swapped):
@@ -117,7 +119,7 @@ def test_a_text_without_pronouns_is_returned_as_it_is():  # guard; nothing match
 
 def test_swapping_twice_restores_a_text_with_unambiguous_pronouns():
     text = "She says he trusts himself, and Mr. Lee thanks her mother for his gift."
-    assert swap_gender(swap_gender(text)) == text.replace("Mr.", "Ms.").replace("Ms.", "Mr.")
+    assert swap_gender(swap_gender(text)) == text
 
 
 def test_a_her_or_his_inside_a_longer_token_such_as_a_web_address_is_left_alone():
