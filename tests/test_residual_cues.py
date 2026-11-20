@@ -36,7 +36,8 @@ def test_every_cue_is_a_lower_case_word_and_listed_once():
 
 
 def test_a_first_name_of_the_list_used_as_a_proper_noun_is_a_cue():
-    assert first_names_in("I work with Maria and Dr. Lee.", NAMES) == ["Lee", "Maria"]
+    text = "Maria is a nurse who works with Dr. Lee and Mark."
+    assert first_names_in(text, NAMES) == ["Lee", "Maria", "Mark"]
 
 
 def test_a_listed_name_that_is_a_verb_a_month_or_in_lower_case_is_not_a_cue():
@@ -50,5 +51,6 @@ def test_a_listed_name_of_a_place_is_not_a_cue_but_the_first_name_of_a_person_is
 
 
 def test_residual_cues_adds_the_names_to_the_nouns():
-    assert residual_cues("Maria is a mother.", NAMES) == ["Maria", "mother"]
-    assert residual_cues("Maria is a mother.") == ["mother"]
+    text = "Maria is a nurse who works with Dr. Lee and Mark. She is a mother."
+    assert residual_cues(text, {"Maria"}) == ["Maria", "mother"]
+    assert residual_cues(text) == ["mother"]

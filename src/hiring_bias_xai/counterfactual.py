@@ -28,11 +28,20 @@ _GENDERED = re.compile(
 
 
 @functools.cache
-def _tagger():
-    """spaCy's small English pipeline with only the tagger and its tag-to-POS mapping."""
+def _pipeline(*disabled: str):
     import spacy
 
-    return spacy.load("en_core_web_sm", disable=["parser", "ner", "lemmatizer"])
+    return spacy.load("en_core_web_sm", disable=list(disabled))
+
+
+def _tagger():
+    """spaCy's small English pipeline with only the tagger and its tag-to-POS mapping."""
+    return _pipeline("parser", "ner", "lemmatizer")
+
+
+def _recogniser():
+    """The same pipeline with the entity recogniser, without the parser."""
+    return _pipeline("parser", "lemmatizer")
 
 
 def _stands_alone(token) -> bool:
@@ -99,24 +108,20 @@ RESIDUAL_NOUNS = (
 _RESIDUAL_NOUN = re.compile(r"\b(?:" + "|".join(RESIDUAL_NOUNS) + r")\b", re.IGNORECASE)
 
 
-_MONTHS = frozenset(
-    "January February March April May June July August September October November December".split()
-)
 _CAPITALISED_WORD = re.compile(r"\b[A-Z][a-z]+\b")
 
 
 def first_names_in(text: str, first_names: Collection[str]) -> list[str]:
     """The first names of `first_names` that the text uses, each once, in alphabetical order.
 
-    A name counts when it is written Capitalised, the tagger reads it as a proper noun and it is
-    not a month, so "Mark the date" and "in June" do not count. `first_names` holds Capitalised
-    names.
+    A name counts when it is the first word of a span the entity recogniser labels PERSON, so
+    "Mark the date", "in June" and "Austin, Texas" do not count. A surname that is also a first
+    name counts. `first_names` holds Capitalised names.
     """
-    candidates = {word for word in _CAPITALISED_WORD.findall(text) if word in first_names}
-    if not candidates - _MONTHS:
+    if not any(word in first_names for word in _CAPITALISED_WORD.findall(text)):
         return []
-    proper = {token.text for token in _tagger()(text) if token.pos_ == "PROPN"}
-    return sorted(candidates & proper - _MONTHS)
+    people = (entity.text.split()[0] for entity in _recogniser()(text).ents if entity.label_ == "PERSON")
+    return sorted({name for name in people if name in first_names})
 
 
 def residual_cues(text: str, first_names: Collection[str] = ()) -> list[str]:
