@@ -91,3 +91,27 @@ def test_her_is_his_as_a_possessive_and_him_as_an_object(text, swapped):
 )
 def test_his_is_her_before_a_noun_and_hers_on_its_own(text, swapped):
     assert swap_gender(text) == swapped
+
+
+@pytest.mark.parametrize(
+    ("text", "swapped"),
+    [
+        ("(he) works", "(she) works"),
+        ("she—her work", "he—his work"),
+        ("herself,he", "himself,she"),
+        ("\"she\" said", "\"he\" said"),
+    ],
+)
+def test_pronouns_glued_to_punctuation_are_swapped(text, swapped):
+    assert swap_gender(text) == swapped
+
+
+def test_a_text_without_pronouns_is_returned_as_it_is():  # guard; nothing matches
+    text = "Dr. Lee  teaches\nchemistry.\t"
+    assert swap_gender(text) == text
+    assert swap_gender("") == ""
+
+
+def test_swapping_twice_restores_a_text_with_unambiguous_pronouns():
+    text = "She says he trusts himself, and Mr. Lee thanks her mother for his gift."
+    assert swap_gender(swap_gender(text)) == text.replace("Mr.", "Ms.").replace("Ms.", "Mr.")
