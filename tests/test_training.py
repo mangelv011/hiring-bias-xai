@@ -298,3 +298,11 @@ def test_fit_reports_each_evaluation_as_it_is_logged(fit):
     seen = []
     fit(epochs=1, eval_every=4, on_evaluation=seen.append)
     assert [row["step"] for row in seen] == [4, 8]
+
+
+def test_the_progress_line_gives_the_label_the_step_the_epoch_and_the_losses(capsys):
+    row = {"step": 375, "epoch": 2, "train_loss": 0.1234, "dev_loss": 0.5, "dev_macro_f1": 0.7777}
+    training.progress_printer("lr=3e-05")(row)
+    assert capsys.readouterr().out == (
+        "lr=3e-05 step=375 epoch=2 train_loss=0.1234 dev_loss=0.5000 dev_macro_f1=0.7777\n"
+    )
