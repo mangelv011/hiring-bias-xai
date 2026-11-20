@@ -78,37 +78,38 @@ def _ax(fig):
     return ax
 
 
+NO_CLEAR_CHANGE = "Removing pronouns leaves no clear change in the gap between women and men."
+
+
 def _hex(colours):
     return [matplotlib.colors.to_hex(c).upper() for c in colours]
 
 
-def test_the_title_says_the_gap_falls_and_what_it_costs_when_the_intervals_exclude_zero(f7, report):
-    # d: gap 0.1435 to 0.1152, change -0.028 [-0.038, -0.018]; macro-F1 -0.0047 [-0.008, -0.002]
+def test_the_title_says_by_how_much_the_gap_narrows_when_the_interval_excludes_zero(f7, report):
+    # d: gap 0.1435 to 0.1152, a fall of 20%, change -0.028 [-0.038, -0.018]
     assert f7.title(report) == (
-        "Scrubbing pronouns cuts the gender gap from 0.14 to 0.12 for 0.5 points of macro-F1"
+        "Removing pronouns narrows the gap between women and men by 20%; most of it remains."
     )
+
+
+def test_the_title_drops_most_of_it_remains_when_the_gap_falls_by_half_or_more(f7, report):
+    report["conditions"]["d"]["outside_showcase"]["rms_tpr_gap"]["value"] = 0.0717
+    assert f7.title(report) == "Removing pronouns narrows the gap between women and men by 50%."
 
 
 def test_the_title_says_no_change_when_the_interval_of_the_change_includes_zero(f7, report):
     d = report["conditions"]["d"]["outside_showcase"]["change_from_a"]
     d["rms_tpr_gap"] = _metric(-0.05, 0.06)
     d["macro_f1"] = _metric(-0.005, 0.01)
-    assert f7.title(report) == (
-        "Scrubbing pronouns does not change the gender gap (0.14 to 0.12) "
-        "and leaves macro-F1 unchanged"
-    )
+    assert f7.title(report) == NO_CLEAR_CHANGE
 
 
-def test_the_title_says_the_gap_rises_and_macro_f1_rises_when_both_intervals_are_above_zero(
-    f7, report
-):
+def test_the_title_says_the_gap_widens_when_the_interval_is_above_zero(f7, report):
     d = report["conditions"]["d"]["outside_showcase"]["change_from_a"]
     d["rms_tpr_gap"] = _metric(0.05, 0.01)
     d["macro_f1"] = _metric(0.012, 0.002)
     report["conditions"]["d"]["outside_showcase"]["rms_tpr_gap"]["value"] = 0.25
-    assert f7.title(report) == (
-        "Scrubbing pronouns raises the gender gap from 0.14 to 0.25 and macro-F1 by 1.2 points"
-    )
+    assert f7.title(report) == "Removing pronouns widens the gap between women and men by 74%."
 
 
 def test_the_title_fits_in_two_lines(figure):
@@ -224,10 +225,7 @@ def test_a_change_whose_interval_only_touches_zero_is_not_called_a_fall(f7, repo
     d = report["conditions"]["d"]["outside_showcase"]["change_from_a"]
     d["rms_tpr_gap"] = {"value": -0.01, "ci_low": -0.02, "ci_high": 0.0}
     d["macro_f1"] = {"value": 0.01, "ci_low": 0.0, "ci_high": 0.02}
-    assert f7.title(report) == (
-        "Scrubbing pronouns does not change the gender gap (0.14 to 0.12) "
-        "and leaves macro-F1 unchanged"
-    )
+    assert f7.title(report) == NO_CLEAR_CHANGE
 
 
 def test_the_chance_band_is_a_translucent_grey(figure):
@@ -325,14 +323,3 @@ def test_the_band_is_that_of_the_original_model_and_has_no_edge(f7, report):
 def test_the_title_is_bold_and_the_figure_four_inches_high(figure):
     assert figure._suptitle.get_fontweight() == "bold"
     assert figure.get_size_inches()[1] == 4.0
-
-
-def test_the_title_reads_the_change_of_the_gap_and_that_of_macro_f1_each_from_its_own_entry(
-    f7, report
-):
-    d = report["conditions"]["d"]["outside_showcase"]["change_from_a"]
-    d["rms_tpr_gap"] = _metric(-0.05, 0.01)
-    d["macro_f1"] = _metric(-0.005, 0.01)
-    assert f7.title(report) == (
-        "Scrubbing pronouns cuts the gender gap from 0.14 to 0.12 and leaves macro-F1 unchanged"
-    )
