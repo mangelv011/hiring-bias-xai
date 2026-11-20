@@ -423,3 +423,45 @@ def test_showcase_groups_are_visited_in_sorted_order_whatever_the_order_of_the_r
     fake_raw(test=_raw([(f"bio {i}", 1 if i < 4 else 0, 1) for i in range(8)]))
     subset = data.showcase_subset(data.load_split("test"), ["accountant", "architect"])
     assert list(subset["id"]) == ["test-1", "test-3", "test-4", "test-7"]
+
+
+@pytest.mark.parametrize(
+    ("word", "core"),
+    [
+        ("She,", "she"),
+        ("(Her)", "her"),
+        ("shoot...she", "shoot...she"),
+        ("“They're", "they're"),
+        ("Ms.", "ms"),
+        ("...", ""),
+        ("it’s.", "it’s"),
+    ],
+)
+def test_word_core_is_the_lower_case_word_without_punctuation_at_its_ends(word, core):
+    assert data.word_core(word) == core
+
+
+@pytest.mark.parametrize(
+    "word", ["she", "She,", "(her)", "HIS.", "he", "Ms.", "She's", "She’s", "(herself)", "him;"]
+)
+def test_a_word_is_gendered_when_its_core_is_one_of_the_scrubbed_words(word):
+    assert data.is_gendered_word(word)
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        "shoot...she",
+        "sheriff",
+        "the",
+        "shell",
+        "heritage",
+        "nurse",
+        "Smith,",
+        "",
+        "she/her",
+        "he-man",
+    ],
+)
+def test_a_word_that_only_contains_a_scrubbed_word_is_not_gendered(word):
+    assert not data.is_gendered_word(word)
