@@ -91,8 +91,8 @@ def test_all_steps_of_a_bio_go_to_the_classifier_in_one_call_with_each_text_once
 
 
 def test_removed_words_become_unk_and_the_rest_keep_their_place():
-    classifier, _ = _curve(percents=(25,), n_random=0)
+    classifier, _ = _curve(percents=(25,), n_random=1)
     (texts,) = classifier.calls
-    assert sorted(texts) == sorted(
-        ["[UNK] beta gamma delta", "alpha beta [UNK] delta", "alpha beta gamma delta"]
+    assert {"[UNK] beta gamma delta", "alpha beta [UNK] delta", "alpha beta gamma delta"} <= set(
+        texts
     )

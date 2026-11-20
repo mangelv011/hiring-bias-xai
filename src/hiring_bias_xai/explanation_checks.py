@@ -5,9 +5,13 @@ baseline model's) call as more words go. The words are removed with `unk`, the r
 attributions did not use, so the check is not circular for the main model.
 """
 
+from collections.abc import Sequence
 from typing import NamedTuple
 
 import numpy as np
+
+from hiring_bias_xai.attribution import remove_words
+from hiring_bias_xai.models import Classifier, log_odds
 
 
 def words_to_remove(n_words: int, percent: int) -> int:
@@ -33,4 +37,50 @@ def removal_orders(values: np.ndarray, n_random: int, rng: np.random.Generator) 
         morf=np.argsort(-values, kind="stable"),
         lerf=np.argsort(values, kind="stable"),
         random=np.stack([rng.permutation(n_words) for _ in range(n_random)]),
+    )
+
+
+class Curve(NamedTuple):
+    """One bio's deletion curve. Rows: MoRF, LeRF, then the random orders; columns: the steps.
+
+    `agreement` is 1 where the call is still the call on the full bio, 0 where it changed;
+    `drop` is the fall in the log-odds of the target occupation from the full bio.
+    """
+
+    agreement: np.ndarray
+    drop: np.ndarray
+
+
+def deletion_curve(
+    classifier: Classifier,
+    words: Sequence[str],
+    values: np.ndarray,
+    target: int,
+    percents: Sequence[int],
+    n_random: int,
+    rng: np.random.Generator,
+) -> Curve:
+    """The classifier's call and score as the words of a bio go, with `unk` removal.
+
+    At each step in `percents`, `words_to_remove` words are replaced by `[UNK]`, in the order of
+    MoRF (by `values`), LeRF and `n_random` random orders. All texts go to the classifier in one
+    call, each distinct text once. `target` is the column of the occupation whose log-odds fall.
+    """
+    n_words = len(words)
+    orders = removal_orders(values, n_random, rng)
+    all_orders = [orders.morf, orders.lerf, *orders.random]
+    full = " ".join(words)
+    row_of_text = {full: 0}
+    rows = np.empty((len(all_orders), len(percents)), dtype=int)
+    for i, order in enumerate(all_orders):
+        for j, percent in enumerate(percents):
+            removed = np.zeros(n_words, dtype=bool)
+            removed[order[: words_to_remove(n_words, percent)]] = True
+            text = remove_words(words, removed, "unk")
+            rows[i, j] = row_of_text.setdefault(text, len(row_of_text))
+    logits = classifier.logits(list(row_of_text))
+    score = log_odds(logits, target)
+    return Curve(
+        agreement=(logits.argmax(axis=1)[rows] == logits[0].argmax()).astype(float),
+        drop=score[0] - score[rows],
     )
