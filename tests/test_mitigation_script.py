@@ -65,7 +65,7 @@ def env(monkeypatch, tmp_path):
     results_dir = tmp_path / "results"
     results_dir.mkdir()
     (results_dir / "showcase_subset_ids.csv").write_text(
-        "id\n" + "".join(f"test-{i}\n" for i in range(12))
+        "id" + "".join(f"{chr(10)}test-{i}" for i in range(0, 120, 10)) + chr(10)
     )
     names = lambda names: [{"occupation": n, "share_women": 0.5} for n in names]  # noqa: E731
     results.write_json(
@@ -195,21 +195,24 @@ def test_conditions_a_to_d_are_also_reported_on_the_full_test_split_and_e_is_not
 
 
 def test_accuracy_is_the_share_of_right_predictions_on_the_bios_outside_the_showcase_subset(report):
-    # Bios 12..119 have markers by index % 4: she (0), he (1), born (2), plain (3). The original
-    # model errs on she and born: half of the 108 bios. The scrubbed texts of b, c and d drop she,
-    # he; the models that still err on born get 27 of 108 wrong. Condition e deletes born.
+    # Markers are index % 4: she (0), he (1), born (2), plain (3). The showcase subset is every
+    # tenth bio: 6 with she and 6 with born. The 108 bios left have 24 she, 30 he, 24 born and 30
+    # plain. The original model errs on she and born (48 bios); the others on one of the two only
+    # (24 bios).
     outside = lambda c: report["conditions"][c]["outside_showcase"]["accuracy"]["value"]  # noqa: E731
-    assert outside("a") == pytest.approx(54 / 108)
-    assert outside("b") == pytest.approx(81 / 108)
-    assert outside("c") == pytest.approx(81 / 108)
-    assert outside("d") == pytest.approx(81 / 108)
-    assert outside("e") == pytest.approx(81 / 108)
+    assert outside("a") == pytest.approx(60 / 108)
+    assert outside("b") == pytest.approx(84 / 108)
+    assert outside("c") == pytest.approx(84 / 108)
+    assert outside("d") == pytest.approx(84 / 108)
+    assert outside("e") == pytest.approx(84 / 108)
 
 
 def test_every_metric_has_a_bootstrap_interval_and_the_rms_gap_has_its_permutation_null(report):
     block = report["conditions"]["a"]["outside_showcase"]
-    for name in ("accuracy", "macro_f1", "rms_tpr_gap"):
+    for name in ("accuracy", "macro_f1"):
         assert block[name]["ci_low"] <= block[name]["value"] <= block[name]["ci_high"]
+    # The RMS gap is never negative, so its resamples sit above a point estimate of 0.
+    assert block["rms_tpr_gap"]["ci_low"] <= block["rms_tpr_gap"]["ci_high"]
     null = block["rms_tpr_gap"]["null"]
     assert set(null) == {"mean", "p95", "p_value", "n_permutations"}
     assert null["n_permutations"] == 40
@@ -224,7 +227,7 @@ def test_the_tpr_gap_of_each_showcase_occupation_has_an_interval(report):
 def test_each_condition_but_a_gives_its_change_from_a_on_the_same_bios_with_an_interval(report):
     assert "change_from_a" not in report["conditions"]["a"]["outside_showcase"]
     change = report["conditions"]["b"]["outside_showcase"]["change_from_a"]
-    assert change["accuracy"]["value"] == pytest.approx(27 / 108)
+    assert change["accuracy"]["value"] == pytest.approx(24 / 108)
     assert (
         change["accuracy"]["ci_low"] <= change["accuracy"]["value"] <= change["accuracy"]["ci_high"]
     )
@@ -237,9 +240,9 @@ def test_the_scoring_check_compares_condition_a_with_the_predictions_of_the_main
 
 def test_the_file_records_the_proxy_words_the_share_of_bios_they_touch_and_the_limitation(report):
     assert report["proxy_words"] == PROXY
-    # One bio in four has the marker "born", one in four "she" or "he" each.
-    assert report["bios_changed"]["gendered_word_share"] == pytest.approx(0.5, abs=0.01)
-    assert report["bios_changed"]["proxy_word_share"] == pytest.approx(0.25, abs=0.01)
+    # Of the 108 bios scored, 54 have she or he and 24 have born.
+    assert report["bios_changed"]["gendered_word_share"] == pytest.approx(54 / 108)
+    assert report["bios_changed"]["proxy_word_share"] == pytest.approx(24 / 108)
     assert "one training seed" in report["limitation"].lower()
     assert report["settings"]["n_bootstrap"] == 40
     assert report["settings"]["scoring_batch_size"] == 64
