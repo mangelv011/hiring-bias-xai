@@ -9,6 +9,7 @@ from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
 import numpy as np
+from scipy.stats import spearmanr
 
 from hiring_bias_xai.attribution import remove_words
 from hiring_bias_xai.config import SEED
@@ -102,3 +103,23 @@ def bootstrap_ci(
     resampled = np.array([statistic(rng.integers(0, n, n)) for _ in range(n_boot)])
     low, high = np.nanpercentile(resampled, [2.5, 97.5], axis=0)
     return low, high
+
+
+TOP = 10
+
+
+def rank_agreement(one: np.ndarray, other: np.ndarray, top: int = TOP) -> tuple[float, float]:
+    """Spearman correlation over all words, and top-`top` overlap, of two value vectors.
+
+    The overlap is the share of the `top` words with the largest absolute value in `one` (all the
+    words, if the bio has fewer) that are also among the largest in `other`; ties go to the word
+    that comes first. The correlation is NaN when it is undefined: under two words, or all
+    values equal in one vector.
+    """
+    shown = min(top, len(one))
+    largest_one = set(np.argsort(-np.abs(one), kind="stable")[:shown])
+    largest_other = set(np.argsort(-np.abs(other), kind="stable")[:shown])
+    overlap = len(largest_one & largest_other) / shown
+    if len(one) < 2 or np.ptp(one) == 0 or np.ptp(other) == 0:
+        return float("nan"), overlap
+    return float(spearmanr(one, other).statistic), overlap
