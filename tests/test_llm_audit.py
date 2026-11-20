@@ -90,3 +90,18 @@ def test_base_url_and_model_come_from_the_environment_with_the_local_server_as_d
     assert (from_env.base_url, from_env.model) == ("http://example.test/v1", "other")
     explicit = llm_audit.Client(tmp_path / "a.jsonl", base_url="http://x/v1", model="m")
     assert (explicit.base_url, explicit.model) == ("http://x/v1", "m")
+
+
+def test_reasoning_text_in_a_reply_is_kept_and_flagged_as_a_thinking_leak(tmp_path):
+    replies = iter(
+        [
+            {"content": '{"reason": "r", "decision": "no"}'},
+            {"content": "x", "reasoning_content": "Let me think"},
+            {"content": "<think>hmm</think>" + '{"reason": "r", "decision": "no"}'},
+        ]
+    )
+    with FakeLLMServer(lambda payload: next(replies)) as server:
+        client = llm_audit.Client(tmp_path / "c.jsonl", base_url=server.base_url, model="m")
+        records = [client.ask([{"role": "user", "content": str(i)}]) for i in range(3)]
+    assert [record["reasoning"] for record in records] == ["", "Let me think", ""]
+    assert [llm_audit.thinking_leaked(record) for record in records] == [False, True, True]
