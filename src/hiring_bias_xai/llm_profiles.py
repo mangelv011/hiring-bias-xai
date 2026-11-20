@@ -1,6 +1,8 @@
 """Candidates for the LLM audit: which bios, and how each arm presents them."""
 
 import zlib
+from collections import Counter
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -35,3 +37,18 @@ def candidate(bio: str, bio_gender: str, bio_id: str, arm: str, groups: dict) ->
         text = bio if gender == bio_gender else swap_gender(bio)
         return f"Name: {first} {surname}", text
     raise ValueError(f"unknown arm {arm!r}")
+
+
+def hardest_confusions(true: Sequence, predicted: Sequence, occupations: Sequence) -> dict:
+    """For each occupation, the other one in `occupations` that its bios are most often predicted
+    as (the first in `occupations` on a tie). Predictions outside `occupations` are ignored."""
+    counts = {occupation: Counter() for occupation in occupations}
+    for actual, guess in zip(true, predicted, strict=True):
+        if actual in counts and guess in counts and guess != actual:
+            counts[actual][guess] += 1
+    return {
+        occupation: max(
+            (o for o in occupations if o != occupation), key=lambda o: counts[occupation][o]
+        )
+        for occupation in occupations
+    }
