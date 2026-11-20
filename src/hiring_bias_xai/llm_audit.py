@@ -98,6 +98,39 @@ def parse_name_guess(content: str | None) -> dict | None:
     return None
 
 
+REFERENCE_GROUP = "United Kingdom"
+
+
+def merge_decision(confusion: dict[str, dict[str, int]]) -> dict:
+    """The groups to analyse, given how often the model gave each answer for each group's names.
+
+    `confusion[group][answer]` counts answers that are an origin group; "unclear" and "invalid"
+    answers count for no group. A group is confusable with the other group it is assigned to most
+    often (the first in `ORIGINS` on a tie) when that count is higher than its own. A pair with
+    the reference group drops the other group, so the reference group stays whole. The remaining
+    confusable pairs are merged, and chains of pairs end up in one group. Applied once.
+    Returns `{"groups": [[origin, ...], ...], "dropped": [origin, ...]}` in `ORIGINS` order.
+    """
+    pairs = []
+    for group in ORIGINS:
+        others = [h for h in ORIGINS if h != group]
+        closest = max(others, key=lambda h: confusion[group].get(h, 0))
+        if confusion[group].get(closest, 0) > confusion[group].get(group, 0):
+            pairs.append((group, closest))
+    dropped = {a if b == REFERENCE_GROUP else b for a, b in pairs if REFERENCE_GROUP in (a, b)}
+    merged = {group: {group} for group in ORIGINS if group not in dropped}
+    for a, b in pairs:
+        if a in merged and b in merged and merged[a] is not merged[b]:
+            union = merged[a] | merged[b]
+            for member in union:
+                merged[member] = union
+    groups = []
+    for group in ORIGINS:
+        if group in merged and group == min(merged[group], key=ORIGINS.index):
+            groups.append(sorted(merged[group], key=ORIGINS.index))
+    return {"groups": groups, "dropped": [g for g in ORIGINS if g in dropped]}
+
+
 def thinking_leaked(record: dict) -> bool:
     """Whether a stored call carries reasoning text, so thinking was not switched off."""
     return bool(record["reasoning"]) or "<think>" in record["content"]
