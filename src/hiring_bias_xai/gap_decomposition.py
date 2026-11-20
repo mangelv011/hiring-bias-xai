@@ -25,6 +25,22 @@ from hiring_bias_xai.models import log_odds
 MIN_BIOS = 20
 TOP = 10
 N_BOOT = 1000
+COLUMNS = [
+    "word",
+    "n_bios",
+    "importance",
+    "contribution",
+    "contribution_ci_low",
+    "contribution_ci_high",
+    "freq_female",
+    "freq_male",
+    "value_female",
+    "value_male",
+    "usage",
+    "weight",
+    "gendered",
+    "top",
+]
 
 
 class Decomposition(NamedTuple):
@@ -152,7 +168,7 @@ def decompose(
     boot_contribution, boot_score_gap = _bootstrap(values, full, female, n_boot, seed)
     low, high = np.percentile(boot_contribution, [2.5, 97.5], axis=0)
     columns["contribution_ci_low"], columns["contribution_ci_high"] = low, high
-    table = pd.DataFrame(columns)
+    table = pd.DataFrame(columns)[COLUMNS]
     kept = table.iloc[order][frequent[order] | is_top[order]].reset_index(drop=True)
     boot_total = boot_contribution.sum(axis=1)
     total = contribution.sum()
