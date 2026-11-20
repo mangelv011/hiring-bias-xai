@@ -1,6 +1,5 @@
 import importlib.util
 import json
-import re
 from pathlib import Path
 
 import matplotlib
@@ -36,7 +35,9 @@ def results(tmp_path):
                 "value": GAPS[name],
                 "ci_low": GAPS[name] - BELOW,
                 "ci_high": GAPS[name] + ABOVE,
-            }
+            },
+            "tpr_female": {"value": 0.7 + GAPS[name] / 2},
+            "tpr_male": {"value": 0.7 - GAPS[name] / 2},
         }
         for name in SHARES
     }
@@ -129,7 +130,7 @@ def test_the_figure_states_pearson_r_with_its_fisher_interval(figure):
 
 def test_only_the_showcase_occupations_are_labelled_next_to_their_dots(figure):
     (ax,) = figure.axes
-    labels = {t.get_text(): t for t in ax.texts if not t.get_text().startswith("r =")}
+    labels = {t.get_text(): t for t in ax.texts if hasattr(t, "xyann")}
     assert sorted(labels) == sorted(
         o.replace("_", " ") for o in ["o1", "o2", "o3", "o6", "o7", "o8"]
     )
@@ -182,26 +183,66 @@ def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
         plt.close(fig)
 
 
-def test_the_title_is_the_finding_as_a_sentence_and_its_number_is_the_stored_r(figure, results):
+FINDING = "The more a job is held by one gender, the more the model favours that gender."
+
+
+def test_the_title_states_the_finding_in_plain_words(figure):
     (ax,) = figure.axes
-    title = figure.get_suptitle()
-    assert title == "The main model's errors follow each occupation's gender imbalance (r = 0.85)."
-    stored = json.loads((results / "gap_statistics.json").read_text())["main_model"]["pearson"]
-    numbers = [float(n) for n in re.findall(r"\d+\.\d+", title)]
-    assert numbers == [round(stored["value"], 2)]
+    assert figure.get_suptitle() == FINDING
     assert ax.get_title() == ""
 
 
-def test_the_title_changes_with_the_stored_r(results):
+def test_the_title_says_there_is_no_clear_link_when_the_interval_of_r_includes_0(results):
     stats = json.loads((results / "gap_statistics.json").read_text())
-    stats["main_model"]["pearson"]["value"] = 0.5
+    stats["main_model"]["pearson"].update(value=0.2, fisher_ci_low=-0.1, fisher_ci_high=0.5)
     (results / "gap_statistics.json").write_text(json.dumps(stats))
+    fig = _render(results)
+    try:
+        assert (
+            fig.get_suptitle()
+            == "No clear link between who holds a job and whom the model favours."
+        )
+    finally:
+        plt.close(fig)
+
+
+def test_the_axes_speak_of_jobs_and_candidates_passed_on(figure):
+    (ax,) = figure.axes
+    figure.canvas.draw()
+    assert ax.get_xlabel() == "Share of women in the job"
+    assert "per 100" in ax.get_ylabel() and "passed on" in ax.get_ylabel()
+    assert "TPR" not in ax.get_ylabel()
+    xticks = {t.get_text() for t in ax.get_xticklabels() if t.get_text()}
+    assert {"20%", "60%", "100%"} <= xticks
+    yticks = {t.get_text() for t in ax.get_yticklabels() if t.get_text()}
+    assert {"0", "+20", "-20"} <= {s.replace("−", "-") for s in yticks}
+
+
+def test_the_direction_of_the_gap_is_written_above_and_below_zero(figure):
+    (ax,) = figure.axes
+    figure.canvas.draw()
+    notes = {t.get_text(): t for t in ax.texts if "favours" in t.get_text()}
+    assert set(notes) == {"↑ favours women", "↓ favours men"}
+    zero = ax.transData.transform((0, 0))[1]
+    renderer = figure.canvas.get_renderer()
+    assert notes["↑ favours women"].get_window_extent(renderer).y0 > zero
+    assert notes["↓ favours men"].get_window_extent(renderer).y1 < zero
+
+
+def test_two_example_jobs_carry_their_numbers_per_100(results):
     spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    module.EXAMPLES = ("o1", "o8")
     fig = module.main(results)
     try:
-        assert "r = 0.50)" in fig.get_suptitle()
+        (ax,) = fig.axes
+        texts = [t.get_text() for t in ax.texts]
+        women_o1, men_o1 = round(100 * (0.7 + GAPS["o1"] / 2)), round(100 * (0.7 - GAPS["o1"] / 2))
+        assert f"o1: {women_o1} of 100 women,\n{men_o1} of 100 men passed on" in texts
+        assert any(t.startswith("o8: ") for t in texts)
+        assert "o2" in texts  # the other showcase jobs keep plain names
+        _assert_labels_are_clear(fig)
     finally:
         plt.close(fig)
 
