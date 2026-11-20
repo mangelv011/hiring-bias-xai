@@ -60,3 +60,13 @@ def test_importance_is_the_mean_over_the_bios_that_contain_the_word_of_both_gend
     assert table["importance"].to_dict() == pytest.approx({"a": 7 / 3, "b": 5 / 3, "c": 3 / 2})
 
 
+def test_a_row_is_kept_for_a_word_in_enough_bios_or_in_the_top_and_importance_needs_the_bios():
+    table = _by_word(gap_decomposition.decompose(BIOS, min_bios=3, top=1).table)
+    # c is in 2 bios and is not the largest |D|: no row. b is in 3: a row. a is the top word.
+    assert list(table.index) == ["a", "b"]
+    assert table["top"].to_dict() == {"a": True, "b": False}
+    wide = _by_word(gap_decomposition.decompose(BIOS, min_bios=3, top=3).table)
+    assert list(wide.index) == ["a", "b", "c"]  # c is in the top 3: a row, without importance
+    assert wide["importance"].isna().to_dict() == {"a": False, "b": False, "c": True}
+
+
