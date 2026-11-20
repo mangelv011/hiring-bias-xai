@@ -81,6 +81,13 @@ def _interval(draws: np.ndarray) -> dict:
     return {"ci_low": float(low), "ci_high": float(high)}
 
 
+def _top_share(contribution: np.ndarray, top: int) -> np.ndarray:
+    """Per row, the sum of the `top` largest |contribution| over the row's total."""
+    top = min(top, contribution.shape[1])
+    largest = np.argpartition(-np.abs(contribution), top - 1, axis=1)[:, :top]
+    return np.take_along_axis(contribution, largest, axis=1).sum(axis=1) / contribution.sum(axis=1)
+
+
 def decompose(
     bios: list[Bio],
     *,
@@ -140,7 +147,16 @@ def decompose(
             "value": float(contribution.sum()),
             **_interval(boot_contribution.sum(axis=1)),
         },
-        "top_share": {"value": float(contribution[is_top].sum() / contribution.sum())},
+        "top_share": {
+            "value": float(contribution[is_top].sum() / contribution.sum()),
+            **_interval(_top_share(boot_contribution, top)),
+            **{
+                f"fixed_{key}": value
+                for key, value in _interval(
+                    boot_contribution[:, is_top].sum(axis=1) / boot_contribution.sum(axis=1)
+                ).items()
+            },
+        },
         "top_words": [vocabulary[i] for i in order[:top]],
         "gendered_share": {"value": float(contribution[gendered].sum() / contribution.sum())},
         "empty_score_drift": float(score_gap - contribution.sum()),
