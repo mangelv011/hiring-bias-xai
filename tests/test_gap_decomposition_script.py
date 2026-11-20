@@ -85,7 +85,9 @@ def test_the_csv_has_the_top_words_of_every_screener_and_occupation_with_their_c
         "top",
     ]
     pairs = table.groupby(["screener", "occupation"])
-    assert set(pairs.groups) == {(s, o) for s in SCREENERS for o in MALE_DOMINATED + FEMALE_DOMINATED}
+    assert set(pairs.groups) == {
+        (s, o) for s in SCREENERS for o in MALE_DOMINATED + FEMALE_DOMINATED
+    }
     # Four bios per occupation: no word reaches 20 bios, so only the top 10 words are kept.
     assert (pairs["top"].sum() == 10).all()
     assert (pairs.size() == 10).all()
