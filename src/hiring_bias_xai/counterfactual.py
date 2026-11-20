@@ -55,7 +55,8 @@ def swap_gender(text: str) -> str:
 
     "her" becomes "his" when it is a possessive and "him" when it is an object, as the tagger
     reads it. "his" becomes "her" before a noun and "hers" when it stands alone: at the end of
-    the text, or before a word that does not continue a noun phrase.
+    the text, or before a word that does not continue a noun phrase. A "her" or "his" that the
+    tagger does not read as a word of its own, as in "praxis-his.com", stays.
     """
     tokens = {}
     if any(match.group(1).lower() in _AMBIGUOUS for match in _GENDERED.finditer(text)):
@@ -65,10 +66,13 @@ def swap_gender(text: str) -> str:
         word = match.group(1)
         if word in _TITLES:
             return _TITLES[word]
-        if word.lower() == "her":
-            return _with_case_of(word, "his" if tokens[match.start()].tag_ == "PRP$" else "him")
-        if word.lower() == "his":
-            return _with_case_of(word, "hers" if _stands_alone(tokens[match.start()]) else "her")
+        if word.lower() in _AMBIGUOUS:
+            token = tokens.get(match.start())
+            if token is None:  # inside a longer token, such as a web address
+                return word
+            if word.lower() == "her":
+                return _with_case_of(word, "his" if token.tag_ == "PRP$" else "him")
+            return _with_case_of(word, "hers" if _stands_alone(token) else "her")
         return _with_case_of(word, _SWAPPED[word.lower()])
 
     return _GENDERED.sub(replacement, text)
