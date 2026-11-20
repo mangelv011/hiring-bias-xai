@@ -60,6 +60,14 @@ def test_importance_is_the_mean_over_the_bios_that_contain_the_word_of_both_gend
     assert table["importance"].to_dict() == pytest.approx({"a": 7 / 3, "b": 5 / 3, "c": 3 / 2})
 
 
+def test_a_word_present_with_value_zero_is_in_the_bios_that_contain_it():
+    # guard: n_bios and importance already count presence, not a non-zero value
+    bios = [_bio("female", {"z": 0.0}), _bio("male", {"z": 0.0, "a": 1.0}), _bio("male", {"a": 3.0})]
+    table = _by_word(gap_decomposition.decompose(bios, min_bios=1).table)
+    assert table["n_bios"].to_dict() == {"z": 2, "a": 2}
+    assert table["importance"].to_dict() == pytest.approx({"z": 0.0, "a": 2.0})
+
+
 def test_a_row_is_kept_for_a_word_in_enough_bios_or_in_the_top_and_importance_needs_the_bios():
     table = _by_word(gap_decomposition.decompose(BIOS, min_bios=3, top=1).table)
     # c is in 2 bios and is not the largest |D|: no row. b is in 3: a row. a is the top word.
