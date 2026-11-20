@@ -158,7 +158,12 @@ def decompose(
             },
         },
         "top_words": [vocabulary[i] for i in order[:top]],
-        "gendered_share": {"value": float(contribution[gendered].sum() / contribution.sum())},
+        "gendered_share": {
+            "value": float(contribution[gendered].sum() / contribution.sum()),
+            **_interval(
+                boot_contribution[:, gendered].sum(axis=1) / boot_contribution.sum(axis=1)
+            ),
+        },
         "empty_score_drift": float(score_gap - contribution.sum()),
         "decomposition_error": float(abs(contribution.sum() - exact)),
     }
