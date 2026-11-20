@@ -32,3 +32,17 @@ def test_the_none_and_neutral_arms_leave_the_bio_alone_and_the_neutral_one_adds_
 def test_the_swap_arm_swaps_the_pronouns_and_adds_no_header():
     header, text = llm_profiles.candidate("She is a nurse.", "female", "test-1", "swap", GROUPS)
     assert (header, text) == (None, "He is a nurse.")
+
+
+def test_a_name_arm_sets_the_pronouns_to_the_gender_of_the_name():
+    bio = "She is a nurse. Her work is hard."
+    header, text = llm_profiles.candidate(bio, "female", "test-9", "name|Spain|female", GROUPS)
+    assert header.startswith("Name: ") and header.split()[1] in ("Maria", "Carmen")
+    assert text == bio
+    header, text = llm_profiles.candidate(bio, "female", "test-9", "name|Spain|male", GROUPS)
+    assert header.split()[1] in ("Antonio", "Manuel")
+    assert text == "He is a nurse. His work is hard."
+    header, text = llm_profiles.candidate(
+        "He is a nurse.", "male", "test-9", "name|Romania|female", GROUPS
+    )
+    assert header.split()[1] in ("Elena", "Ana") and text == "She is a nurse."
