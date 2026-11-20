@@ -172,15 +172,17 @@ Not done, and why: weight randomization (Adebayo et al. 2018) tests a model's in
 
 ## F6: gender inside the model
 
-**In short:** a linear probe reads gender from scrubbed bios at every layer, though only modestly (58% to 67% against 52% from the occupation alone), and the effect of a pronoun swap stays in the swapped words through the first three layers and has mostly left them by layer 4.
+**In short:** removing the pronouns does not remove gender from the model. A simple probe still guesses it 58% to 63% of the time from the main model's representations, against 52% from the occupation alone, and the effect of swapping pronouns moves from the swapped words to the other words around layer 4.
 
-<p align="center"><img src="../results/figures/f6_probing_patching.png" width="520" alt="A probe reads gender from scrubbed bios in all 14 layers, and the effect of the swap leaves the edited words by layer 4."></p>
+<p align="center"><img src="../results/figures/f6_probing_patching.png" width="520" alt="Gender can still be guessed from bios without pronouns in every layer, and the effect of a pronoun swap moves from the swapped words to the other words by layer 4."></p>
 
-Two questions about the main model's inside. Can gender still be read from its states when the pronouns are gone? And does the state at the swapped words carry the effect of a swap? The first is descriptive, the second causal. Design, references and limits are in [ADR 0006](decisions/0006-probing-and-patching.md).
+Two questions. Removing the pronouns is the usual first fix, so is gender really gone afterwards? And does what the model keeps about gender change its decision? A probe answers the first, activation patching the second. Design, references and limits are in [ADR 0006](decisions/0006-probing-and-patching.md).
 
-**Probing** (`scripts/probing_features.py`, `scripts/probing.py`). The bios are scrubbed (`data.scrub`). For each bio and each of the seven layer outputs (the embeddings and the six transformer layers) the state is averaged over the tokens. A logistic regression on standardised features learns gender from 10,000 scrubbed training bios (sampled in proportion to the occupation and gender groups; ids in `results/probing_train_ids.csv`) and is scored on the 1,721 scrubbed showcase bios. Its regularisation comes from 5-fold cross-validation. It is run for the pretrained DeBERTa-v3-small (no fine-tuning) and for the main model. Intervals are 95% bootstrap intervals over bios. The p-value comes from 100 refits of the probe on genders shuffled within occupation, so the smallest value is 1/101 = 0.0099. The right pair of columns leaves out the 631 bios with a first name (1,090 left), using the rule of [ADR 0005](decisions/0005-counterfactual-gender-swap.md).
+### Is gender still there? Probing
 
-| Layer | Pretrained, all bios | Main model, all bios | Pretrained, no first name | Main model, no first name |
+A probe is a simple classifier (logistic regression) that tries to guess gender from the model's representation of a bio at one layer. The bios have no pronouns or titles (`data.scrub`). Each probe learns from 10,000 training bios and is tested on the 1,721 showcase bios. It is run on the pretrained DeBERTa-v3-small (never fine-tuned) and on the main model, at the embeddings and after each of the six layers. Scripts: `scripts/probing_features.py`, `scripts/probing.py`. Intervals are 95% bootstrap intervals over bios.
+
+| Layer | Pretrained | Main model | Pretrained, no first name | Main model, no first name |
 |---|---|---|---|---|
 | embeddings | 62.9% [60.7, 65.3] | 63.1% [60.9, 65.5] | 62.2% [59.4, 65.1] | 62.4% [59.6, 65.4] |
 | 1 | 62.9% [60.7, 65.4] | 62.5% [60.3, 64.9] | 62.7% [60.0, 65.5] | 62.5% [59.8, 65.4] |
@@ -190,48 +192,43 @@ Two questions about the main model's inside. Can gender still be read from its s
 | 5 | 67.3% [65.1, 69.4] | 59.3% [56.9, 61.6] | 63.8% [61.1, 66.5] | 59.0% [56.1, 61.9] |
 | 6 | 64.6% [62.3, 66.9] | 58.0% [55.8, 60.4] | 62.9% [60.2, 65.8] | 57.7% [54.7, 60.6] |
 
-References on the same split: majority class 47.7% [45.3, 50.1] (45.8% without first names), the occupation alone 52.3% [50.0, 54.6] (52.3%), TF-IDF with logistic regression on the same scrubbed text 59.7% [57.2, 62.0] (58.4%). The occupation alone is close to a coin flip because the showcase subset holds up to 150 bios of each gender per occupation.
+Three guesses to compare with, on the same bios: always the commoner gender, 47.7% [45.3, 50.1]; gender from the occupation alone (the commoner gender of that occupation in training), 52.3% [50.0, 54.6]; and TF-IDF with logistic regression on the same text, 59.7% [57.2, 62.0]. The occupation alone is close to a coin flip because the showcase subset has up to 150 bios of each gender in every occupation. "No first name" leaves out the 631 bios where a first name is still in the text (1,090 remain).
 
-What it shows:
+What we found:
 
-- **Gender is readable everywhere.** All 28 probes beat all 100 shuffles (p = 0.0099), in both subsets. In all bios, every probe's interval starts above the interval of the occupation alone (the lowest start is 55.8%, the main model's last layer, against an upper end of 54.6%). The accuracy is modest: at most 67.3%.
-- **The embeddings already read it.** The mean of the word vectors scores 62.9% and 63.1%, a little above TF-IDF (59.7%, overlapping intervals). Part of the signal is in the words that scrubbing leaves: names, topics, site names such as the one in [F3](#f3-which-words-make-up-the-score-gap).
-- **Fine-tuning for occupation lowers it.** The pretrained model rises from 62.9% to 67.3% at layer 5. The main model falls from 63.1% to 58.0%. In its last two layers the main model is at the level of TF-IDF or below (the intervals overlap).
-- **First names matter little.** Without them the pretrained probes lose 0.2 to 3.5 points, and the main model's lose 0.7 points or less. Every probe stays above the occupation-only accuracy, but for the main model's last layer the interval (54.7 to 60.6) overlaps the interval of the reference (49.4 to 55.3).
-- **The null is strict.** The shuffled probes score 55.8% to 57.5%, above the occupation alone (52.3%). In an occupation with 90% women, a shuffle within the occupation keeps a bio's own gender 82% of the time, so the shuffled labels still hold part of the real signal. A probe has to beat that.
+- **Gender is still readable.** Every probe, in both models and at every layer, scores above the occupation alone, and its interval does not overlap the occupation's. None of 100 probes trained on shuffled genders did as well as the real one (the smallest p-value that 100 shuffles can give, 0.0099). So this is not chance. The signal is modest: at most 67%.
+- **A good part of it sits in the words themselves.** The embeddings are plain word vectors, and they already give 63%. TF-IDF on the same text gives 60%. Names, topics and site names such as the one in [F3](#f3-which-words-make-up-the-score-gap) remain after the pronouns are gone.
+- **Fine-tuning makes gender a little harder to read in the last layers.** The main model falls from 63% at the embeddings to 58% at the last layer (the intervals miss each other by half a point: 60.9 and 60.4). From layer 4 on it is 6 to 8 points below the pretrained model, with no overlap. The pretrained model rises to 67% at layer 5.
+- **First names matter little.** Without them, the main model's probes lose less than one point. The pretrained ones lose up to three and a half.
+- **The shuffled probes score above chance.** They score 56% to 57%, above the occupation alone. A shuffle within an occupation keeps a bio's own gender 82% of the time when the occupation is 90% women, so the shuffled labels still hold part of the real signal. The real probes beat this stricter comparison.
 
-A probe that reads gender does not show that the model uses it. Patching tests that.
+What it means: scrubbing pronouns does not make the representation free of gender. A probe that reads gender does not show that the model uses it. Patching tests that.
 
-**Activation patching** (`scripts/patching.py`). Clean is the original showcase bio, corrupted is its gender swap. The effect of the swap is the change in the log-odds of the true occupation. A bio is eligible when the swap moves that score by more than the 95th percentile of the move under the removal control over all 1,721 bios, which is 1.44 log-odds. That leaves 169 bios. One has a swapped text of another token length and is dropped, so 168 pairs are patched (11 of the 1,721 pairs have unequal lengths in all). For each layer output, the clean states replace the corrupted run's states at the positions where the tokens differ (the swapped pronouns and titles), and then at all positions. The restored share is (patched − corrupted) / (clean − corrupted) of the true-class log-odds, per bio. 100% means the patch brings the clean score back, 0% that it changes nothing. Intervals are 95% bootstrap intervals over the 168 bios.
+### Does the swap's effect sit in the swapped words? Patching
 
-| Layer output | Edited words only: mean | Edited words only: median | All positions |
-|---|---|---|---|
-| embeddings | 100.0% [100.0, 100.0] | 100.0% [100.0, 100.0] | 100% |
-| 1 | 96.4% [95.0, 97.8] | 96.5% [94.4, 98.1] | 100% |
-| 2 | 90.8% [88.6, 92.9] | 92.2% [90.1, 94.0] | 100% |
-| 3 | 75.2% [72.4, 77.9] | 78.2% [75.3, 81.3] | 100% |
-| 4 | 41.9% [39.1, 44.7] | 41.9% [36.7, 45.5] | 100% |
-| 5 | 16.7% [15.1, 18.3] | 16.0% [14.2, 16.9] | 100% |
-| 6 | 0.0% [0.0, 0.0] | 0.0% [0.0, 0.0] | 100% |
+We take a bio and its gender swap (he for she and so on). The swap changes the log-odds score of the true occupation. Patching copies the model's internal state for the original bio into the run on the swapped bio, at one layer, and asks how much of the original score comes back (the restored share). 100% means all of it, 0% none. We copy the state at the swapped words only, and then at all the other words. This tells where the effect sits at each layer. Script: `scripts/patching.py`.
 
-What it shows:
+We use only bios the swap moves by a large amount: those where the swap changes the score by more than the removal control changes it in 95% of bios (1.44 log-odds). That is 169 bios, 9.8% of the showcase subset. One has a swapped text of a different token length, so 168 pairs are patched. Intervals are 95% bootstrap intervals over these bios.
 
-- **Early layers hold the effect at the swapped words.** Patching only the swapped words restores 96% at layer 1, 91% at layer 2 and 75% at layer 3. At layer 4 it is 42%, at layer 5 17%. Attention moves the effect to the other positions, and by layer 4 less than half is left at the swapped words.
-- **Three results hold by construction.** At the embeddings, a position's state depends only on its token, so both position sets give 100%. Patching all positions replaces everything a later layer reads, so it gives 100% at every layer (largest deviation over all bios and layers: 0.0). It checks the hook, and panel b of the figure shows it as a flat line for that reason. At the last layer the classifier reads the [CLS] state, which is never a swapped position, so the swapped words give 0%. The informative part is the fall between layers 3 and 5.
-- **What this does not show.** Denoising shows that the states at the swapped words are sufficient to restore the effect, early on. It does not show they are necessary. It covers the 168 bios the swap moves most, 9.8% of the showcase subset. The other 90% move by less than the bar that 5% of the removal edits exceed, so no effect above that noise is left to restore, as [F4](#f4-swapping-pronouns-against-deleting-them) found.
+| Layer | Restored by the swapped words only | Restored by all the other words |
+|---|---|---|
+| embeddings | 100.0% [100.0, 100.0] | 0.0% [0.0, 0.0] |
+| 1 | 96.4% [95.0, 97.8] | 3.4% [2.0, 4.7] |
+| 2 | 90.8% [88.6, 92.9] | 9.4% [7.5, 11.7] |
+| 3 | 75.2% [72.4, 77.9] | 23.9% [21.4, 26.8] |
+| 4 | 41.9% [39.1, 44.7] | 55.8% [53.0, 59.0] |
+| 5 | 16.7% [15.1, 18.3] | 82.1% [80.3, 83.9] |
+| 6 | 0.0% [0.0, 0.0] | 100.0% [100.0, 100.0] |
 
-**Expected outcomes** (written in the ADR before the runs) and what came out:
+What we found:
 
-1. *Gender is readable above the occupation alone in at least one layer of each model, at the smallest p-value.* Held, in all 14 layers.
-2. *The embeddings read gender at about the TF-IDF level, and later pretrained layers not much more.* Mostly held. The embeddings are 3 points above TF-IDF with overlapping intervals, and the pretrained model gains 4 more points by layer 5.
-3. *The main model's last layers read less than the pretrained model's middle layers.* Held: 58.0% against 67.3%.
-4. *Without first names accuracy is a few points lower and still above the occupation alone.* Held for the pretrained model (up to 3.5 points). For the main model the drop is under 1 point, and its last layer's interval overlaps the reference's.
-5. *The swapped words restore more than 50% at the embeddings and the first two layers, less later, and 0% at the end.* Held: 100%, 96%, 91%, then 75%, 42%, 17% and 0%.
-6. *The all-positions line is at 100% in every layer.* Held, with no deviation.
+- **The effect starts in the swapped words and moves out.** Up to layer 3 the swapped words alone bring back at least 75%. At layer 4 the effect is split (42% and 56%). By layer 5 most of it is in the other words (17% and 82%). The model's attention copies the information from the swapped words into the rest of the bio.
+- **The model's design fixes the two ends.** At the embeddings every word is still only itself, so the other words carry nothing new (0%). At the last layer the classifier reads only the [CLS] state, which is not a swapped word, so the swapped words give 0%. The part that tells us something is in between.
+- **Check of the method.** Patching all positions at once gives 100% at every layer, with no deviation, as it must. It tests the code and is not a result, so we do not draw it.
 
-One statement in the first draft of the ADR was wrong and was corrected after the run: the occupation-only reference is not high (52.3%), because the showcase subset is balanced by gender within occupation.
+What it means: the swap's effect is not stored at the pronouns. It is carried away from them within a few layers. A fix that edits only the pronoun tokens has to act in the first layers. Later the effect spreads over the whole bio. This covers the 168 bios the swap moves most. The test shows that the states at these words are enough to bring the effect back, not that they are needed. For the other 90% of bios the swap moves the score by less than 1.44 log-odds, in line with [F4](#f4-swapping-pronouns-against-deleting-them).
 
-Cost on the laptop: encoding 11,721 bios with each encoder took 26 s and 25 s on the GPU. Fitting the probes and their shuffles took 249 s (pretrained), 317 s (main model) and 57 s (references) on the CPU, 10.4 minutes in all. Patching took 30 s on the GPU. Not done: LEACE and INLP, which remove gender from the states and belong to the mitigation work, a nonlinear probe, and patching in the other direction.
+Cost on the laptop: encoding the 11,721 bios took 26 s (pretrained) and 25 s (main model) on the GPU. Fitting the probes and their shuffles took 10.4 minutes on the CPU. Patching took 30 s. Not done: removing gender from the representation (LEACE, INLP), which belongs to the mitigation work, a nonlinear probe, and patching in the other direction.
 
 ## Reproduce every result
 

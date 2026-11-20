@@ -36,17 +36,17 @@ The references have no p-value.
 
 **Eligible bios.** A bio is eligible when the absolute change of its true-class log-odds under the swap is above the 95th percentile of the absolute change under the removal control over all 1,721 bios. Both changes are recomputed from the model with the definitions of ADR 0005. The removal control moves the log-odds by editing the text, not by changing gender, so its spread is the noise a swap effect has to clear. The number of eligible bios is reported.
 
-**Patch.** For each layer output (the embeddings, then each transformer layer), the clean run's hidden states replace the corrupted run's, (a) at the token positions where the two sequences differ, (b) at all positions. This is denoising: clean into corrupted. It asks whether the states at these positions are sufficient to restore the clean behaviour. It does not say they are necessary: another route could carry the effect if these states were removed (Heimersheim and Nanda 2024). The reverse direction, noising, is not run.
+**Patch.** For each layer output (the embeddings, then each transformer layer), the clean run's hidden states replace the corrupted run's, (a) at the token positions where the two sequences differ, (b) at all the other positions (the complement of (a)). Patching all positions is run too, as a check of the hook, and is not reported as a curve. This is denoising: clean into corrupted. It asks whether the states at these positions are sufficient to restore the clean behaviour. It does not say they are necessary: another route could carry the effect if these states were removed (Heimersheim and Nanda 2024). The reverse direction, noising, is not run.
 
 **Restored share**, per bio: (patched − corrupted) / (clean − corrupted) of the true-class log-odds. Mean and median over the eligible bios, each with a 95% percentile interval of 1,000 bootstrap resamples of the bios. A share can leave [0, 1]; the median is reported because the ratio has heavy tails when the effect is small.
 
-**Three results hold by construction.** They check the hook; they are not findings.
+**Four results hold by construction.** They check the hook; they are not findings.
 
-1. At the embeddings, a position's state depends only on its token. Patching all positions, or only the differing ones, gives 100%.
-2. Patching all positions at any layer replaces everything the later layers read, so the clean run is reproduced and the share is 100% at every layer. Panel (b) of F6 is therefore a flat line at 100%; it confirms the hook layer by layer.
-3. The classifier reads the [CLS] state of the last layer, and [CLS] is never a differing position. At the last layer the differing positions give 0%.
+1. At the embeddings, a position's state depends only on its token. Patching the differing positions gives 100%, and patching the other words gives 0%, since their clean and corrupted states are equal.
+2. Patching all positions at any layer replaces everything the later layers read, so the clean run is reproduced and the share is 100% at every layer. This is a test and a recorded check (`max_all_positions_error`), not a curve.
+3. The classifier reads the [CLS] state of the last layer, and [CLS] is never a differing position. At the last layer the differing positions give 0% and the other words 100%.
 
-The informative result is the share at the differing positions between the embeddings and the last layer: how fast the effect of the swap moves to positions that were not edited.
+The informative result is the pair of curves between the embeddings and the last layer: how fast the effect of the swap moves from the edited words to the others. The two shares need not add up to 100%, because the model is not linear.
 
 ## Expected outcomes
 
@@ -57,7 +57,7 @@ Written before the probes and the patching ran. Whatever comes out is reported, 
 3. The main model's last layers read gender less than the pretrained model's middle layers, since fine-tuning on occupations pushes the final states toward occupation.
 4. Without the bios that carry a first name, accuracy is a few points lower and still above the occupation-only reference.
 5. Patching the differing positions restores most of the effect in the early layers (above 50% at the embeddings and the first two layers) and less in later ones, falling to 0% at the last layer, as the information spreads to positions that were not edited.
-6. The all-positions line is 100% at every layer.
+6. Patching all positions gives 100% at every layer.
 
 ## Notes after the run
 
@@ -65,6 +65,7 @@ Two statements above were wrong, and the run showed it. The expectations are lef
 
 - The occupation-only reference came out at 0.523 on all bios, close to the majority class (0.477). The showcase subset holds up to 150 bios of each gender per occupation, so the occupation tells almost nothing about the gender of a showcase bio. A first draft of this record called the reference high; that was a mistake about the test set, not a result.
 - The null is stricter than "occupation only". A bio of an occupation with 90% women keeps its own gender 82% of the time after a shuffle within occupation (0.9² + 0.1²), so the shuffled labels still hold part of the real signal. The null probes scored 0.56 to 0.57, above the occupation-only reference. A probe has to beat that, so the test is conservative.
+- After review, the plotted second patching curve changed from all positions (flat at 100%, no information) to the other words. No expectation was written for it beforehand. It rose from 0% at the embeddings to 100% at the last layer and crossed the edited-words curve between layers 3 and 4 (56% against 42% at layer 4).
 
 ## Alternatives considered
 
