@@ -156,12 +156,19 @@ class Client:
                 record = json.loads(line)
                 self._answered[record["key"]] = record
 
+    def lookup(self, messages: list[dict], run: int = 0) -> dict | None:
+        """The stored call for `messages` and `run`, or None. Never sends a request."""
+        return self._answered.get(self._key(messages, run))
+
+    def _key(self, messages: list[dict], run: int) -> str:
+        return request_key(self.model, messages, SETTINGS | ({"run": run} if run else {}))
+
     def ask(self, messages: list[dict], run: int = 0) -> dict:
         """The stored record of `messages`: key, model, messages, settings, the reply `content`,
         the `reasoning` text if any, the `run` index and the `seconds` the call took. The request is
         sent only if the log has no answer for it yet. A run index above 0 changes the key and is
         not sent: it makes an identical request a new call, for rerun noise."""
-        key = request_key(self.model, messages, SETTINGS | ({"run": run} if run else {}))
+        key = self._key(messages, run)
         if key in self._answered:
             return self._answered[key]
         body = json.dumps({"model": self.model, "messages": messages, **SETTINGS}).encode()
