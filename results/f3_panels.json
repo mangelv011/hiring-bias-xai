@@ -4,5 +4,5 @@
     "male_dominated": "surgeon"
   },
   "rule": "In each of the two kinds of showcase occupation (male-dominated, female-dominated), the occupation with the largest absolute score gap of the main model; ties go to the occupation listed first.",
-  "title": "Gendered words are 15% of the +5.4 model-bio gap; the surgeon gap is too small to split."
+  "title": "Gendered words put women's bios 1.1 below men's in surgeon and 0.8 above in model."
 }
