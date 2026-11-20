@@ -440,3 +440,27 @@ def test_the_dots_are_drawn_above_the_threshold_marks_and_lines(figure):
     assert min(d.get_zorder() for d in dots) > max(
         [line.get_zorder() for line in bottom.lines] + [c.get_zorder() for c in lines]
     )
+
+
+def test_curve_labels_are_at_least_a_tenth_of_the_range_apart_and_close_to_their_curve_ends(
+    f5, curves, areas, stability
+):
+    close = curves.copy()
+    ends = (close["fraction"] == 0.5) & (close["screener"] == "deberta")
+    close.loc[ends & (close["order"] == "random"), "mean_logodds_drop"] = 0.50
+    close.loc[ends & (close["order"] == "lerf"), "mean_logodds_drop"] = 0.45
+    figure = f5.build(close, areas, stability)
+    figure.canvas.draw()
+    top, _ = _axes(figure)
+    ys = sorted(t.get_position()[1] for t in top.texts)
+    assert min(b - a for a, b in zip(ys, ys[1:], strict=False)) >= 0.1 * 8.0
+    end_x = top.transData.transform((0.5, 0))[0]
+    for text in top.texts:
+        gap = text.get_window_extent().x0 - end_x
+        assert 2 <= gap <= 15, (text.get_text(), gap)
+    plt.close(figure)
+
+
+def test_panel_b_ticks_are_zero_one_half_and_one(figure):
+    _, bottom = _axes(figure)
+    assert [t for t in bottom.get_xticks() if 0 <= t <= 1] == [0, 0.5, 1]

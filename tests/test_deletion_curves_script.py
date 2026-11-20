@@ -286,3 +286,15 @@ def test_the_curve_intervals_use_the_default_number_of_resamples(run, monkeypatc
     monkeypatch.setattr(checks, "bootstrap_ci", spy)
     run()
     assert set(sizes) == {1000}
+
+
+def test_the_baseline_model_is_loaded_without_touching_the_main_model(monkeypatch):
+    spec = importlib.util.spec_from_file_location("deletion_curves_real", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # its own _load, not the fixture's fake
+    sentinel = object()
+    monkeypatch.setattr(module.BaselineModel, "load", classmethod(lambda cls: sentinel))
+    monkeypatch.setattr(
+        module.DebertaModel, "load", classmethod(lambda cls, size: pytest.fail("main model"))
+    )
+    assert module._load("baseline", 16) is sentinel

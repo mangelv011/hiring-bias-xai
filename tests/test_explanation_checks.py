@@ -19,6 +19,7 @@ from hiring_bias_xai import explanation_checks as checks
         (60, 7, 4),  # 4.2 words
         (17, 50, 9),  # 8.5 words rounds half up
         (1, 50, 1),
+        (7, 7, 0),  # 0.49 words rounds down
     ],
 )
 def test_the_share_of_words_to_remove_rounds_half_up_to_a_whole_word(n_words, percent, expected):
@@ -378,3 +379,10 @@ def test_a_punctuation_only_unit_is_its_own_word_so_two_different_dashes_are_not
     words[1] = "-"
     again = _case("test-1", words, [3.0, *_ramp(n - 1)], [3.0, *_ramp(n - 1)[::-1]])
     assert checks.disagreement_example([again]) is not None
+
+
+def test_lerf_breaks_ties_by_position_in_a_long_bio():
+    values = np.tile([1.0, 0.0], 100)  # the zeros tie: they are words 1, 3, 5, ...
+    assert checks.removal_orders(values, 1, np.random.default_rng(0)).lerf[:100].tolist() == list(
+        range(1, 200, 2)
+    )
