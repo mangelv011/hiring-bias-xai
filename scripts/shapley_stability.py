@@ -41,7 +41,7 @@ def _spearman(one: np.ndarray, other: np.ndarray) -> float:
     return float(spearmanr(one, other).statistic)
 
 
-def agreement(one: np.ndarray, other: np.ndarray, top: int = TOP, shown: int = SHOWN) -> dict:
+def agreement(one: np.ndarray, other: np.ndarray, top: int, shown: int) -> dict:
     """Agreement of two seeds' values for one bio; NaN where a correlation is undefined."""
     largest = np.argsort(-(np.abs(one) + np.abs(other)), kind="stable")
     in_top = np.zeros(len(one), dtype=bool)
@@ -70,7 +70,10 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
     by_count = {}
     for count in PERMUTATIONS:
         runs = [attribution.shapley(model, texts, targets, count, removal, seed) for seed in SEEDS]
-        rows = [agreement(one.values, other.values) for one, other in zip(*runs, strict=True)]
+        rows = [
+            agreement(one.values, other.values, TOP, SHOWN)
+            for one, other in zip(*runs, strict=True)
+        ]
         by_count[count] = {
             "n_bios": len(rows),
             "median_spearman_all": _median([r["spearman_all"] for r in rows]),
