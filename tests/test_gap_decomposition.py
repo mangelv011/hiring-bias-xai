@@ -60,6 +60,21 @@ def test_importance_is_the_mean_over_the_bios_that_contain_the_word_of_both_gend
     assert table["importance"].to_dict() == pytest.approx({"a": 7 / 3, "b": 5 / 3, "c": 3 / 2})
 
 
+def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
+    # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
+    # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
+    # bios is 5/3 - 1.0 + 0.9, while the contributions still add up to 5/3.
+    bios = [
+        gap_decomposition.Bio(b.gender, b.values, sum(b.values.values()) + e, e)
+        for b, e in zip(BIOS, [-1.0] * 3 + [-0.9] * 2, strict=True)
+    ]
+    summary = gap_decomposition.decompose(bios, min_bios=1).summary
+    assert summary["score_gap"]["value"] == pytest.approx(5 / 3 - 0.1)
+    assert summary["decomposed_gap"]["value"] == pytest.approx(5 / 3)
+    assert summary["empty_score_drift"] == pytest.approx(-0.1)
+    assert summary["decomposition_error"] < 1e-12
+
+
 def test_a_word_present_with_value_zero_is_in_the_bios_that_contain_it():
     # guard: n_bios and importance already count presence, not a non-zero value
     bios = [_bio("female", {"z": 0.0}), _bio("male", {"z": 0.0, "a": 1.0}), _bio("male", {"a": 3.0})]
