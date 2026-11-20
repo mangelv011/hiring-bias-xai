@@ -147,3 +147,32 @@ def test_probe_gives_the_same_result_with_one_worker_or_two():
     assert _run(reads_gender=True, n_permutations=6, n_jobs=1) == _run(
         reads_gender=True, n_permutations=6, n_jobs=2
     )
+
+
+def _texts(n, seed):
+    """Bios of 'knitting' words for women and 'welding' words for men, 90% of the time."""
+    rng = np.random.default_rng(seed)
+    gender = rng.choice(["f", "m"], size=n)
+    own = {"f": "knitting yarn", "m": "welding steel"}
+    other = {"f": "welding steel", "m": "knitting yarn"}
+    texts = [
+        f"works with {(own if rng.random() < 0.9 else other)[g]} every day" for g in gender
+    ]
+    return texts, gender
+
+
+def test_the_tfidf_reference_reads_the_words_of_the_same_scrubbed_text():
+    train_texts, train_gender = _texts(300, 0)
+    test_texts, test_gender = _texts(200, 1)
+    predicted = probing.tfidf_predictions(train_texts, train_gender, test_texts)
+    assert predicted.shape == (200,)
+    assert 0.85 < (predicted == test_gender).mean() < 0.95
+
+
+def test_the_tfidf_reference_chooses_its_c_from_its_own_grid():
+    train_texts, train_gender = _texts(300, 0)
+    assert probing.TFIDF_C_GRID != probing.C_GRID
+    chosen = probing.select_c(
+        np.asarray(train_texts), train_gender, probing.TFIDF_C_GRID, make=probing.new_tfidf
+    )
+    assert chosen in probing.TFIDF_C_GRID
