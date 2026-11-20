@@ -54,3 +54,8 @@ def test_residual_cues_adds_the_names_to_the_nouns():
     text = "Maria is a nurse who works with Dr. Lee and Mark. She is a mother."
     assert residual_cues(text, {"Maria"}) == ["Maria", "mother"]
     assert residual_cues(text) == ["mother"]
+
+
+def test_a_name_used_twice_is_listed_once_and_names_come_out_sorted():
+    text = "Mark met Dr. Lee at the clinic. Lee thanked Mark and Maria Lopez for the help."
+    assert first_names_in(text, NAMES) == ["Lee", "Maria", "Mark"]

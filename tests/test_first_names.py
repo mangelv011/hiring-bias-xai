@@ -34,9 +34,12 @@ def test_an_archive_that_unpacks_to_too_much_is_refused():
         first_names.parse(archive, min_count=1, max_bytes=100)
 
 
-def test_a_line_that_is_not_name_sex_count_is_refused():
+@pytest.mark.parametrize(
+    "line", ["Maria,F,sixty", "Maria,F,", "Maria,X,5", "Mar1a,F,5", "Maria,F,5,6"]
+)
+def test_a_line_that_is_not_name_sex_count_is_refused(line):
     with pytest.raises(ValueError, match="yob1990.txt"):
-        first_names.parse(_archive({"yob1990.txt": "Maria,F,sixty\n"}), min_count=1)
+        first_names.parse(_archive({"yob1990.txt": line + "\n"}), min_count=1)
 
 
 CONTENT = b"archive bytes"
