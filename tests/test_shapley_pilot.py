@@ -270,7 +270,7 @@ def test_the_model_is_warmed_up_on_the_first_bios_before_any_timed_run(pilot):
 def test_the_default_pilot_sizes_are_the_ones_the_rules_state():
     module = _load_script()
     assert (module.REMOVAL_BIOS, module.REMOVAL_DRAWS, module.DROPPED_SHARE) == (200, 5, 0.3)
-    assert (module.COST_BIOS, module.PERMUTATIONS, module.SEEDS) == (50, (5, 10, 20), (0, 1))
+    assert (module.COST_BIOS, module.PERMUTATIONS, module.SEEDS) == (50, (5, 10, 20, 40), (0, 1))
     assert (module.SPEARMAN_THRESHOLD, module.FULL_RUN_LIMIT_SECONDS) == (0.9, 3 * 3600)
     assert module.BATCH_SIZE == 64
 
