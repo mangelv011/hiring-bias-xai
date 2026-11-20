@@ -168,6 +168,10 @@ _Avoid_: bias of a word, word effect
 The sum of the gap contributions of the ten words with the largest absolute contribution, divided by the score gap. It can exceed 100% when the other words pull the other way. It is unstable when the interval of the score gap includes 0.
 _Avoid_: explained variance
 
+**Gendered sum**:
+The sum of the gap contributions of the gendered words: how far they put women's bios above (positive) or below (negative) men's. It needs no division, so it exists when the score gap is near 0.
+_Avoid_: gendered effect, bias of gendered words
+
 **Gendered share**:
 The sum of the gap contributions of the gendered words, divided by the score gap.
 _Avoid_: bias share
