@@ -55,6 +55,25 @@ def title(panels: Sequence[Panel]) -> str:
     return f"Gendered words are {' and '.join(clauses)}; the {small} gap is too small to split."
 
 
+def _interval(share: dict) -> str:
+    return f"{share['value']:.0%} [{share['ci_low']:.0%}, {share['ci_high']:.0%}]"
+
+
+def header(panel: Panel) -> str:
+    """Two lines: the occupation with its total score gap, then the shares or why there are none."""
+    gap = panel.summary["score_gap"]
+    first = (
+        f"{_name(panel.occupation).capitalize()} ({panel.kind.replace('_', '-')}), "
+        f"gap {gap['value']:+.1f} [{gap['ci_low']:+.1f}, {gap['ci_high']:+.1f}]"
+    )
+    if panel.summary["gap_unstable"]:
+        return first + "\nits interval includes 0, so the shares are not given"
+    return (
+        f"{first}\ntop {len(panel.summary['top_words'])} words: {_interval(panel.summary['top_share'])}; "
+        f"gendered: {_interval(panel.summary['gendered_share'])}"
+    )
+
+
 def build(panels: Sequence[Panel]):
     """One panel per occupation: its top words as dots, sorted by contribution, largest on top."""
     plt.rcParams.update(plotting.STYLE)
@@ -66,6 +85,7 @@ def build(panels: Sequence[Panel]):
     for ax, panel in zip(axes[:, 0], panels, strict=True):
         words = panel.words.sort_values("contribution", ascending=False, kind="stable")
         rows = range(len(words))
+        ax.set_title(header(panel), loc="left")
         ax.axvline(0, color=DARK, lw=0.6)
         colours = [plotting.HIGHLIGHT if g else plotting.NEUTRAL for g in words["gendered"]]
         ax.hlines(rows, words["contribution_ci_low"], words["contribution_ci_high"], colors=colours)
