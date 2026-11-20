@@ -1,4 +1,8 @@
-"""F1: the main model's TPR gap against the share of women in each occupation."""
+"""F1: the main model's TPR gap against the share of women in each occupation.
+
+Written for a reader who has never seen a TPR: the y axis is how many more qualified women than
+men the model passes on to the recruiter, per 100 of each, and two familiar jobs carry their
+numbers. The title states the finding in plain words when the Fisher interval of r excludes 0."""
 
 import json
 from pathlib import Path
@@ -17,6 +21,9 @@ DISTANCE_COST = 0.05
 DOT_COST, DOT_PAD_PX, LINE_PAD_PX = 50, 4, 2
 BAR_COST, FIT_COST, ZERO_COST = 10, 40, 5
 TAKEN_COST = OUTSIDE_COST = 1000
+EXAMPLES = ("surgeon", "nurse")  # familiar jobs whose labels carry their numbers per 100
+FINDING = "The more a job is held by one gender, the more the model favours that gender."
+NO_LINK = "No clear link between who holds a job and whom the model favours."
 
 
 def _read(results_dir: Path, name: str):
@@ -35,12 +42,13 @@ def _overlap(a, b) -> bool:
     return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
 
-def _label(fig, ax, points: dict, sides: dict, obstacles: dict) -> None:
+def _label(fig, ax, points: dict, sides: dict, obstacles: dict, texts: dict) -> None:
     """Label each showcase occupation at the nearest clear spot around its dot.
 
     Each label is tried at several distances and directions from its dot. The spot with the least
-    overlap with dots, error bars, the fitted line, the zero line, earlier labels and the axes
-    edge wins; ties go to the nearest. A label away from its dot gets a leader line.
+    overlap with dots, error bars, the fitted line, the zero line, texts already in the axes,
+    earlier labels and the axes edge wins; ties go to the nearest. A label away from its dot gets
+    a leader line.
     `obstacles` maps "dots" to an (n, 2) array and "bars", "fit" and "zero" to lists of (n, 2)
     arrays sampled along them, all in data coordinates.
     """
@@ -55,9 +63,10 @@ def _label(fig, ax, points: dict, sides: dict, obstacles: dict) -> None:
         for line in obstacles[kind]
     ]
     axes = ax.get_window_extent(renderer)
-    taken, offsets = [], {}
+    taken = [tuple(t.get_window_extent(renderer).extents) for t in ax.texts]  # notes and r
+    offsets = {}
     for name in (n for n in points if n in sides):
-        text = ax.text(0, 0, name.replace("_", " "))
+        text = ax.text(0, 0, texts[name])
         extent = matplotlib.text.Text.get_window_extent(text, renderer)
         text.remove()
         dot = to_px([points[name]])[0]
@@ -87,12 +96,13 @@ def _label(fig, ax, points: dict, sides: dict, obstacles: dict) -> None:
         offsets[name] = best[1]
     for name, (dx, dy) in offsets.items():
         label = ax.annotate(
-            name.replace("_", " "),
+            texts[name],
             points[name],
             xytext=(dx, dy),
             textcoords="offset points",
             ha="left" if dx >= 0 else "right",
             va="center",
+            linespacing=1.1,
             arrowprops={"arrowstyle": "-", "lw": 0.4, "color": DARK, "shrinkA": 0, "shrinkB": 2}
             if np.hypot(dx, dy) > LEADER_FROM_PT
             else None,
@@ -127,23 +137,31 @@ def build(results_dir: Path):
     pearson = _read(results_dir, "gap_statistics.json")["main_model"]["pearson"]
     r = pearson["value"]
     fig.suptitle(
-        f"The main model's errors follow each occupation's gender imbalance (r = {r:.2f}).",
+        FINDING if pearson["fisher_ci_low"] > 0 else NO_LINK,
         wrap=True,
         x=0.02,
         ha="left",
         fontweight="bold",
     )
     ax.text(
-        0.03,
         0.97,
+        0.03,
         f"r = {r:.2f} [{pearson['fisher_ci_low']:.2f}, {pearson['fisher_ci_high']:.2f}]",
         transform=ax.transAxes,
-        va="top",
+        ha="right",
+        va="bottom",
+        color=DARK,
     )
-    ax.set_xlabel("Share of women in the training subsample")
-    ax.set_ylabel("TPR gap (women minus men)")
+    for y, note, va in ((0.97, "↑ favours women", "top"), (0.03, "↓ favours men", "bottom")):
+        ax.text(0.03, y, note, transform=ax.transAxes, va=va, color=DARK)
+    ax.set_xlabel("Share of women in the job")
+    ax.set_ylabel("Qualified women minus qualified men\npassed on, per 100")
     ax.set_xlim(right=1.15)  # room for the labels of the female-dominated showcase occupations
     ax.set_xticks([0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.xaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
+    ax.yaxis.set_major_formatter(
+        lambda value, _: "0" if round(value * 100) == 0 else f"{value * 100:+.0f}"
+    )
     obstacles = {
         "dots": np.column_stack([x, gap]),
         "bars": [
@@ -154,7 +172,13 @@ def build(results_dir: Path):
         "zero": [np.column_stack([fit_x, np.zeros(len(fit_x))])],
     }
     points = {name: (xi, yi) for name, xi, yi in zip(names, x, gap, strict=True)}
-    _label(fig, ax, points, labelled, obstacles)
+    texts = {name: name.replace("_", " ") for name in names}
+    for name in EXAMPLES:
+        if name in per_occupation:
+            women = round(100 * per_occupation[name]["tpr_female"]["value"])
+            men = round(100 * per_occupation[name]["tpr_male"]["value"])
+            texts[name] += f": {women} of 100 women,\n{men} of 100 men passed on"
+    _label(fig, ax, points, labelled, obstacles, texts)
     return fig
 
 
