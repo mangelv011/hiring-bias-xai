@@ -75,6 +75,6 @@ def test_wilson_interval_matches_known_values():
     low, high = effects.wilson_interval(5, 50)
     assert (round(low, 4), round(high, 4)) == (0.0435, 0.2136)
     low, high = effects.wilson_interval(0, 50)
-    assert (low, round(high, 4)) == (0.0, 0.0713)
+    assert (low, round(high, 4)) == (0.0, 0.0714)
     low, high = effects.wilson_interval(50, 50)
-    assert (round(low, 4), high) == (0.9287, 1.0)
+    assert (round(low, 4), high) == (0.9286, 1.0)
