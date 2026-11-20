@@ -76,3 +76,18 @@ def test_titles_swap_but_degrees_and_units_stay(text, swapped):
 )
 def test_her_is_his_as_a_possessive_and_him_as_an_object(text, swapped):
     assert swap_gender(text) == swapped
+
+
+@pytest.mark.parametrize(
+    ("text", "swapped"),
+    [
+        ("He loves his job.", "She loves her job."),
+        ("The book is his.", "The book is hers."),
+        ("That one is his and this one is hers.", "That one is hers and this one is his."),
+        ("His is the best.", "Hers is the best."),
+        ("He took her and his friends out.", "She took him and her friends out."),
+        ("his own team", "her own team"),
+    ],
+)
+def test_his_is_her_before_a_noun_and_hers_on_its_own(text, swapped):
+    assert swap_gender(text) == swapped
