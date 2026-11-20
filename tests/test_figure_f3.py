@@ -5,7 +5,13 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.collections
+import matplotlib.colors
+import matplotlib.pyplot as plt
+import pandas as pd
 import pytest
+
+from hiring_bias_xai import plotting
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "figure_f3.py"
 
@@ -20,6 +26,98 @@ def _load_script():
 @pytest.fixture(scope="module")
 def f3():
     return _load_script()
+
+
+def _words(rows):
+    """Top-word rows as `gap_decomposition.csv` has them: word, contribution, interval, gendered."""
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "word",
+            "contribution",
+            "contribution_ci_low",
+            "contribution_ci_high",
+            "gendered",
+        ],
+    )
+
+
+SURGEON_WORDS = _words(
+    [
+        ("he", -0.40, -0.60, -0.20, True),
+        ("surgery", 0.30, 0.10, 0.50, False),
+        ("medical", -0.10, -0.30, 0.10, False),
+        ("she", 0.20, 0.05, 0.35, True),
+    ]
+)
+MODEL_WORDS = _words(
+    [
+        ("born", 1.0, 0.5, 1.4, False),
+        ("her", -0.5, -0.8, -0.2, True),
+        ("ranked", 2.0, 1.5, 2.6, False),
+    ]
+)
+
+
+def _shares(value, low, high):
+    return {"value": value, "ci_low": low, "ci_high": high}
+
+
+# A summary as `gap_explained.json` has it, with the fields the figure reads. The surgeon gap is
+# too close to 0 to split; the model gap is not.
+_SURGEON_SUMMARY = {
+    "score_gap": _shares(-0.774, -1.540, 0.076),
+    "decomposed_gap": _shares(-0.774, -1.540, 0.076),
+    "gap_unstable": True,
+    "top_share": _shares(0.45, -1.81, 1.98),
+    "gendered_share": _shares(1.45, -8.15, 8.56),
+}
+_MODEL_SUMMARY = {
+    "score_gap": _shares(5.402, 4.444, 6.404),
+    "decomposed_gap": _shares(5.402, 4.444, 6.404),
+    "gap_unstable": False,
+    "top_share": _shares(0.61, 0.51, 0.77),
+    "gendered_share": _shares(0.15, 0.12, 0.19),
+}
+
+
+@pytest.fixture
+def panels(f3):
+    return [
+        f3.Panel("surgeon", "male_dominated", SURGEON_WORDS, _SURGEON_SUMMARY),
+        f3.Panel("model", "female_dominated", MODEL_WORDS, _MODEL_SUMMARY),
+    ]
+
+
+@pytest.fixture
+def figure(f3, panels):
+    fig = f3.build(panels)
+    fig.canvas.draw()
+    yield fig
+    plt.close(fig)
+
+
+def _data_axes(fig):
+    return [ax for ax in fig.axes if ax.collections]
+
+
+def _dots(ax):
+    (dots,) = [c for c in ax.collections if isinstance(c, matplotlib.collections.PathCollection)]
+    return dots
+
+
+def _intervals(ax):
+    (lines,) = [c for c in ax.collections if isinstance(c, matplotlib.collections.LineCollection)]
+    return lines
+
+
+def test_each_panel_lists_its_words_sorted_by_contribution_with_the_largest_at_the_top(figure):
+    surgeon, model = _data_axes(figure)
+    assert [t.get_text() for t in surgeon.get_yticklabels()] == ["surgery", "she", "medical", "he"]
+    assert [t.get_text() for t in model.get_yticklabels()] == ["ranked", "born", "her"]
+    assert surgeon.yaxis_inverted()
+    assert _dots(surgeon).get_offsets()[:, 0] == pytest.approx([0.30, 0.20, -0.10, -0.40])
+    assert _dots(surgeon).get_offsets()[:, 1] == pytest.approx([0, 1, 2, 3])
 
 
 def _summary(gap):
