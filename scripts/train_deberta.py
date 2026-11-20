@@ -1,7 +1,6 @@
 """Fine-tune DeBERTa-v3-small, pick the learning rate on dev, and evaluate once on test."""
 
 import json
-import time
 from pathlib import Path
 
 import numpy as np
@@ -12,19 +11,19 @@ from sklearn.metrics import f1_score
 from hiring_bias_xai import data, fairness, results
 from hiring_bias_xai.config import RESULTS_DIR, SEED
 from hiring_bias_xai.models import DebertaModel
-from hiring_bias_xai.training import WARMUP_RATIO, seed_everything, train
+from hiring_bias_xai.training import (
+    ACCUMULATION,
+    BATCH_SIZE,
+    EPOCHS,
+    EVAL_BATCH_SIZE,
+    EVAL_EVERY,
+    MAX_LENGTH,
+    WARMUP_RATIO,
+    fit_deberta,
+    progress_printer,
+)
 
 LEARNING_RATES = (5e-5, 3e-5)
-# Every run goes through all epochs and keeps the weights of its best dev evaluation. A first
-# run capped at 3 epochs had its best dev macro-F1 at the last evaluation, so the cap is 5.
-EPOCHS = 5
-# Batches of 8 ran near the 4 GB limit and the GPU driver failed twice (nvlddmkm 153); 4 x 8 keeps
-# the effective batch at 32 with less memory. Scoring batches are no larger.
-BATCH_SIZE = 4
-ACCUMULATION = 8
-EVAL_BATCH_SIZE = 4
-EVAL_EVERY = 375
-MAX_LENGTH = 256
 BASELINE_METRICS = RESULTS_DIR / "metrics_baseline.json"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -55,32 +54,6 @@ def _comparison(deberta: dict, baseline: dict) -> dict:
     return comparison
 
 
-def _fit(learning_rate: float, train_frame, dev_frame):
-    seed_everything()
-    model = DebertaModel.pretrained(MAX_LENGTH, EVAL_BATCH_SIZE)
-    model.network.to(DEVICE)
-    started = time.perf_counter()
-    rows = train(
-        model,
-        list(train_frame["text"]),
-        list(train_frame["occupation"]),
-        list(dev_frame["text"]),
-        list(dev_frame["occupation"]),
-        learning_rate=learning_rate,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        accumulation=ACCUMULATION,
-        eval_every=EVAL_EVERY,
-        on_evaluation=lambda row: print(
-            f"lr={learning_rate:g} step={row['step']} epoch={row['epoch']} "
-            f"train_loss={row['train_loss']:.4f} dev_loss={row['dev_loss']:.4f} "
-            f"dev_macro_f1={row['dev_macro_f1']:.4f}",
-            flush=True,
-        ),
-    )
-    return model, rows, time.perf_counter() - started
-
-
 def main(results_dir: Path = RESULTS_DIR) -> None:
     results_dir.mkdir(parents=True, exist_ok=True)
     train_frame, dev_frame = data.load_split("train"), data.load_split("dev")
@@ -90,7 +63,19 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
         torch.cuda.reset_peak_memory_stats()
     runs, log, best_f1 = [], [], -1.0
     for learning_rate in LEARNING_RATES:
-        model, rows, seconds = _fit(learning_rate, train_frame, dev_frame)
+        model, rows, seconds = fit_deberta(
+            learning_rate,
+            train_frame,
+            dev_frame,
+            device=DEVICE,
+            max_length=MAX_LENGTH,
+            eval_batch_size=EVAL_BATCH_SIZE,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            accumulation=ACCUMULATION,
+            eval_every=EVAL_EVERY,
+            on_evaluation=progress_printer(f"lr={learning_rate:g}"),
+        )
         log += [{"base_learning_rate": learning_rate} | row for row in rows]
         best = max(rows, key=lambda row: row["dev_macro_f1"])  # the first of equal rows
         runs.append(

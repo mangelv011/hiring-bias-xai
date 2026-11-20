@@ -2,6 +2,7 @@
 
 import math
 import random
+import time
 from collections.abc import Callable, Sequence
 
 import numpy as np
@@ -13,6 +14,16 @@ from hiring_bias_xai.config import SEED
 from hiring_bias_xai.models import DebertaModel, autocast
 
 WARMUP_RATIO = 0.06
+# Every run goes through all epochs and keeps the weights of its best dev evaluation. A first
+# run capped at 3 epochs had its best dev macro-F1 at the last evaluation, so the cap is 5.
+EPOCHS = 5
+# Batches of 8 ran near the 4 GB limit and the GPU driver failed twice (nvlddmkm 153); 4 x 8 keeps
+# the effective batch at 32 with less memory. Scoring batches are no larger.
+BATCH_SIZE = 4
+ACCUMULATION = 8
+EVAL_BATCH_SIZE = 4
+EVAL_EVERY = 375
+MAX_LENGTH = 256
 
 
 def seed_everything() -> None:
@@ -107,3 +118,57 @@ def train(
                     }
     network.load_state_dict(best_weights)
     return rows
+
+
+def progress_printer(label: str) -> Callable[[dict], None]:
+    """An `on_evaluation` callback that prints one line per evaluation, starting with `label`."""
+
+    def print_row(row: dict) -> None:
+        print(
+            f"{label} step={row['step']} epoch={row['epoch']} "
+            f"train_loss={row['train_loss']:.4f} dev_loss={row['dev_loss']:.4f} "
+            f"dev_macro_f1={row['dev_macro_f1']:.4f}",
+            flush=True,
+        )
+
+    return print_row
+
+
+def fit_deberta(
+    learning_rate: float,
+    train_frame,
+    dev_frame,
+    *,
+    device: str,
+    max_length: int,
+    eval_batch_size: int,
+    epochs: int,
+    batch_size: int,
+    accumulation: int,
+    eval_every: int,
+    on_evaluation: Callable[[dict], None] = lambda row: None,
+) -> tuple[DebertaModel, list[dict], float]:
+    """Fine-tune a new DeBERTa on the `text` and `occupation` columns of the two frames.
+
+    Returns the model with its best dev weights, the rows `train` logged and the seconds the
+    fit took. The text variant is whatever the frames hold, so the same recipe fits the original
+    and the scrubbed bios. The head is initialised after seeding the global generators.
+    """
+    seed_everything()
+    model = DebertaModel.pretrained(max_length, eval_batch_size)
+    model.network.to(device)
+    started = time.perf_counter()
+    rows = train(
+        model,
+        list(train_frame["text"]),
+        list(train_frame["occupation"]),
+        list(dev_frame["text"]),
+        list(dev_frame["occupation"]),
+        learning_rate=learning_rate,
+        epochs=epochs,
+        batch_size=batch_size,
+        accumulation=accumulation,
+        eval_every=eval_every,
+        on_evaluation=on_evaluation,
+    )
+    return model, rows, time.perf_counter() - started
