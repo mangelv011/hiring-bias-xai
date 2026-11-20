@@ -413,3 +413,11 @@ def test_a_bio_whose_stored_prediction_differs_from_the_saved_one_is_counted_as_
     results.save_predictions("deberta", run.subset, changed)
     record = json.loads((run() / "f2_cases.json").read_text())
     assert record["n_skipped"] == 1
+
+
+def test_every_value_label_stays_inside_its_axes_so_it_does_not_run_into_the_word_labels(figure):
+    for ax in _bar_axes(figure):
+        box = ax.get_window_extent()
+        for label in ax.texts:
+            extent = label.get_window_extent()
+            assert box.x0 <= extent.x0 and extent.x1 <= box.x1, label.get_text()

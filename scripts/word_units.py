@@ -2,7 +2,7 @@
 
 Shapley values are computed per whitespace-separated unit, so "shoot...she" is one unit. This
 script counts those units and how many of the gendered units a finer split would change. A unit is
-glued when its core has letters on both sides of punctuation inside it (an apostrophe does not
+glued when it has letters on both sides of punctuation inside it (an apostrophe does not
 count: "it's" is one word). Results go to `results/word_units.json`.
 """
 
@@ -25,7 +25,7 @@ _PIECE_BREAK = re.compile(r"[^\w'’]+")
 
 
 def is_glued(word: str) -> bool:
-    return _GLUED.search(re.sub(r"^\W+|\W+$", "", word)) is not None
+    return _GLUED.search(word) is not None
 
 
 def has_gendered_part(word: str) -> bool:
