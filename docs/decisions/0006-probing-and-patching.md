@@ -18,12 +18,12 @@ Two questions about the inside of the main model. Is gender still readable from 
 
 **Test accuracy and interval.** Accuracy on the showcase subset, with the 95% percentile interval of 1,000 bootstrap resamples of the bios (seed 42).
 
-**Permutation test.** The training genders are shuffled within each occupation, the probe is refitted and scored on the real test genders, 100 times per layer and model. C is not chosen again for each shuffle; it is the one chosen on the real labels. The p-value is (1 + shuffles at least as accurate as the probe) / (1 + 100), so the smallest value is 1/101 = 0.0099. A shuffle within occupation keeps what the occupation says about gender in the training data and removes the rest. The null probe can therefore learn "this is a nurse bio, say female", and its accuracy sits near the occupation-only reference. A small p-value says the probe reads gender beyond what the occupation tells. It is a stricter test than shuffling over all bios, where any probe that uses the topic of the bio would pass.
+**Permutation test.** The training genders are shuffled within each occupation, the probe is refitted and scored on the real test genders, 100 times per layer and model. C is not chosen again for each shuffle; it is the one chosen on the real labels. The p-value is (1 + shuffles at least as accurate as the probe) / (1 + 100), so the smallest value is 1/101 = 0.0099. A shuffle within occupation keeps what the occupation says about gender in the training data and removes the rest. The null probe can therefore learn "this is a nurse bio, say female". A small p-value says the probe reads gender beyond what the occupation tells. It is a stricter test than shuffling over all bios, where any probe that uses the topic of the bio would pass.
 
 **References**, on the same split:
 
 - *Majority class.* The most common training gender. It is the floor.
-- *Occupation only.* The majority gender of the true occupation in the training bios. The showcase occupations were picked at the extremes of the share of women, so this reference is high, and it is the honest bar: a probe below it has not read more than the topic.
+- *Occupation only.* The majority gender of the true occupation in the training bios. It is the bar for "more than the topic": a probe below it has not read more than the occupation.
 - *TF-IDF.* Word 1-2 grams with logistic regression on the same scrubbed text, C chosen by the same 5-fold rule on its own grid (0.1, 1, 10, 100). It shows what the words give without any network. A probe at this level reads the words, as a bag of words does.
 
 The references have no p-value.
@@ -59,6 +59,13 @@ Written before the probes and the patching ran. Whatever comes out is reported, 
 5. Patching the differing positions restores most of the effect in the early layers (above 50% at the embeddings and the first two layers) and less in later ones, falling to 0% at the last layer, as the information spreads to positions that were not edited.
 6. The all-positions line is 100% at every layer.
 
+## Notes after the run
+
+Two statements above were wrong, and the run showed it. The expectations are left as written.
+
+- The occupation-only reference came out at 0.523 on all bios, close to the majority class (0.477). The showcase subset holds up to 150 bios of each gender per occupation, so the occupation tells almost nothing about the gender of a showcase bio. A first draft of this record called the reference high; that was a mistake about the test set, not a result.
+- The null is stricter than "occupation only". A bio of an occupation with 90% women keeps its own gender 82% of the time after a shuffle within occupation (0.9² + 0.1²), so the shuffled labels still hold part of the real signal. The null probes scored 0.56 to 0.57, above the occupation-only reference. A probe has to beat that, so the test is conservative.
+
 ## Alternatives considered
 
 - **LEACE and INLP.** Methods that remove a concept from the representation: LEACE (Belrose et al. 2023) in closed form, INLP (Ravfogel et al. 2020) by repeated projections. They answer a different question, what happens to the decision when gender is erased. Not run; they belong to the mitigation work.
@@ -71,7 +78,7 @@ Written before the probes and the patching ran. Whatever comes out is reported, 
 ## Consequences
 
 - A probe above the references shows that gender can be read from the layer. It does not show that the model uses it. Patching is the causal test, and only for the swap edit and the differing tokens.
-- The probe is trained on 28 occupations and scored on six that sit at the extremes of the share of women, so the occupation-only reference is high. The result for other occupations is not tested.
+- The probe is trained on 28 occupations and scored on six. The result for other occupations is not tested.
 - The permutation p-value cannot go below 1/101 with 100 shuffles. A layer at that value has beaten every shuffle, which a larger count could separate further.
 - The eligible bios are those the swap moves most. The restored share is a statement about them, not about all bios.
 - Pairs of different token length are dropped, so the patched bios are those whose swap did not change the tokenisation. A pronoun that splits into more tokens in one gender would be missing.
