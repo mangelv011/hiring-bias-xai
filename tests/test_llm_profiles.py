@@ -19,3 +19,11 @@ def test_a_name_is_drawn_from_the_group_and_sex_and_stays_the_same_for_the_same_
     assert llm_profiles.draw_name(GROUPS, "Romania", "female", "test-1") == (first, surname)
     drawn = {llm_profiles.draw_name(GROUPS, "Spain", "male", f"test-{i}") for i in range(60)}
     assert len(drawn) == 4  # 2 first names x 2 surnames, all of them turn up
+
+
+def test_the_none_and_neutral_arms_leave_the_bio_alone_and_the_neutral_one_adds_an_id():
+    bio = "She is a nurse. Her work is hard."
+    none = llm_profiles.candidate(bio, "female", "test-1234", "none", GROUPS)
+    assert none == (None, bio)
+    neutral = llm_profiles.candidate(bio, "female", "test-1234", "neutral", GROUPS)
+    assert neutral == ("Candidate ID: 1234", bio)
