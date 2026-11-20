@@ -252,14 +252,24 @@ def results_dir(tmp_path):
             "dietitian": 2.3,
         }.items()
     }
+    # The baseline model's gaps are largest in the other occupations of each kind.
+    baseline = {
+        o: {**s, "score_gap": _shares(gap, gap - 1, gap + 1)}
+        for (o, s), gap in zip(summaries.items(), [-0.1, 9.0, -0.2, 9.5, 0.1, 9.9], strict=True)
+    }
     (tmp_path / "gap_explained.json").write_text(
-        json.dumps({"screeners": {"deberta": summaries, "baseline": summaries}})
+        json.dumps({"screeners": {"deberta": summaries, "baseline": baseline}})
     )
     rows = []
     for screener in ("deberta", "baseline"):
         for occupation in summaries:
             words = SURGEON_WORDS.assign(screener=screener, occupation=occupation, top=True)
+            if screener == "baseline":
+                words["word"] = "baseline_" + words["word"]
             rows.append(words.assign(n_bios=5))
+            # A word that is not in the top 10 of its occupation must not be drawn.
+            extra = SURGEON_WORDS.head(1).assign(screener=screener, occupation=occupation)
+            rows.append(extra.assign(word="not_top", top=False, n_bios=30))
     pd.concat(rows).to_csv(tmp_path / "gap_decomposition.csv", index=False)
     return tmp_path
 
@@ -272,6 +282,10 @@ def test_main_saves_the_figure_and_records_which_occupations_it_picked(f3, resul
     assert panels["picked"] == {"male_dominated": "surgeon", "female_dominated": "model"}
     assert "largest absolute score gap" in panels["rule"]
     assert panels["title"] == fig._suptitle.get_text()
+    surgeon, model = _data_axes(fig)
+    for ax in (surgeon, model):  # the main model's top words only
+        labels = [t.get_text() for t in ax.get_yticklabels()]
+        assert sorted(labels) == ["he", "medical", "she", "surgery"]
     plt.close(fig)
 
 
