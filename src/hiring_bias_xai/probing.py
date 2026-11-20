@@ -1,9 +1,10 @@
 """Probing for gender: a linear probe on a layer's representations, its references and its null."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import numpy as np
 from joblib import Parallel, delayed
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.pipeline import Pipeline, make_pipeline
@@ -12,6 +13,7 @@ from sklearn.preprocessing import StandardScaler
 from hiring_bias_xai.config import SEED
 
 C_GRID = (1e-4, 1e-3, 1e-2, 1e-1, 1.0)
+TFIDF_C_GRID = (0.1, 1.0, 10.0, 100.0)
 FOLDS = 5
 N_BOOT = 1000
 
@@ -59,11 +61,22 @@ def new_probe(c: float) -> Pipeline:
     return make_pipeline(StandardScaler(), LogisticRegression(C=c, max_iter=1000))
 
 
-def select_c(features: np.ndarray, labels: np.ndarray, grid: Sequence[float] = C_GRID) -> float:
-    """The value of `grid` with the best 5-fold cross-validated accuracy; a tie goes to the
-    smallest value. The scaler is fitted inside each fold."""
+def new_tfidf(c: float) -> Pipeline:
+    """TF-IDF (word 1-2 grams) with logistic regression, as the baseline model is built."""
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=2, dtype=np.float32)
+    return make_pipeline(vectorizer, LogisticRegression(C=c, max_iter=1000))
+
+
+def select_c(
+    features: np.ndarray,
+    labels: np.ndarray,
+    grid: Sequence[float] = C_GRID,
+    make: Callable[[float], Pipeline] = new_probe,
+) -> float:
+    """The value of `grid` with the best 5-fold cross-validated accuracy of the model `make(c)`;
+    a tie goes to the smallest value. Scalers and vectorizers are fitted inside each fold."""
     folds = StratifiedKFold(FOLDS, shuffle=True, random_state=SEED)
-    scores = [cross_val_score(new_probe(c), features, labels, cv=folds).mean() for c in grid]
+    scores = [cross_val_score(make(c), features, labels, cv=folds).mean() for c in grid]
     best = max(scores)
     return min(c for c, score in zip(grid, scores, strict=True) if score == best)
 
@@ -113,3 +126,12 @@ def probe(
             "null_mean": float(null.mean()),
         }
     return result
+
+
+def tfidf_predictions(
+    train_texts: Sequence[str], train_gender: Sequence[str], test_texts: Sequence[str]
+) -> np.ndarray:
+    """Gender predicted from the words by TF-IDF and logistic regression, C from `TFIDF_C_GRID`."""
+    texts, gender = np.asarray(train_texts), np.asarray(train_gender)
+    c = select_c(texts, gender, TFIDF_C_GRID, make=new_tfidf)
+    return new_tfidf(c).fit(texts, gender).predict(np.asarray(test_texts))
