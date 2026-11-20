@@ -18,11 +18,13 @@ import pandas as pd
 
 from hiring_bias_xai import data
 from hiring_bias_xai.attribution import Attribution
+from hiring_bias_xai.config import SEED
 from hiring_bias_xai.models import log_odds
 
 
 MIN_BIOS = 20
 TOP = 10
+N_BOOT = 1000
 
 
 class Decomposition(NamedTuple):
@@ -52,7 +54,41 @@ def _matrices(bios: list[Bio], vocabulary: list[str]) -> tuple[np.ndarray, np.nd
     return values, present
 
 
-def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS, top: int = TOP) -> Decomposition:
+def _resampled_means(matrix: np.ndarray, n_boot: int, rng: np.random.Generator) -> np.ndarray:
+    """Mean over the rows of `matrix` in `n_boot` resamples of its rows with replacement."""
+    n = len(matrix)
+    drawn = rng.integers(0, n, size=(n_boot, n))
+    counts = np.zeros((n_boot, n))
+    np.add.at(counts, (np.arange(n_boot)[:, None], drawn), 1)
+    return counts @ matrix / n
+
+
+def _bootstrap(values: np.ndarray, full: np.ndarray, female: np.ndarray, n_boot: int, seed):
+    """Per resample, the contribution of every word and the score gap of the full bios.
+
+    Each gender is resampled on its own, with replacement; the generator draws women first.
+    """
+    rng = np.random.default_rng(seed)
+    together = np.column_stack([values, full])
+    women = _resampled_means(together[female], n_boot, rng)
+    men = _resampled_means(together[~female], n_boot, rng)
+    difference = women - men
+    return difference[:, :-1], difference[:, -1]
+
+
+def _interval(draws: np.ndarray) -> dict:
+    low, high = np.percentile(draws, [2.5, 97.5])
+    return {"ci_low": float(low), "ci_high": float(high)}
+
+
+def decompose(
+    bios: list[Bio],
+    *,
+    min_bios: int = MIN_BIOS,
+    top: int = TOP,
+    n_boot: int = N_BOOT,
+    seed=SEED,
+) -> Decomposition:
     """The words of one occupation with their contribution to the women-minus-men score gap.
 
     `bios` are all the bios of the occupation, both genders. The table has the words in at least
@@ -95,11 +131,15 @@ def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS, top: int = TOP) -> D
     empty = np.array([bio.empty for bio in bios])
     score_gap = full[female].mean() - full[~female].mean()
     exact = (full - empty)[female].mean() - (full - empty)[~female].mean()
+    boot_contribution, boot_score_gap = _bootstrap(values, full, female, n_boot, seed)
     summary = {
         "n_female": int(female.sum()),
         "n_male": int((~female).sum()),
-        "score_gap": {"value": float(score_gap)},
-        "decomposed_gap": {"value": float(contribution.sum())},
+        "score_gap": {"value": float(score_gap), **_interval(boot_score_gap)},
+        "decomposed_gap": {
+            "value": float(contribution.sum()),
+            **_interval(boot_contribution.sum(axis=1)),
+        },
         "top_share": {"value": float(contribution[is_top].sum() / contribution.sum())},
         "top_words": [vocabulary[i] for i in order[:top]],
         "gendered_share": {"value": float(contribution[gendered].sum() / contribution.sum())},
