@@ -130,3 +130,38 @@ def test_a_country_missing_from_the_files_stops_the_build_and_names_it():
     del files["first_names"]["ÁFRICA"]
     with pytest.raises(ValueError, match="MARRUECOS"):
         ine_names.build_groups(files, n_first=2, n_surnames=2)
+
+
+class _Sheet:
+    def __init__(self, name, rows):
+        self.name = name
+        self._rows = rows
+        self.nrows = len(rows)
+
+    def row_values(self, index):
+        return self._rows[index]
+
+
+class _Workbook:
+    def __init__(self, sheets):
+        self._sheets = sheets
+
+    def sheets(self):
+        return self._sheets
+
+
+def test_the_workbook_is_read_from_its_bytes_into_one_grid_of_cells_per_sheet(monkeypatch):
+    seen = []
+
+    def fake_open(**kwargs):
+        seen.append(kwargs)
+        return _Workbook([_Sheet("EUROPA", [["a", 1.0], ["b", ""]]), _Sheet("ASIA", [])])
+
+    monkeypatch.setattr(ine_names.xlrd, "open_workbook", fake_open)
+    assert ine_names.read_sheets(b"bytes") == {"EUROPA": [["a", 1.0], ["b", ""]], "ASIA": []}
+    assert seen == [{"file_contents": b"bytes", "formatting_info": False}]
+
+
+def test_bytes_that_are_not_a_workbook_raise_a_value_error():
+    with pytest.raises(ValueError, match="not an .xls workbook"):
+        ine_names.read_sheets(b"MZ this is not a spreadsheet")
