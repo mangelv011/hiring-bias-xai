@@ -251,6 +251,65 @@ def test_a_gap_that_is_zero_in_every_resample_is_unstable_because_its_interval_t
     assert summary["gap_unstable"] is True
 
 
+def test_the_top_words_of_each_resample_are_chosen_by_absolute_contribution():
+    # Women never vary and men never vary, so every resample has D: p = 1, q = -4, total -3.
+    # The largest |D| is q: its share is -4 / -3 in every resample, not p's 1 / -3.
+    bios = [
+        _bio("female", {"p": 1.0}),
+        _bio("female", {"p": 1.0}),
+        _bio("male", {"q": 4.0}),
+        _bio("male", {"q": 4.0}),
+    ]
+    share = gap_decomposition.decompose(bios, min_bios=1, top=1, n_boot=20).summary["top_share"]
+    assert (share["ci_low"], share["ci_high"]) == pytest.approx((4 / 3, 4 / 3))
+
+
+def test_a_share_of_a_total_that_is_exactly_zero_is_empty_even_when_its_part_is_not():
+    # D: a = 1, b = -1, total 0; the top word a alone is 1 / 0.
+    bios = [_bio("female", {"a": 1.0, "b": -1.0}), _bio("male", {"a": 0.0, "b": 0.0})]
+    summary = gap_decomposition.decompose(bios, min_bios=1, top=1, n_boot=10).summary
+    assert summary["top_share"]["value"] is None
+
+
+def test_the_decomposition_error_is_the_size_of_the_disagreement_with_the_scores():
+    # The values add up to 1 for the woman and 0 for the man, but her full score is 5 above her
+    # empty score: sum of D = 1, women-minus-men mean of full minus empty = 5, error 4.
+    woman = gap_decomposition.Bio("female", {"a": 1.0}, 5.0, 0.0)
+    man = gap_decomposition.Bio("male", {"a": 0.0}, 0.0, 0.0)
+    summary = gap_decomposition.decompose([woman, man], min_bios=1, n_boot=5).summary
+    assert summary["decomposition_error"] == pytest.approx(4.0)
+
+
+def test_intervals_ignore_resamples_whose_total_is_zero():
+    # Women's values cancel out and men's are 0: half of the resamples have a total of exactly 0
+    # (no share) and the others a total of +-1, where the share of "a" is 1 and a gendered share 0.
+    bios = [
+        _bio("female", {"a": 1.0}),
+        _bio("female", {"a": -1.0}),
+        _bio("male", {"a": 0.0}),
+        _bio("male", {"a": 0.0}),
+    ]
+    summary = gap_decomposition.decompose(bios, min_bios=1, top=1, n_boot=200).summary
+    top = summary["top_share"]
+    assert [top["ci_low"], top["ci_high"], top["fixed_ci_low"], top["fixed_ci_high"]] == [1] * 4
+    assert [summary["gendered_share"]["ci_low"], summary["gendered_share"]["ci_high"]] == [0, 0]
+
+
+def test_the_score_gap_interval_resamples_the_full_scores_not_the_sums_of_values():
+    empties = [-1.0, -2.0, -1.0, -0.5, -0.9]  # vary inside each gender
+    bios = [
+        gap_decomposition.Bio(b.gender, b.values, sum(b.values.values()) + e, e)
+        for b, e in zip(BIOS, empties, strict=True)
+    ]
+    scores = [
+        np.mean([b.score for b in women]) - np.mean([b.score for b in men])
+        for women, men in _resamples(bios, 40, seed=4)
+    ]
+    summary = gap_decomposition.decompose(bios, min_bios=1, n_boot=40, seed=4).summary
+    gap = summary["score_gap"]
+    assert [gap["ci_low"], gap["ci_high"]] == pytest.approx(_interval(scores))
+
+
 def test_the_top_words_are_listed_by_absolute_contribution_not_alphabetically():
     # D: y = 3, x = -1
     bios = [_bio("female", {"y": 3.0}), _bio("male", {"x": 1.0})]
