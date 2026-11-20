@@ -56,7 +56,10 @@ def test_contractions_swap_the_pronoun_and_keep_the_suffix(text, swapped):
         ("Mr. Lee", "Ms. Lee"),
         ("Ms. Lee", "Mr. Lee"),
         ("Mrs Lee", "Mr Lee"),
-        ("MS in computer science, 50 ms, MR imaging, mr", "MS in computer science, 50 ms, MR imaging, mr"),
+        (
+            "MS in computer science, 50 ms, MR imaging, mr",
+            "MS in computer science, 50 ms, MR imaging, mr",
+        ),
     ],
 )
 def test_titles_swap_but_degrees_and_units_stay(text, swapped):
@@ -99,7 +102,7 @@ def test_his_is_her_before_a_noun_and_hers_on_its_own(text, swapped):
         ("(he) works", "(she) works"),
         ("she—her work", "he—his work"),
         ("herself,he", "himself,she"),
-        ("\"she\" said", "\"he\" said"),
+        ('"she" said', '"he" said'),
     ],
 )
 def test_pronouns_glued_to_punctuation_are_swapped(text, swapped):

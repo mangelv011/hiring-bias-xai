@@ -120,7 +120,9 @@ def first_names_in(text: str, first_names: Collection[str]) -> list[str]:
     """
     if not any(word in first_names for word in _CAPITALISED_WORD.findall(text)):
         return []
-    people = (entity.text.split()[0] for entity in _recogniser()(text).ents if entity.label_ == "PERSON")
+    people = (
+        entity.text.split()[0] for entity in _recogniser()(text).ents if entity.label_ == "PERSON"
+    )
     return sorted({name for name in people if name in first_names})
 
 

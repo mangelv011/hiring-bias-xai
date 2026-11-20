@@ -1,4 +1,4 @@
-"""Counterfactual gender swaps on the showcase subset, with residual-cue flags and a removal control.
+"""Counterfactual gender swaps on the showcase subset, with residual-cue flags and a control.
 
 For each bio: the gender swap (`counterfactual.swap_gender`) and the removal control
 (`data.scrub`) are scored by both screeners, and the flip rate, the change in the log-odds of
@@ -25,7 +25,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 64
 N_BOOT = counterfactual_effects.N_BOOT
 TOP_CUES = 25
-HAND_CHECK_FILE ="counterfactual_hand_check.csv"
+HAND_CHECK_FILE = "counterfactual_hand_check.csv"
 
 
 def _load(name: str):

@@ -30,7 +30,6 @@ def test_a_prediction_outside_the_share_table_is_an_error():
         effects.moves_toward_new_gender(["male"], ["nurse"], ["poet"], SHARE)
 
 
-
 def test_summarise_gives_rates_and_means_with_intervals_that_contain_them():
     rng = np.random.default_rng(0)
     flip = rng.random(200) < 0.3
@@ -46,7 +45,10 @@ def test_summarise_gives_rates_and_means_with_intervals_that_contain_them():
 
 def test_summarise_is_deterministic_and_has_no_direction_without_one():
     flip, change = np.array([True, False, False, True]), np.array([1.0, 0.0, -1.0, 2.0])
-    first, second = effects.summarise(flip, change, n_boot=50), effects.summarise(flip, change, n_boot=50)
+    first, second = (
+        effects.summarise(flip, change, n_boot=50),
+        effects.summarise(flip, change, n_boot=50),
+    )
     np.testing.assert_equal(first, second)
     assert np.isnan(first["toward_share"])
     assert np.isnan(first["toward_share_ci_low"])

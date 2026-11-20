@@ -55,9 +55,7 @@ def _fetch(url: str) -> bytes:
     return content
 
 
-def download(
-    url: str, sha256: str, target: Path, fetch: Callable[[str], bytes] = _fetch
-) -> bytes:
+def download(url: str, sha256: str, target: Path, fetch: Callable[[str], bytes] = _fetch) -> bytes:
     """Fetch `url` (https only), check its sha256 and only then write it to `target`.
 
     Raises ValueError for another scheme or a different hash; nothing is written then.

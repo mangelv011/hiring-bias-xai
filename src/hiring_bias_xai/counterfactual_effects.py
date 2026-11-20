@@ -7,8 +7,6 @@ import pandas as pd
 
 from hiring_bias_xai.config import SEED
 
-from hiring_bias_xai.config import SEED
-
 
 def moves_toward_new_gender(
     gender: Sequence[str],
@@ -83,7 +81,11 @@ def summarise(
         value = moved.sum() / flip.sum()
         with np.errstate(invalid="ignore"):
             low, high = _interval(moved[drawn].sum(axis=1) / flip[drawn].sum(axis=1))
-    return summary | {"toward_share": value, "toward_share_ci_low": low, "toward_share_ci_high": high}
+    return summary | {
+        "toward_share": value,
+        "toward_share_ci_low": low,
+        "toward_share_ci_high": high,
+    }
 
 
 def hand_check_sample(ids: Sequence[str], n: int, seed: int = SEED) -> list[str]:
