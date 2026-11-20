@@ -45,7 +45,7 @@ def run(monkeypatch, tmp_path):
     monkeypatch.setattr(module, "_load", lambda batch_size: (loads.append(batch_size), fake)[1])
 
     def go(*variants):
-        module.main(results, variants)
+        module.main(results, *([variants] if variants else []))
         return results
 
     go.fake = fake
