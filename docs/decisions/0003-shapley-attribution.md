@@ -95,12 +95,20 @@ So for the main model, per-word values, and especially the ranking of low-value 
 
 **Throughput.** The table above is the measurement behind batch 64. The pilot's own peak allocated memory on the main model was 1,142 MB. The run had no driver errors.
 
+## Limit of whitespace units
+
+A unit is a whitespace-separated word, so punctuation can glue two words into one unit: `shoot...she`, `Humor/Romance`, `she/her/hers`. `scripts/word_units.py` counts them on the 1,721 showcase bios (`results/word_units.json`). Of 100,246 units, 1,171 (1.17%) are glued: letters on both sides of punctuation inside the unit, apostrophes excepted. Of those, 14 contain a gendered word. Counting the 4,986 units that are a gendered word on their own, 14 of 5,000 gendered units (0.28%) are glued. A finer unit would split these 14 and leave the other 4,986 alone, so it would change at most 0.28% of the gendered units, under the 1% at which a rerun would be worth its two hours of GPU. Glued units with no gendered word are split in a finer unit too, and their values are shared between two words. The run was not repeated with a finer unit.
+
+A gendered word is a unit whose core (lower case, punctuation at its ends removed) is one of the words `data.scrub` removes. `she,` and `(her)` count; `sheriff` and `shoot...she` do not.
+
 ## F2: how the two bios are picked
 
-F2 shows two showcase-subset bios, main model, with the eight words of largest absolute Shapley value. Values are recomputed for the predicted occupation from the stored logits, so the run's target (the true occupation) does not limit the choice. Gendered words are those `data.scrub` removes, matched inside a token, so `shoot...she` counts. Rules, fixed before looking at the candidates:
+F2 shows two showcase-subset bios, main model, with the eight units of largest absolute Shapley value. Values are recomputed for the predicted occupation from the stored logits, so the run's target (the true occupation) does not limit the choice. The cases mirror the finding of F1, that errors follow the gender imbalance of the occupation. The rules were fixed before looking at the bios:
 
-- **Error case**: among the bios the main model gets wrong, the one where the gendered words add the most to the log-odds of the predicted occupation (largest sum of their Shapley values, above zero).
-- **Correct case**: among the bios it gets right, the one where gendered words carry the largest share of the total absolute Shapley value.
-- Ties go to the bio that comes first in the subset. A bio with a run of 6 or more digits is never picked, because it may hold a licence or registry number; the first correct-case candidate by share held an NPI number and a full name. A bio is skipped when the stored full-bio logits predict another occupation than the saved prediction (1 of 1,721).
+- **Woman in a male-dominated occupation**: among women whose true occupation is one of the three male-dominated showcase occupations and whom the main model gets wrong, the bio where the gendered units add the most to the log-odds of the predicted occupation (largest sum of their Shapley values, above zero).
+- **Man in a female-dominated occupation**: the same for men in the three female-dominated showcase occupations.
+- Ties go to the bio that comes first in the subset. Bios under 15 word units are never picked, nor are bios with a run of six or more digits, which may hold a licence or registry number. A bio is skipped when the stored full-bio logits predict another occupation than the saved prediction (1 of 1,721). If a group has no qualifying bio, the figure and `results/f2_cases.json` say so and no other rule replaces it.
 
-Picks (`results/f2_cases.json`): error `test-70337`, true model, predicted photographer, gendered push +4.35; correct `test-94741`, nurse, gendered share 0.206. The error bio is a fan-fiction page with a wrong label, which says something about label noise in the data and not only about the model. The rules do not look at the text. Of 429 errors before the skip, 425 contain a gendered word, so the rule picks the extreme of a common pattern, not a typical error. F2 shows no interval per word, because the run stored one seed.
+A first version of F2 used the largest sum over all misclassified bios and the largest gendered share among correct ones. Review showed that it picked outliers, a fan-fiction listing and an advertisement, and that its gendered-word match found `she` inside `shoot...she`. The rules above replace it.
+
+Picks (`results/f2_cases.json`): among 114 misclassified women in the male-dominated occupations, `test-30717`, true composer, predicted rapper, the 11 gendered units add +3.21 (131 units). Among 154 misclassified men in the female-dominated ones, `test-9467`, true model, predicted poet, the 2 gendered units add +1.98 (51 units). In both bios the largest single words are topic words (songs, career, play), not gendered ones: the gendered units add up because there are several of them, and one gendered unit alone is +0.6 and +1.0. The picks are the largest of their groups, not typical. F2 shows no interval per word, because the run stored one seed.

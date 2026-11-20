@@ -1,22 +1,26 @@
 {
-  "correct": {
-    "bio_id": "test-94741",
-    "gendered_share": 0.20633754942597915,
-    "predicted": "nurse",
-    "true": "nurse",
-    "words": 31
+  "men_in_female_dominated": {
+    "n_wrong": 154,
+    "pick": {
+      "bio_id": "test-9467",
+      "gendered_push": 1.9771253791026138,
+      "predicted": "poet",
+      "true": "model",
+      "words": 51
+    }
   },
-  "error": {
-    "bio_id": "test-70337",
-    "gendered_push": 4.346789739832823,
-    "predicted": "photographer",
-    "true": "model",
-    "words": 58
-  },
+  "min_units": 15,
   "n_bios": 1721,
-  "n_correct": 1292,
-  "n_errors": 428,
   "n_skipped": 1,
-  "rule_correct": "Among the bios it gets right, the one where gendered words carry the largest share of the total absolute Shapley value.",
-  "rule_error": "Among the showcase-subset bios the main model gets wrong, the one where the gendered words add the most to the log-odds of the predicted occupation (largest sum of their Shapley values, above zero)."
+  "rule": "Women whose true occupation is one of the three male-dominated showcase occupations, and men whose true occupation is one of the three female-dominated ones, whom the main model gets wrong: in each group, the bio where the gendered words add the most to the log-odds of the predicted occupation (largest sum of their Shapley values, above zero). A gendered word is a word unit whose core is a scrubbed word. Bios under 15 word units or with six or more digits in a row are never picked. A group with no qualifying bio is shown as empty.",
+  "women_in_male_dominated": {
+    "n_wrong": 114,
+    "pick": {
+      "bio_id": "test-30717",
+      "gendered_push": 3.2147016983759853,
+      "predicted": "rapper",
+      "true": "composer",
+      "words": 131
+    }
+  }
 }

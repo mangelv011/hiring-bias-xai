@@ -127,7 +127,7 @@ The average marginal effect of a word on the log-odds score over random orders i
 _Avoid_: importance, contribution
 
 **Gendered word**:
-A word of a bio that the scrubbing list removes: a gendered pronoun or title, with any punctuation or `'s` attached to it.
+A word unit of a bio whose core, without punctuation at its ends, is a word the scrubbing list removes: a gendered pronoun or title. `she,` is one; `sheriff` and `shoot...she` are not.
 _Avoid_: gender marker, gender term
 
 **Scrubbing**:
