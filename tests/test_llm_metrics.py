@@ -157,7 +157,7 @@ def test_flips_are_the_valid_answers_that_differ_from_the_none_arm_of_the_same_p
     ]
 
 
-def test_the_noise_floor_is_the_change_between_identical_and_edited_asks_and_arms_are_read_against_it():
+def test_the_noise_floor_is_the_change_between_reruns_and_edits_and_arms_are_read_against_it():
     calls, noise = _noise_frames()
     floor = llm_metrics.noise_floor(calls, noise, n_boot=300)
     assert floor["n_profiles"] == 100
