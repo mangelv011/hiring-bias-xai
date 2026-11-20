@@ -41,10 +41,13 @@ def build(panels: Sequence[Panel]):
         words = panel.words.sort_values("contribution", ascending=False, kind="stable")
         rows = range(len(words))
         ax.axvline(0, color=DARK, lw=0.6)
-        ax.hlines(rows, words["contribution_ci_low"], words["contribution_ci_high"])
-        ax.scatter(words["contribution"], rows)
+        colours = [plotting.HIGHLIGHT if g else plotting.NEUTRAL for g in words["gendered"]]
+        ax.hlines(rows, words["contribution_ci_low"], words["contribution_ci_high"], colors=colours)
+        ax.scatter(words["contribution"], rows, c=colours, zorder=3)
         ax.set_yticks(rows)
         ax.set_yticklabels(words["word"])
+        for tick, gendered in zip(ax.get_yticklabels(), words["gendered"], strict=True):
+            tick.set_color(plotting.HIGHLIGHT if gendered else DARK)
         ax.set_ylim(len(words) - 0.5, -0.5)
     return fig
 
