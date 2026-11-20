@@ -8,7 +8,7 @@ import pytest
 from fakes import BagOfWords, Hashed
 from scipy.stats import spearmanr
 
-from hiring_bias_xai import data
+from hiring_bias_xai import attribution, data
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "shapley_stability.py"
 
@@ -166,3 +166,25 @@ def test_the_bios_are_a_seeded_random_sample_of_the_subset(stability, monkeypatc
     monkeypatch.setattr(attribution, "shapley", spy)
     stability(BagOfWords({"nurse": WEIGHTS}))
     assert seen[0] == list(_subset_frame().sample(6, random_state=42)["text"])
+
+
+def test_the_report_columns_are_the_medians_of_the_agreement_between_the_two_seeds(stability):
+    # Worked out here from two runs with the seeds 0 and 1, on the same six bios.
+    report = stability(Hashed(), removal="unk")
+    sample = _subset_frame().sample(6, random_state=42)
+    texts, targets = list(sample["text"]), list(sample["occupation"])
+    assert report["removal"] == "unk"
+    assert (report["top"], report["shown"]) == (3, 8)
+    for count, entry in report["by_permutations"].items():
+        one, other = (
+            attribution.shapley(Hashed(), texts, targets, int(count), "unk", seed)
+            for seed in (0, 1)
+        )
+        rows = [spearmanr(a.values, b.values).statistic for a, b in zip(one, other, strict=True)]
+        assert entry["median_spearman_all"] == pytest.approx(np.median(rows))
+        top = []
+        for a, b in zip(one, other, strict=True):
+            size = np.abs(a.values) + np.abs(b.values)
+            chosen = np.argsort(-size, kind="stable")[:3]
+            top.append(spearmanr(a.values[chosen], b.values[chosen]).statistic)
+        assert entry["median_spearman_top"] == pytest.approx(np.nanmedian(top))

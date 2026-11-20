@@ -164,3 +164,12 @@ def test_the_sentence_wraps_when_the_next_word_would_pass_the_line_and_not_befor
         (2, 0, 0, "kl"),
         (2, 3, 1, "x"),
     ]
+
+
+def test_a_tie_in_the_gendered_share_also_goes_to_the_bio_that_comes_first(f2):
+    cases = [
+        _case(f2, "test-7", "a", "a", "she x", [1.0, 1.0]),
+        _case(f2, "test-3", "a", "a", "she y", [2.0, 2.0]),
+    ]
+    assert f2.pick_correct(cases).bio_id == "test-7"
+    assert f2.pick_correct(cases[::-1]).bio_id == "test-3"

@@ -210,8 +210,8 @@ def test_the_figure_says_that_per_word_values_carry_sampling_noise(figure):
 
 def test_the_error_and_the_correct_case_are_named_above_their_sentences(figure):
     headers = [t.get_text() for t in figure.texts]
-    assert any(h.startswith("Error:") and "surgeon" in h and "nurse" in h for h in headers)
-    assert any(h.startswith("Correct:") and "nurse" in h for h in headers)
+    assert "Error: true surgeon, predicted nurse (test-1)" in headers
+    assert "Correct: true nurse, predicted nurse (test-2)" in headers
 
 
 def _subset(ids, texts, occupations):
@@ -292,3 +292,42 @@ def test_each_value_is_written_beyond_the_end_of_its_bar_on_the_side_it_points_t
             assert extent.x0 > end
         else:
             assert extent.x1 < end
+
+
+def test_the_record_holds_the_rules_and_the_score_and_size_of_each_picked_bio(run):
+    record = json.loads((run() / "f2_cases.json").read_text())
+    assert record["rule_error"].startswith(
+        "Among the showcase-subset bios the main model gets wrong"
+    )
+    assert record["rule_correct"].startswith("Among the bios it gets right")
+    gendered = {"she", "her", "he", "his"}
+    guesses = run.model.predict(list(run.subset["text"]))
+    scores = {}  # bio ID -> (error?, score), worked out here from the stored attributions
+    for bio, guess in zip(run.subset.itertuples(), guesses, strict=True):
+        saved = attribution.load(attribution.path("deberta", bio.id))
+        values = saved.values_for(data.OCCUPATIONS.index(guess))
+        mask = np.array([word.lower() in gendered for word in saved.words])
+        if bio.occupation != guess:
+            scores[bio.id] = ("error", values[mask].sum())
+        else:
+            scores[bio.id] = ("correct", np.abs(values[mask]).sum() / np.abs(values).sum())
+    for key, kind, name in (
+        ("error", "error", "gendered_push"),
+        ("correct", "correct", "gendered_share"),
+    ):
+        best = max(score for k, score in scores.values() if k == kind)
+        entry = record[key]
+        assert scores[entry["bio_id"]] == (kind, pytest.approx(best))
+        assert entry[name] == pytest.approx(best)
+        assert entry["words"] == len(
+            run.subset.set_index("id").loc[entry["bio_id"], "text"].split()
+        )
+
+
+def test_a_bio_whose_stored_prediction_differs_from_the_saved_one_is_counted_as_skipped(run):
+    guesses = run.model.predict(list(run.subset["text"]))
+    changed = ["surgeon" if guesses[0] != "surgeon" else "nurse", *guesses[1:]]
+    results.save_predictions("deberta", run.subset, changed)
+    record = json.loads((run() / "f2_cases.json").read_text())
+    assert record["n_skipped"] == 1
+    assert record["n_errors"] + record["n_correct"] == 7
