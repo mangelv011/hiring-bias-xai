@@ -3,6 +3,7 @@
 from collections.abc import Mapping, Sequence
 
 import numpy as np
+import pandas as pd
 
 from hiring_bias_xai.config import SEED
 
@@ -30,6 +31,7 @@ def moves_toward_new_gender(
 
 
 N_BOOT = 1000
+DIRECTION_BASIS = "training share of women, the share F1 uses (not independent of F1)"
 
 
 def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -82,3 +84,33 @@ def summarise(
         with np.errstate(invalid="ignore"):
             low, high = _interval(moved[drawn].sum(axis=1) / flip[drawn].sum(axis=1))
     return summary | {"toward_share": value, "toward_share_ci_low": low, "toward_share_ci_high": high}
+
+
+def table(
+    scored: pd.DataFrame, share_women: Mapping[str, float], screener: str, n_boot: int = N_BOOT
+) -> pd.DataFrame:
+    """One row per occupation (and "pooled"), subset (all, unflagged) and condition (swap, removal).
+
+    `scored` has one row per bio: occupation, gender, flagged, the predictions `original`,
+    `swapped` and `removed`, and the log-odds of the true occupation `lo_original`, `lo_swapped`
+    and `lo_removed`.
+    """
+    rows = []
+    for occupation in (*sorted(scored["occupation"].unique()), "pooled"):
+        group = scored if occupation == "pooled" else scored[scored["occupation"] == occupation]
+        for subset, bios in (("all", group), ("unflagged", group[~group["flagged"]])):
+            for condition, edited in (("swap", "swapped"), ("removal", "removed")):
+                flip = (bios[edited] != bios["original"]).to_numpy()
+                change = (bios[f"lo_{edited}"] - bios["lo_original"]).to_numpy()
+                swap = condition == "swap"
+                toward = (
+                    moves_toward_new_gender(
+                        bios["gender"], bios["original"], bios[edited], share_women
+                    )
+                    if swap
+                    else None
+                )
+                row = {"screener": screener, "occupation": occupation, "subset": subset}
+                row |= {"condition": condition} | summarise(flip, change, toward, n_boot=n_boot)
+                rows.append(row | {"direction_basis": DIRECTION_BASIS if swap else ""})
+    return pd.DataFrame(rows)
