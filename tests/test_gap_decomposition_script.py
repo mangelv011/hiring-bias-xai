@@ -94,6 +94,15 @@ def test_the_csv_has_the_top_words_of_every_screener_and_occupation_with_their_c
     assert table["importance"].isna().all()
 
 
+def test_a_damaged_or_pickled_attribution_file_stops_the_run_with_a_value_error(run):
+    # Boundary: attribution files are local artifacts, read only through attribution.load (no
+    # pickle). A file that is not a plain npz attribution must raise, not load or be skipped.
+    victim = attribution.path("deberta", run.subset["id"].iloc[0])
+    victim.write_bytes(b"not an npz file")
+    with pytest.raises(ValueError, match="not a valid attribution file"):
+        run()
+
+
 def test_the_json_has_the_summary_of_every_screener_and_occupation(run, capsys):
     results_dir = run()
     explained = json.loads((results_dir / "gap_explained.json").read_text())
