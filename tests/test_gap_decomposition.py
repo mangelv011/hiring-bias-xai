@@ -194,6 +194,26 @@ def test_top_share_has_two_intervals_one_that_reselects_the_top_words_and_one_wi
     assert [share["fixed_ci_low"], share["fixed_ci_high"]] == pytest.approx(_interval(fixed))
 
 
+def test_the_gendered_sum_is_the_sum_of_the_gendered_contributions_with_an_interval_and_needs_no_division():
+    # D: she = 9/2, he = -1/2, x = 1/2; the gendered words add up to 4.
+    summary = gap_decomposition.decompose(GENDERED_BIOS, min_bios=1, n_boot=40, seed=5).summary
+    sums = []
+    for women, men in _resamples(GENDERED_BIOS, 40, seed=5):
+        d = _contributions(women, men)
+        sums.append(d.get("she", 0) + d.get("he", 0))
+    gendered = summary["gendered_sum"]
+    assert gendered["value"] == pytest.approx(4.0)
+    assert [gendered["ci_low"], gendered["ci_high"]] == pytest.approx(_interval(sums))
+
+
+def test_the_gendered_sum_is_defined_when_the_total_gap_is_exactly_zero():
+    # D: she = 1, a = -1, total 0: the shares are empty, the gendered sum is 1.
+    bios = [_bio("female", {"she": 1.0, "a": -1.0}), _bio("male", {"she": 0.0, "a": 0.0})]
+    summary = gap_decomposition.decompose(bios, min_bios=1, n_boot=10).summary
+    assert summary["gendered_share"]["value"] is None
+    assert summary["gendered_sum"]["value"] == pytest.approx(1.0)
+
+
 def test_the_gendered_share_has_an_interval_from_the_same_resamples():
     shares = []
     for women, men in _resamples(GENDERED_BIOS, 40, seed=5):
