@@ -48,3 +48,16 @@ def test_words_that_contain_pronouns_stay():  # guard: the regex already needs w
 )
 def test_contractions_swap_the_pronoun_and_keep_the_suffix(text, swapped):
     assert swap_gender(text) == swapped
+
+
+@pytest.mark.parametrize(
+    ("text", "swapped"),
+    [
+        ("Mr. Lee", "Ms. Lee"),
+        ("Ms. Lee", "Mr. Lee"),
+        ("Mrs Lee", "Mr Lee"),
+        ("MS in computer science, 50 ms, MR imaging, mr", "MS in computer science, 50 ms, MR imaging, mr"),
+    ],
+)
+def test_titles_swap_but_degrees_and_units_stay(text, swapped):
+    assert swap_gender(text) == swapped
