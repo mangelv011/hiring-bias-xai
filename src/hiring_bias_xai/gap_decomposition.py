@@ -77,15 +77,28 @@ def _bootstrap(values: np.ndarray, full: np.ndarray, female: np.ndarray, n_boot:
 
 
 def _interval(draws: np.ndarray) -> dict:
-    low, high = np.percentile(draws, [2.5, 97.5])
+    """The 2.5th and 97.5th percentiles, ignoring the draws that are not a number."""
+    low, high = np.nanpercentile(draws, [2.5, 97.5])
     return {"ci_low": float(low), "ci_high": float(high)}
+
+
+def _share(part, total):
+    """`part / total`, NaN where the total is 0."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where(total == 0, np.nan, part / total)
+
+
+def _value(number) -> float | None:
+    """A float for JSON: None for NaN."""
+    return None if np.isnan(number) else float(number)
 
 
 def _top_share(contribution: np.ndarray, top: int) -> np.ndarray:
     """Per row, the sum of the `top` largest |contribution| over the row's total."""
     top = min(top, contribution.shape[1])
     largest = np.argpartition(-np.abs(contribution), top - 1, axis=1)[:, :top]
-    return np.take_along_axis(contribution, largest, axis=1).sum(axis=1) / contribution.sum(axis=1)
+    part = np.take_along_axis(contribution, largest, axis=1).sum(axis=1)
+    return _share(part, contribution.sum(axis=1))
 
 
 def decompose(
@@ -139,30 +152,25 @@ def decompose(
     score_gap = full[female].mean() - full[~female].mean()
     exact = (full - empty)[female].mean() - (full - empty)[~female].mean()
     boot_contribution, boot_score_gap = _bootstrap(values, full, female, n_boot, seed)
+    boot_total = boot_contribution.sum(axis=1)
+    total = contribution.sum()
+    decomposed_gap = {"value": float(total), **_interval(boot_total)}
+    fixed = _interval(_share(boot_contribution[:, is_top].sum(axis=1), boot_total))
     summary = {
         "n_female": int(female.sum()),
         "n_male": int((~female).sum()),
         "score_gap": {"value": float(score_gap), **_interval(boot_score_gap)},
-        "decomposed_gap": {
-            "value": float(contribution.sum()),
-            **_interval(boot_contribution.sum(axis=1)),
-        },
+        "decomposed_gap": decomposed_gap,
+        "gap_unstable": bool(decomposed_gap["ci_low"] <= 0 <= decomposed_gap["ci_high"]),
         "top_share": {
-            "value": float(contribution[is_top].sum() / contribution.sum()),
+            "value": _value(_share(contribution[is_top].sum(), total)),
             **_interval(_top_share(boot_contribution, top)),
-            **{
-                f"fixed_{key}": value
-                for key, value in _interval(
-                    boot_contribution[:, is_top].sum(axis=1) / boot_contribution.sum(axis=1)
-                ).items()
-            },
+            **{f"fixed_{key}": value for key, value in fixed.items()},
         },
         "top_words": [vocabulary[i] for i in order[:top]],
         "gendered_share": {
-            "value": float(contribution[gendered].sum() / contribution.sum()),
-            **_interval(
-                boot_contribution[:, gendered].sum(axis=1) / boot_contribution.sum(axis=1)
-            ),
+            "value": _value(_share(contribution[gendered].sum(), total)),
+            **_interval(_share(boot_contribution[:, gendered].sum(axis=1), boot_total)),
         },
         "empty_score_drift": float(score_gap - contribution.sum()),
         "decomposition_error": float(abs(contribution.sum() - exact)),
