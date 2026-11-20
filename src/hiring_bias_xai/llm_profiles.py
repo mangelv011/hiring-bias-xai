@@ -5,6 +5,7 @@ import zlib
 import numpy as np
 
 from hiring_bias_xai.config import SEED
+from hiring_bias_xai.counterfactual import swap_gender
 
 
 def draw_name(groups: dict, group: str, gender: str, bio_id: str) -> tuple[str, str]:
@@ -19,10 +20,12 @@ def draw_name(groups: dict, group: str, gender: str, bio_id: str) -> tuple[str, 
 def candidate(bio: str, bio_gender: str, bio_id: str, arm: str, groups: dict) -> tuple:
     """The header line (or None) and the text of the bio as the arm presents it.
 
-    `arm` is `none` or `neutral`.
+    `arm` is `none`, `neutral` or `swap`.
     """
     if arm == "none":
         return None, bio
     if arm == "neutral":
         return f"Candidate ID: {bio_id.split('-')[1]}", bio
+    if arm == "swap":
+        return None, swap_gender(bio)
     raise ValueError(f"unknown arm {arm!r}")
