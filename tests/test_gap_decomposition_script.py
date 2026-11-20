@@ -1,0 +1,92 @@
+import importlib.util
+import json
+from pathlib import Path
+
+import pandas as pd
+import pytest
+from fakes import Hashed
+
+from hiring_bias_xai import attribution, data, results
+
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "gap_decomposition.py"
+MALE_DOMINATED = ["surgeon", "composer", "software_engineer"]
+FEMALE_DOMINATED = ["dietitian", "nurse", "model"]
+SCREENERS = ("deberta", "baseline")
+TEXTS = {
+    "female": [
+        "She trains new people every year and she writes her notes late at night in the ward",
+        "As a woman in the field she often explains her methods to students who ask about it",
+    ],
+    "male": [
+        "He teaches students every spring and he reviews his notes before his shifts start now",
+        "His ward is busy and he supports the patients while his colleagues cover the night",
+    ],
+}
+
+
+@pytest.fixture
+def run(monkeypatch, tmp_path):
+    """Return go(): the script's main() on 24 synthetic bios (two women and two men in each of
+    the six showcase occupations) with attributions of a fake classifier; gives the results dir."""
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path / "artifacts"))
+    model = Hashed()
+    rows = []
+    for occupation in MALE_DOMINATED + FEMALE_DOMINATED:
+        for gender in ("female", "male"):
+            for i in range(2):
+                rows.append((f"test-{len(rows)}", TEXTS[gender][i], occupation, gender))
+    subset = pd.DataFrame(rows, columns=["id", "text", "occupation", "gender"])
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+    (results_dir / "showcase_subset_ids.csv").write_bytes(
+        ("id\n" + "".join(f"{i}\n" for i in subset["id"])).encode()
+    )
+    names = lambda names: [{"occupation": n, "share_women": 0.5} for n in names]  # noqa: E731
+    results.write_json(
+        results_dir / "showcase_occupations.json",
+        {"male_dominated": names(MALE_DOMINATED), "female_dominated": names(FEMALE_DOMINATED)},
+    )
+    monkeypatch.setattr(data, "load_split", lambda split, variant="original": subset)
+    for screener in SCREENERS:
+        for row in subset.itertuples():
+            (saved,) = attribution.shapley(model, [row.text], [row.occupation], 3, "delete", seed=1)
+            attribution.save(attribution.path(screener, row.id), saved)
+    spec = importlib.util.spec_from_file_location("gap_decomposition_script", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.N_BOOT = 20
+
+    def go():
+        module.main(results_dir)
+        return results_dir
+
+    go.module, go.subset = module, subset
+    return go
+
+
+def test_the_csv_has_the_top_words_of_every_screener_and_occupation_with_their_columns(run):
+    table = pd.read_csv(run() / "gap_decomposition.csv")
+    assert list(table.columns) == [
+        "screener",
+        "occupation",
+        "word",
+        "n_bios",
+        "importance",
+        "contribution",
+        "contribution_ci_low",
+        "contribution_ci_high",
+        "freq_female",
+        "freq_male",
+        "value_female",
+        "value_male",
+        "usage",
+        "weight",
+        "gendered",
+        "top",
+    ]
+    pairs = table.groupby(["screener", "occupation"])
+    assert set(pairs.groups) == {(s, o) for s in SCREENERS for o in MALE_DOMINATED + FEMALE_DOMINATED}
+    # Four bios per occupation: no word reaches 20 bios, so only the top 10 words are kept.
+    assert (pairs["top"].sum() == 10).all()
+    assert (pairs.size() == 10).all()
+    assert table["importance"].isna().all()
