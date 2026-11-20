@@ -37,12 +37,13 @@ def _metric(value, half_width):
 
 # (macro-F1, RMS TPR gap) of each condition, and the change from a of the two
 CONDITIONS = {
-    "a": (0.780, 0.200),
-    "b": (0.770, 0.160),
-    "c": (0.775, 0.140),
-    "d": (0.775, 0.150),
-    "e": (0.779, 0.195),
+    "a": (0.7835, 0.1435),
+    "b": (0.7759, 0.1188),
+    "c": (0.7797, 0.1104),
+    "d": (0.7788, 0.1152),
+    "e": (0.7819, 0.1412),
 }
+F1_HALF, GAP_HALF = 0.0043, 0.0135
 
 
 @pytest.fixture
@@ -51,14 +52,14 @@ def report():
     conditions = {}
     for name, (f1, gap) in CONDITIONS.items():
         block = {
-            "macro_f1": _metric(f1, 0.005),
+            "macro_f1": _metric(f1, F1_HALF),
             "accuracy": _metric(0.5, 0.1),
-            "rms_tpr_gap": _metric(gap, 0.02) | {"null": {"mean": 0.04, "p95": 0.05}},
+            "rms_tpr_gap": _metric(gap, GAP_HALF) | {"null": {"mean": 0.04, "p95": 0.05}},
         }
         if name != "a":
             block["change_from_a"] = {
-                "macro_f1": _metric(f1 - 0.780, 0.003),
-                "rms_tpr_gap": _metric(gap - 0.200, 0.01),
+                "macro_f1": _metric(f1 - CONDITIONS["a"][0], 0.003),
+                "rms_tpr_gap": _metric(gap - CONDITIONS["a"][1], 0.01),
             }
         conditions[name] = {"outside_showcase": block, "full_test": {"macro_f1": _metric(0.1, 0.1)}}
     return {"conditions": conditions}
@@ -82,10 +83,9 @@ def _hex(colours):
 
 
 def test_the_title_says_the_gap_falls_and_what_it_costs_when_the_intervals_exclude_zero(f7, report):
-    # d: gap 0.200 to 0.150 with a change of -0.05 [-0.06, -0.04]; macro-F1 -0.005 [-0.008, -0.002]
+    # d: gap 0.1435 to 0.1152, change -0.028 [-0.038, -0.018]; macro-F1 -0.0047 [-0.008, -0.002]
     assert f7.title(report) == (
-        "Scrubbing pronouns cuts the gender gap from 0.20 to 0.15, costing 0.5 points of macro-F1; "
-        "chance alone gives 0.04"
+        "Scrubbing pronouns cuts the gender gap from 0.14 to 0.12 for 0.5 points of macro-F1"
     )
 
 
@@ -94,8 +94,8 @@ def test_the_title_says_no_change_when_the_interval_of_the_change_includes_zero(
     d["rms_tpr_gap"] = _metric(-0.05, 0.06)
     d["macro_f1"] = _metric(-0.005, 0.01)
     assert f7.title(report) == (
-        "Scrubbing pronouns does not change the gender gap (0.20 to 0.15), "
-        "with no change in macro-F1; chance alone gives 0.04"
+        "Scrubbing pronouns does not change the gender gap (0.14 to 0.12) "
+        "and leaves macro-F1 unchanged"
     )
 
 
@@ -107,8 +107,7 @@ def test_the_title_says_the_gap_rises_and_macro_f1_rises_when_both_intervals_are
     d["macro_f1"] = _metric(0.012, 0.002)
     report["conditions"]["d"]["outside_showcase"]["rms_tpr_gap"]["value"] = 0.25
     assert f7.title(report) == (
-        "Scrubbing pronouns raises the gender gap from 0.20 to 0.25, and raises macro-F1 by 1.2 "
-        "points; chance alone gives 0.04"
+        "Scrubbing pronouns raises the gender gap from 0.14 to 0.25 and macro-F1 by 1.2 points"
     )
 
 
@@ -142,13 +141,13 @@ def test_every_dot_has_a_horizontal_and_a_vertical_95_percent_interval(figure):
     vertical = sorted(s for s in segments if s[0][0] == s[1][0])
     assert len(horizontal) == len(vertical) == 5
     f1_of_a, gap_of_a = CONDITIONS["a"]
-    assert [[f1_of_a - 0.005, gap_of_a], [f1_of_a + 0.005, gap_of_a]] in horizontal
-    assert [[f1_of_a, gap_of_a - 0.02], [f1_of_a, gap_of_a + 0.02]] in vertical
+    assert [[f1_of_a - F1_HALF, gap_of_a], [f1_of_a + F1_HALF, gap_of_a]] in horizontal
+    assert [[f1_of_a, gap_of_a - GAP_HALF], [f1_of_a, gap_of_a + GAP_HALF]] in vertical
 
 
 def test_an_arrow_runs_from_the_original_model_to_each_other_condition(figure):
     ax = _ax(figure)
-    arrows = [t for t in ax.texts if t.arrow_patch is not None]
+    arrows = [t for t in ax.texts if getattr(t, "arrow_patch", None) is not None]
     ends = sorted(tuple(t.xy) for t in arrows if t.get_text() == "")
     assert ends == sorted(v for k, v in CONDITIONS.items() if k != "a")
     for arrow in (t for t in arrows if t.get_text() == ""):
@@ -159,10 +158,9 @@ def test_the_band_of_the_gap_that_chance_gives_runs_from_the_null_mean_to_its_95
     figure,
 ):
     ax = _ax(figure)
-    (band,) = [p for p in ax.patches if isinstance(p, matplotlib.patches.Polygon)]
-    ys = band.get_xy()[:, 1]
-    assert (ys.min(), ys.max()) == pytest.approx((0.04, 0.05))
-    assert any("chance" in t.get_text() for t in ax.texts)
+    (band,) = [p for p in ax.patches if isinstance(p, matplotlib.patches.Rectangle)]
+    assert (band.get_y(), band.get_y() + band.get_height()) == pytest.approx((0.04, 0.05))
+    assert any(t.get_text() == "chance alone: 0.04 to 0.05" for t in ax.texts)
 
 
 def test_the_better_corner_is_marked_and_the_conditions_are_named_without_a_legend(figure):
@@ -189,8 +187,15 @@ def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
 
 def test_nothing_is_drawn_outside_the_figure(figure):
     box = figure.bbox
+    ax = _ax(figure)
+    low, high = sorted(ax.get_xlim())
+    hidden = {  # labels of ticks outside the axis limits are not drawn
+        id(label)
+        for tick, label in zip(ax.get_xticks(), ax.get_xticklabels(), strict=False)
+        if not low <= tick <= high
+    }
     for t in figure.findobj(matplotlib.text.Text):
-        if t.get_text().strip() and t.get_visible():
+        if t.get_text().strip() and t.get_visible() and id(t) not in hidden:
             extent = t.get_window_extent()
             assert extent.x0 >= box.x0 - 1 and extent.x1 <= box.x1 + 1, t.get_text()
             assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
