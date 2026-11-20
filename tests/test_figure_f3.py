@@ -116,8 +116,9 @@ def test_each_panel_lists_its_words_sorted_by_contribution_with_the_largest_at_t
     assert [t.get_text() for t in surgeon.get_yticklabels()] == ["surgery", "she", "medical", "he"]
     assert [t.get_text() for t in model.get_yticklabels()] == ["ranked", "born", "her"]
     assert surgeon.yaxis_inverted()
-    assert _dots(surgeon).get_offsets()[:, 0] == pytest.approx([0.30, 0.20, -0.10, -0.40])
-    assert _dots(surgeon).get_offsets()[:, 1] == pytest.approx([0, 1, 2, 3])
+    offsets = _dots(surgeon).get_offsets()
+    assert offsets[:, 0].tolist() == pytest.approx([0.30, 0.20, -0.10, -0.40])
+    assert offsets[:, 1].tolist() == pytest.approx([0, 1, 2, 3])
 
 
 def _summary(gap):
