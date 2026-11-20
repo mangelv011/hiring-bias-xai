@@ -244,3 +244,15 @@ def test_representations_come_back_in_input_order_too(tiny_network, tiny_tokeniz
         alone_layers, alone_final = model.representations([text])
         np.testing.assert_allclose(layers[i], alone_layers[0], atol=1e-4)
         np.testing.assert_allclose(final[i], alone_final[0], atol=1e-4)
+
+
+def test_batches_yield_padded_inputs_sorted_by_length_with_the_positions_of_their_texts(
+    tiny_network, tiny_tokenizer
+):
+    # Token lengths of TEXTS are 4, 5, 3 and 7 (two special tokens each); batch size 2 sorts
+    # them as [zeta, alpha beta] and [gamma delta epsilon, the long one].
+    model = _model(tiny_network, tiny_tokenizer, batch_size=2)
+    batches = list(model.batches(TEXTS))
+    assert [list(positions) for positions, _ in batches] == [[2, 0], [1, 3]]
+    assert [tuple(inputs["input_ids"].shape) for _, inputs in batches] == [(2, 4), (2, 7)]
+    assert not model.network.training
