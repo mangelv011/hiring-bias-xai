@@ -71,6 +71,20 @@ def test_each_word_has_its_frequency_and_mean_value_when_present_for_women_and_m
     assert table["value_male"].to_dict() == pytest.approx({"a": 1.0, "b": 1.0, "c": 2.0})
 
 
+def test_the_contribution_splits_into_a_usage_part_and_a_weight_part_that_add_up_to_it():
+    # usage = (f_women - f_men) * mean of the two mean values; weight = mean of the two
+    # frequencies * (value_women - value_men).
+    #   a: (2/3 - 1/2) * (3 + 1)/2 = 1/3      (2/3 + 1/2)/2 * (3 - 1) = 7/6
+    #   b: (2/3 - 1/2) * (2 + 1)/2 = 1/4      (2/3 + 1/2)/2 * (2 - 1) = 7/12
+    #   c: (1/3 - 1/2) * (1 + 2)/2 = -1/4     (1/3 + 1/2)/2 * (1 - 2) = -5/12
+    table = _by_word(gap_decomposition.decompose(BIOS, min_bios=1).table)
+    assert table["usage"].to_dict() == pytest.approx({"a": 1 / 3, "b": 1 / 4, "c": -1 / 4})
+    assert table["weight"].to_dict() == pytest.approx({"a": 7 / 6, "b": 7 / 12, "c": -5 / 12})
+    assert (table["usage"] + table["weight"]).to_numpy() == pytest.approx(
+        table["contribution"].to_numpy()
+    )
+
+
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
     # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
     # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
