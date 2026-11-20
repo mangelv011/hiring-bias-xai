@@ -285,3 +285,75 @@ def test_representations_pool_at_the_cls_token_unless_told_otherwise(tiny_networ
 def test_representations_refuse_an_unknown_pooling(tiny_network, tiny_tokenizer):
     with pytest.raises(ValueError, match="pooling"):
         _model(tiny_network, tiny_tokenizer).representations(TEXTS, pooling="max")
+
+
+CLEAN = "alpha beta gamma delta"
+CORRUPTED = "alpha zeta gamma eta"  # same length, differs at the 2nd and 4th word
+
+
+def _pair(model):
+    """The inputs of CLEAN and of CORRUPTED, each one batch of one text."""
+    (_, clean), (_, corrupted) = (next(iter(model.batches([text]))) for text in (CLEAN, CORRUPTED))
+    return clean, corrupted
+
+
+def test_states_give_the_logits_and_the_state_after_the_embeddings_and_after_each_layer(
+    tiny_network, tiny_tokenizer
+):
+    model = _model(tiny_network, tiny_tokenizer)
+    clean, _ = _pair(model)
+    logits, states = model.states(clean)
+    np.testing.assert_allclose(logits.numpy(), model.logits([CLEAN]), atol=1e-6)
+    assert len(states) == 3 and all(tuple(state.shape) == (1, 6, 32) for state in states)
+    with torch.no_grad():
+        expected = model.network.deberta(**clean, output_hidden_states=True).hidden_states
+    for state, wanted in zip(states, expected, strict=True):
+        np.testing.assert_allclose(state.numpy(), wanted.numpy(), atol=1e-6)
+
+
+@pytest.mark.parametrize("layer", [0, 1, 2])
+def test_patching_every_position_with_the_clean_states_restores_the_clean_logits(
+    tiny_network, tiny_tokenizer, layer
+):
+    model = _model(tiny_network, tiny_tokenizer)
+    clean, corrupted = _pair(model)
+    clean_logits, states = model.states(clean)
+    everywhere = torch.ones(1, 6, dtype=torch.bool)
+    patched = model.patched_logits(corrupted, layer, states[layer], everywhere)
+    np.testing.assert_allclose(patched.numpy(), clean_logits.numpy(), atol=1e-5)
+    assert not np.allclose(patched.numpy(), model.logits([CORRUPTED]), atol=1e-3)
+
+
+@pytest.mark.parametrize("layer", [0, 1, 2])
+def test_patching_no_position_leaves_the_corrupted_logits(tiny_network, tiny_tokenizer, layer):
+    model = _model(tiny_network, tiny_tokenizer)
+    clean, corrupted = _pair(model)
+    _, states = model.states(clean)
+    nowhere = torch.zeros(1, 6, dtype=torch.bool)
+    patched = model.patched_logits(corrupted, layer, states[layer], nowhere)
+    np.testing.assert_allclose(patched.numpy(), model.logits([CORRUPTED]), atol=1e-6)
+
+
+def test_patching_the_embeddings_at_some_positions_is_the_same_as_swapping_those_words(
+    tiny_network, tiny_tokenizer
+):
+    # The tiny tokenizer maps one word to one token, so the embedding of a position depends only
+    # on its word: patching position 2 (the word "beta") equals CORRUPTED with that word put back.
+    model = _model(tiny_network, tiny_tokenizer)
+    clean, corrupted = _pair(model)
+    _, states = model.states(clean)
+    at_two = torch.zeros(1, 6, dtype=torch.bool)
+    at_two[0, 2] = True
+    patched = model.patched_logits(corrupted, 0, states[0], at_two)
+    np.testing.assert_allclose(
+        patched.numpy(), model.logits(["alpha beta gamma eta"]), atol=1e-5
+    )
+
+
+def test_patching_does_not_change_later_runs_of_the_model(tiny_network, tiny_tokenizer):
+    model = _model(tiny_network, tiny_tokenizer)
+    clean, corrupted = _pair(model)
+    _, states = model.states(clean)
+    before = model.logits([CORRUPTED])
+    model.patched_logits(corrupted, 1, states[1], torch.ones(1, 6, dtype=torch.bool))
+    np.testing.assert_array_equal(model.logits([CORRUPTED]), before)
