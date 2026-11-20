@@ -82,7 +82,7 @@ Among the flips of the `name` and `swap` arms against `none` that are beyond the
 ## Pilot and name check (run before the main run)
 
 - **Name check**, 375 calls, 0.49 s per call on average. The model gave a valid answer every time. Names of Hispanic America were taken for Hispanic America 129 times and for Spain 6 times; names of Spain were taken for Hispanic America 48 times, for Spain 10 times and for the United Kingdom twice. By the merge rule, Spain and Hispanic America are one group, `Spain + Hispanic America`. Morocco (60 of 60), Romania (55 of 60) and the United Kingdom (60 of 60) are kept. Gender: 195 of 195 women's names and 177 of 180 men's names were read correctly. Nothing was tuned after seeing this.
-- **Pilot**, 30 profiles through each of the four arm types (`none`, `neutral`, `swap`, one random `name` arm), 120 calls, `results/llm/pilot.json`. Time per call: 1.17 s on average (1.14 to 1.24 s by arm type, at most 2.8 s). Invalid answers: 0 of 120. Reasoning text: none in the pilot and none in the name check (495 calls), so thinking is off. The bare-JSON instruction works: no reply came in a code fence.
+- **Pilot**, 30 profiles through each of the four arm types (`none`, `neutral`, `swap`, one random `name` arm), 120 calls, `results/llm/pilot.json`. Time per call: 1.17 s on average (1.13 to 1.24 s by arm type, at most 2.8 s). Invalid answers: 0 of 120. Reasoning text: none in the pilot and none in the name check (495 calls), so thinking is off. The bare-JSON instruction works: no reply came in a code fence.
 
 ## Sample sizes and budget
 
