@@ -96,6 +96,21 @@ def test_a_word_one_gender_never_uses_has_no_mean_value_there_and_the_split_stil
     assert table.loc["y", ["usage", "weight"]].to_numpy() == pytest.approx([-0.5, -0.5])
 
 
+GENDERED_BIOS = [
+    _bio("female", {"she": 2.0, "x": 2.0}),
+    _bio("female", {"she": 2.0}),
+    _bio("male", {"he": 1.0, "x": 1.0}),
+    _bio("male", {"x": 0.0}),
+]
+# D: she = 2, he = -1/2, x = 1 - 1/2 = 1/2; the total is 2 and the gendered words carry 3/2.
+
+
+def test_gendered_words_are_flagged_and_their_share_of_the_total_gap_is_reported():
+    result = gap_decomposition.decompose(GENDERED_BIOS, min_bios=1)
+    assert _by_word(result.table)["gendered"].to_dict() == {"she": True, "he": True, "x": False}
+    assert result.summary["gendered_share"]["value"] == pytest.approx(3 / 4)
+
+
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
     # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
     # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
