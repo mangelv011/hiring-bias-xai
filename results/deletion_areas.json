@@ -1,0 +1,149 @@
+{
+  "n_bios": 1721,
+  "n_random_orders": 10,
+  "percents": [
+    0,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50
+  ],
+  "removal": "unk",
+  "rounding": "A share of a bio's words is rounded half up to a whole word; step 0 removes none.",
+  "screeners": {
+    "baseline": {
+      "agreement": {
+        "area": {
+          "lerf": {
+            "ci_high": 0.7330317996936241,
+            "ci_low": 0.6961055939992606,
+            "value": 0.7144894617294385
+          },
+          "morf": {
+            "ci_high": 0.4427156515767789,
+            "ci_low": 0.4068445935238498,
+            "value": 0.42543975489937136
+          },
+          "random": {
+            "ci_high": 0.8250256193544985,
+            "ci_low": 0.8087336907717496,
+            "value": 0.8169668797210925
+          }
+        },
+        "morf_minus_random": {
+          "ci_high": -0.3718235962178445,
+          "ci_low": -0.4129566583909985,
+          "value": -0.39152712482172114
+        },
+        "random_minus_lerf": {
+          "ci_high": 0.11922970260419427,
+          "ci_low": 0.08534414452485364,
+          "value": 0.102477417991654
+        }
+      },
+      "expected": "Passed, with a larger gap than the main model. For the TF-IDF model unk is close to delete, so the check is partly circular and a pass says little about faithfulness.",
+      "logodds_drop": {
+        "area": {
+          "lerf": {
+            "ci_high": -5.170108441385717,
+            "ci_low": -5.415829063133604,
+            "value": -5.290003220090228
+          },
+          "morf": {
+            "ci_high": 9.738596529234199,
+            "ci_low": 9.289468020127353,
+            "value": 9.50233788115296
+          },
+          "random": {
+            "ci_high": 1.0200213570971681,
+            "ci_low": 0.890462841525532,
+            "value": 0.9535313350368255
+          }
+        },
+        "morf_minus_random": {
+          "ci_high": 8.760238336510888,
+          "ci_low": 8.362892087678448,
+          "value": 8.548806546116134
+        },
+        "random_minus_lerf": {
+          "ci_high": 6.393098700792575,
+          "ci_low": 6.101215912038532,
+          "value": 6.243534555127054
+        }
+      },
+      "passed": true,
+      "passed_agreement": false,
+      "rule": "Passed when the 95% bootstrap interval over bios of MoRF minus random and the one of random minus LeRF, both on the area of the log-odds drop, lie above 0. The agreement areas have the opposite expected sign (MoRF below random below LeRF); `passed_agreement` applies the same rule with both intervals below 0."
+    },
+    "deberta": {
+      "agreement": {
+        "area": {
+          "lerf": {
+            "ci_high": 0.8263694469388834,
+            "ci_low": 0.7960435264909408,
+            "value": 0.8115788917648302
+          },
+          "morf": {
+            "ci_high": 0.33057815223707143,
+            "ci_low": 0.300986477206698,
+            "value": 0.3151444720300037
+          },
+          "random": {
+            "ci_high": 0.7506589720564154,
+            "ci_low": 0.7283932438856902,
+            "value": 0.7394907823147219
+          }
+        },
+        "morf_minus_random": {
+          "ci_high": -0.4085412814959593,
+          "ci_low": -0.4415615920976182,
+          "value": -0.4243463102847182
+        },
+        "random_minus_lerf": {
+          "ci_high": -0.05732238127938288,
+          "ci_low": -0.08575511066504686,
+          "value": -0.07208810945010835
+        }
+      },
+      "expected": "Passed: removing the words with the largest Shapley values first lowers the true occupation's log-odds more than random removal, and removing the smallest first lowers it less. The gap should be smaller than for the baseline model, because the attributions used delete and this check uses unk, so the main model is not tested on its own removal.",
+      "logodds_drop": {
+        "area": {
+          "lerf": {
+            "ci_high": -0.5852232200153663,
+            "ci_low": -0.7621970192883843,
+            "value": -0.675027044904617
+          },
+          "morf": {
+            "ci_high": 7.15288296419707,
+            "ci_low": 6.8020842545203895,
+            "value": 6.982573344569525
+          },
+          "random": {
+            "ci_high": 1.6103733130211524,
+            "ci_low": 1.449255799378706,
+            "value": 1.5324016631260733
+          }
+        },
+        "morf_minus_random": {
+          "ci_high": 5.590721256400716,
+          "ci_low": 5.310221104531291,
+          "value": 5.450171681443452
+        },
+        "random_minus_lerf": {
+          "ci_high": 2.2738059277551455,
+          "ci_low": 2.1352273453429995,
+          "value": 2.2074287080306902
+        }
+      },
+      "passed": true,
+      "passed_agreement": true,
+      "rule": "Passed when the 95% bootstrap interval over bios of MoRF minus random and the one of random minus LeRF, both on the area of the log-odds drop, lie above 0. The agreement areas have the opposite expected sign (MoRF below random below LeRF); `passed_agreement` applies the same rule with both intervals below 0."
+    }
+  }
+}
