@@ -93,6 +93,11 @@ def test_a_bio_without_words_has_no_values():
     assert result.values.shape == (0,)
 
 
+def test_an_unknown_removal_is_rejected_even_without_bios():
+    with pytest.raises(ValueError, match="removal"):
+        attribution.shapley(Hashed(), [], [], 2, "mask", seed=0)
+
+
 def test_an_unknown_removal_or_target_is_rejected_before_any_scoring():
     classifier = Hashed()
     with pytest.raises(ValueError, match="removal"):
@@ -360,5 +365,45 @@ def test_a_file_whose_index_points_one_past_the_last_logits_row_is_refused(artif
     index = result.index.copy()
     index[0, 0] = len(result.logits)
     attribution.save(target, dataclasses.replace(result, index=index))
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(target)
+
+
+def test_attributions_of_train_and_dev_bios_have_paths_too(artifacts):
+    assert attribution.path("baseline", "train-7").name == "train-7.npz"
+    assert attribution.path("baseline", "dev-7").name == "dev-7.npz"
+
+
+def _saved_with(artifacts, **changes):
+    target = attribution.path("deberta", "test-1")
+    attribution.save(target, dataclasses.replace(_one(), **changes))
+    return target
+
+
+def test_a_file_with_an_unknown_removal_is_refused(artifacts):
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(_saved_with(artifacts, removal="mask"))
+
+
+def test_a_file_with_a_negative_index_is_refused(artifacts):
+    index = _one().index.copy()
+    index[0, 0] = -1
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(_saved_with(artifacts, index=index))
+
+
+def test_a_file_whose_orders_do_not_match_the_words_is_refused(artifacts):
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(_saved_with(artifacts, orders=_one().orders[:, :-1]))
+
+
+def test_a_file_with_one_dimensional_logits_is_refused(artifacts):
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(_saved_with(artifacts, logits=_one().logits[:, 0]))
+
+
+def test_a_path_that_cannot_be_read_as_a_file_is_a_value_error(artifacts):
+    target = attribution.path("deberta", "test-1")
+    target.mkdir(parents=True)  # a directory where the file should be
     with pytest.raises(ValueError, match="test-1.npz"):
         attribution.load(target)

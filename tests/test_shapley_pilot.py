@@ -42,8 +42,12 @@ def _short_confuses(text):
 
 
 def _dev_frame(n=40):
-    rows = [(f"dev-{i}", " ".join([("nurse", "surgeon")[i % 2]] * 10), ("nurse", "surgeon")[i % 2])
-            for i in range(n)]  # fmt: skip
+    # Five copies of the occupation word between five words that occur in no other bio.
+    rows = []
+    for i in range(n):
+        label = ("nurse", "surgeon")[i % 2]
+        words = [w for j in range(5) for w in (label, f"filler{i}x{j}")]
+        rows.append((f"dev-{i}", " ".join(words), label))
     return pd.DataFrame(rows, columns=["id", "text", "occupation"]).assign(gender="male")
 
 
@@ -128,6 +132,7 @@ def test_thirty_percent_of_the_words_are_dropped_with_the_same_words_for_both_re
     # Calls: the unperturbed bios, then per draw the deleted and the [UNK] versions.
     unperturbed, *draws = seen
     assert len(draws) == 2 * 3
+    assert len({tuple(deleted) for deleted in draws[0::2]}) == 3  # each draw drops other words
     for deleted, replaced in zip(draws[0::2], draws[1::2], strict=True):
         for original, gone, unk in zip(unperturbed, deleted, replaced, strict=True):
             assert len(original.split()) == 10
@@ -260,3 +265,25 @@ def test_the_model_is_warmed_up_on_the_first_bios_before_any_timed_run(pilot):
     pilot(spy)
     sampled = _subset_frame().sample(6, random_state=42)
     assert spy.calls[0] == list(sampled["text"])[:8]
+
+
+def test_the_default_pilot_sizes_are_the_ones_the_rules_state():
+    module = _load_script()
+    assert (module.REMOVAL_BIOS, module.REMOVAL_DRAWS, module.DROPPED_SHARE) == (200, 5, 0.3)
+    assert (module.COST_BIOS, module.PERMUTATIONS, module.SEEDS) == (50, (5, 10, 20), (0, 1))
+    assert (module.SPEARMAN_THRESHOLD, module.FULL_RUN_LIMIT_SECONDS) == (0.9, 3 * 3600)
+    assert module.BATCH_SIZE == 64
+
+
+@pytest.mark.parametrize(
+    ("median_spearman", "expected"),
+    [
+        ({20: 0.95, 5: 0.7, 10: 0.92}, (10, True)),
+        ({20: 0.95, 10: None, 5: None}, (20, True)),
+        ({5: None, 10: None}, (10, False)),
+    ],
+)
+def test_the_count_choice_ignores_the_order_of_the_dict_and_missing_medians(
+    median_spearman, expected
+):
+    assert _load_script().choose_permutations(median_spearman, 0.9) == expected
