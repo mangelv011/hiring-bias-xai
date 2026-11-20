@@ -96,3 +96,15 @@ def test_a_sure_effect_gets_a_small_p_and_holm_adjusts_only_the_family_of_other_
     assert sorted(report["holm"]) == sorted(family)
     assert all(stats[name]["p"] <= report["holm"][name] <= 1 for name in family)
     assert report["holm"]["vs_uk|A"] == 6 / 201  # the smallest p is multiplied by the family size
+
+
+def test_the_range_of_yes_shares_across_first_names_is_read_against_shuffled_names():
+    rows = []
+    for i in range(10):
+        rows.append((f"a{i}", True, "name|A|female", "A", "female", "Ana", 1.0, ""))
+        rows.append((f"b{i}", True, "name|A|female", "A", "female", "Eva", 0.0, ""))
+    rows.append(("c", True, "name|A|female", "A", "female", "Zoe", 1.0, ""))  # too few answers
+    ranges = llm_metrics.name_ranges(_calls(rows), n_shuffle=200, min_cells=10)
+    cell = ranges["A|female"]
+    assert cell["range"] == 1.0 and cell["n_names"] == 2
+    assert cell["shuffled_mean"] < 0.5 and cell["shuffled_p95"] < 1.0
