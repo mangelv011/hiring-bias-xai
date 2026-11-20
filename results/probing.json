@@ -1,0 +1,29 @@
+{
+  "n_flagged": 631,
+  "seconds": {
+    "deberta": 317.1,
+    "pretrained": 248.8,
+    "references": 57.0
+  },
+  "settings": {
+    "c_grid": [
+      0.0001,
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "folds": 5,
+    "n_boot": 1000,
+    "n_permutations": 100,
+    "n_test": 1721,
+    "n_train": 10000,
+    "seed": 42,
+    "tfidf_c_grid": [
+      0.1,
+      1.0,
+      10.0,
+      100.0
+    ]
+  }
+}
