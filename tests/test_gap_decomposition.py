@@ -111,6 +111,17 @@ def test_gendered_words_are_flagged_and_their_share_of_the_total_gap_is_reported
     assert result.summary["gendered_share"]["value"] == pytest.approx(3 / 4)
 
 
+def test_top_share_is_the_sum_of_the_largest_absolute_contributions_over_the_total_gap():
+    # D: a = 3/2, b = 5/6, c = -2/3; total 5/3. The top 2 by |D| are a and b: (3/2 + 5/6) / (5/3).
+    result = gap_decomposition.decompose(BIOS, min_bios=1, top=2)
+    assert result.summary["top_share"]["value"] == pytest.approx(7 / 5)
+    # The top word is chosen by |D|, not by D: p = 1, q = -3, total -2, so q alone is 3/2.
+    bios = [_bio("female", {"p": 1.0}), _bio("male", {"q": 3.0}), _bio("male", {"q": 3.0})]
+    summary = gap_decomposition.decompose(bios, min_bios=1, top=1).summary
+    assert summary["top_share"]["value"] == pytest.approx(-3 / -2)
+    assert summary["top_words"] == ["q"]
+
+
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
     # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
     # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
