@@ -38,24 +38,24 @@ def _name(occupation: str) -> str:
 
 
 def title(panels: Sequence[Panel]) -> str:
-    """The finding as one sentence, with every number from the panels' summaries.
+    """The finding as one sentence: how far the gendered words put women's bios below or above
+    men's in each panel, from the summed gendered contribution (`gendered_sum`).
 
-    A panel whose total gap has an interval that includes 0 has no stable share, so the title
-    says its gap is too close to 0 to split instead of quoting one.
+    The sum needs no division, so it is stated even when the total gap includes 0. A panel whose
+    sum has an interval that includes 0 is said to be within noise.
     """
-    stable = [p for p in panels if not p.summary["gap_unstable"]]
-    unstable = [p for p in panels if p.summary["gap_unstable"]]
-    clauses = [
-        f"{p.summary['gendered_share']['value']:.0%} of the {p.summary['score_gap']['value']:+.1f} "
-        f"{_name(p.occupation)}-bio gap"
-        for p in stable
-    ]
-    small = " and ".join(_name(p.occupation) for p in unstable)
-    if not unstable:
-        return f"Gendered words are {' and '.join(clauses)}."
-    if not stable:
-        return f"The {small} gaps are too small to split."
-    return f"Gendered words are {' and '.join(clauses)}; the {small} gap is too small to split."
+    clauses, reference = [], " men's"  # named once, to keep the title at two lines
+    for panel in panels:
+        total = panel.summary["gendered_sum"]
+        if total["ci_low"] <= 0 <= total["ci_high"]:
+            clauses.append(f"within noise in {_name(panel.occupation)}")
+        else:
+            side = "above" if total["value"] > 0 else "below"
+            clauses.append(
+                f"{abs(total['value']):.1f} {side}{reference} in {_name(panel.occupation)}"
+            )
+            reference = ""
+    return f"Gendered words put women's bios {' and '.join(clauses)}."
 
 
 def _interval(share: dict) -> str:
