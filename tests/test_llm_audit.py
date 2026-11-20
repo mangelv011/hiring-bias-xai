@@ -221,3 +221,19 @@ def test_confusable_pairs_chain_into_one_group_and_a_dropped_group_takes_no_part
     merged = llm_audit.merge_decision(matrix)
     assert merged["dropped"] == ["Morocco"]
     assert merged["groups"] == [["Spain"], ["Romania"], ["Hispanic America"], ["United Kingdom"]]
+
+
+def test_a_run_index_makes_an_identical_request_a_new_call_and_is_not_sent(tmp_path):
+    log = tmp_path / "calls.jsonl"
+    with FakeLLMServer(_answer) as server:
+        client = llm_audit.Client(log, base_url=server.base_url, model="m")
+        first = client.ask(MESSAGES)
+        again = client.ask(MESSAGES, run=1)
+        assert client.ask(MESSAGES, run=1) == again
+        assert client.ask(MESSAGES) == first
+    assert len(server.requests) == 2
+    assert first["key"] != again["key"]
+    assert "run" not in server.requests[1]["payload"]
+    assert again["run"] == 1 and first["run"] == 0
+    assert again["key"] == llm_audit.request_key("m", MESSAGES, llm_audit.SETTINGS | {"run": 1})
+    assert first["key"] == llm_audit.request_key("m", MESSAGES, llm_audit.SETTINGS)
