@@ -198,12 +198,15 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
 def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_there_are_none(figure):
     surgeon, model = _data_axes(figure)
     assert surgeon.get_title(loc="left") == (
-        "Surgeon (male-dominated), gap -0.8 [-1.5, +0.1]\ninterval includes 0: no shares given"
+        "Surgeon (male-dominated), gap -0.8 [-1.5, +0.1]\n"
+        "gendered words: -1.12 [-1.24, -1.02]\n"
+        "gap interval includes 0: no shares given"
     )
     assert model.get_title(loc="left") == (
         "Model (female-dominated), gap +5.4 [+4.4, +6.4]\n"
+        "gendered words: +0.80 [+0.68, +0.91]\n"
         "top 10 words: 61% [51%, 77%]\n"
-        "gendered words: 15% [12%, 19%]"
+        "gendered share: 15% [12%, 19%]"
     )
 
 
