@@ -3,8 +3,17 @@
 import numpy as np
 import pandas as pd
 
+TOP = 5
+RULE = (
+    "For each showcase occupation, in the rows of the main model of results/gap_decomposition.csv: "
+    "keep the words that are not gendered words, whose 95% interval of the gap contribution "
+    "excludes 0, and whose contribution has the sign of the gendered sum of that occupation; "
+    "take the 5 with the largest absolute contribution (ties in alphabetical order). The mask "
+    "list is the union over the occupations."
+)
 
-def proxy_rows(table: pd.DataFrame, gendered_sum: float, top: int = 5) -> pd.DataFrame:
+
+def proxy_rows(table: pd.DataFrame, gendered_sum: float, top: int = TOP) -> pd.DataFrame:
     """The rows of `table` (one occupation of the main model) that are proxy words.
 
     `table` has the columns of `results/gap_decomposition.csv`. A proxy word is not gendered, has
