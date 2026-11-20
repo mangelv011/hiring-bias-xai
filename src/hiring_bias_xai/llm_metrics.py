@@ -285,7 +285,7 @@ ATTRIBUTE_WORDS = (
     "name names surname surnames origin nationality ethnicity ethnic race gender sex male female "
     "man men woman women spanish moroccan romanian hispanic british foreign immigrant"
 ).split()
-_ATTRIBUTE = re.compile(r"(?:" + "|".join(ATTRIBUTE_WORDS) + r")", re.IGNORECASE)
+_ATTRIBUTE = re.compile(r"\b(?:" + "|".join(ATTRIBUTE_WORDS) + r")\b", re.IGNORECASE)
 
 
 def mentions(reason: str) -> bool:
