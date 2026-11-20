@@ -71,7 +71,8 @@ def test_the_json_counts_the_flags_and_the_edits(run):
     assert flags["n_noun"] == 6  # "mother" in the 2nd bio
     assert flags["n_name"] == 6  # "Maria" in the 3rd
     assert flags["n_flagged"] == 12
-    assert flags["cues"] == {"Maria": 6, "mother": 6}
+    assert flags["n_distinct_cues"] == 2
+    assert flags["top_cues"] == {"Maria": 6, "mother": 6}
     assert record["edits"] == {"swap_changed": 18, "removal_changed": 18}
     assert "hand_check" not in record
     assert record["direction_basis"].startswith("training share of women")
