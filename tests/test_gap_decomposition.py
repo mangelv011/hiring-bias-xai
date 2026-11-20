@@ -261,7 +261,11 @@ def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drif
 
 def test_a_word_present_with_value_zero_is_in_the_bios_that_contain_it():
     # guard: n_bios and importance already count presence, not a non-zero value
-    bios = [_bio("female", {"z": 0.0}), _bio("male", {"z": 0.0, "a": 1.0}), _bio("male", {"a": 3.0})]
+    bios = [
+        _bio("female", {"z": 0.0}),
+        _bio("male", {"z": 0.0, "a": 1.0}),
+        _bio("male", {"a": 3.0}),
+    ]
     table = _by_word(gap_decomposition.decompose(bios, min_bios=1).table)
     assert table["n_bios"].to_dict() == {"z": 2, "a": 2}
     assert table["importance"].to_dict() == pytest.approx({"z": 0.0, "a": 2.0})
@@ -275,5 +279,3 @@ def test_a_row_is_kept_for_a_word_in_enough_bios_or_in_the_top_and_importance_ne
     wide = _by_word(gap_decomposition.decompose(BIOS, min_bios=3, top=3).table)
     assert list(wide.index) == ["a", "b", "c"]  # c is in the top 3: a row, without importance
     assert wide["importance"].isna().to_dict() == {"a": False, "b": False, "c": True}
-
-

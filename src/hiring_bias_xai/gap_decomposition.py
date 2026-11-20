@@ -21,7 +21,6 @@ from hiring_bias_xai.attribution import Attribution
 from hiring_bias_xai.config import SEED
 from hiring_bias_xai.models import log_odds
 
-
 MIN_BIOS = 20
 TOP = 10
 N_BOOT = 1000
@@ -152,7 +151,9 @@ def decompose(
         count = present[rows].sum(axis=0)
         columns[f"freq_{gender}"] = count / rows.sum()
         with np.errstate(invalid="ignore"):  # a word absent from the group has no mean value
-            columns[f"value_{gender}"] = np.where(count > 0, values[rows].sum(axis=0) / count, np.nan)
+            columns[f"value_{gender}"] = np.where(
+                count > 0, values[rows].sum(axis=0) / count, np.nan
+            )
     # D = f_F m_F - f_M m_M = (f_F - f_M) mean(m) + mean(f) (m_F - m_M); a missing m is 0 here,
     # because its frequency is 0 too.
     f_female, f_male = columns["freq_female"], columns["freq_male"]
