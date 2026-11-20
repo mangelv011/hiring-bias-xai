@@ -103,7 +103,7 @@ def test_an_unknown_removal_or_target_is_rejected_before_any_scoring():
 
 
 def test_the_target_list_must_have_one_occupation_per_bio():
-    with pytest.raises(ValueError, match="2.*1"):
+    with pytest.raises(ValueError, match="2 bios but 1 targets"):
         attribution.shapley(Hashed(), ["a b", "c d"], ["nurse"], 2, "delete", seed=0)
 
 
@@ -338,5 +338,27 @@ def test_a_file_that_holds_pickled_objects_is_refused_not_unpickled(artifacts):
         logits=result.logits,
         seconds=result.seconds,
     )
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(target)
+
+
+def test_zero_permutations_are_rejected():
+    with pytest.raises(ValueError, match="n_permutations"):
+        attribution.shapley(Hashed(), ["a b"], ["nurse"], 0, "delete", seed=0)
+
+
+def test_a_file_with_a_target_column_outside_the_logits_is_refused(artifacts):
+    target = attribution.path("deberta", "test-1")
+    attribution.save(target, dataclasses.replace(_one(), target=28))
+    with pytest.raises(ValueError, match="test-1.npz"):
+        attribution.load(target)
+
+
+def test_a_file_whose_index_points_one_past_the_last_logits_row_is_refused(artifacts):
+    target = attribution.path("deberta", "test-1")
+    result = _one()
+    index = result.index.copy()
+    index[0, 0] = len(result.logits)
+    attribution.save(target, dataclasses.replace(result, index=index))
     with pytest.raises(ValueError, match="test-1.npz"):
         attribution.load(target)

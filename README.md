@@ -85,6 +85,15 @@ Data and model weights live outside the repository, in the directory named by th
 
 Experiment entry points live in `scripts/` and write small JSON/CSV files and figures to `results/`. `uv run python scripts/prepare_data.py` downloads the dataset at a pinned revision into `HBX_ARTIFACTS` and writes `results/data_summary.json`, `results/showcase_occupations.json` and `results/showcase_subset_ids.csv`; running it twice gives byte-identical files. `uv run pytest -m "not slow"` skips the tests that need the real dataset.
 
+The Shapley run needs the GPU and nothing else running. Run the pilots first, then the run:
+
+```bash
+uv run python scripts/shapley_pilot.py   # writes results/shapley_pilot.json
+uv run python scripts/shapley_run.py     # writes attributions to HBX_ARTIFACTS and results/shapley_summary.json
+```
+
+`shapley_run.py` skips every bio whose attribution file already exists and matches the pilot's settings, so a crashed run restarts where it stopped.
+
 ## License
 
 [MIT](LICENSE)
