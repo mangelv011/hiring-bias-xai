@@ -218,3 +218,69 @@ def test_a_stratum_smaller_than_its_share_is_an_error_not_a_smaller_sample():
     subset = _subset({("nurse", "male"): 1, ("nurse", "female"): 9})
     with pytest.raises(ValueError, match="nurse"):
         checks.stratified_sample(subset, 10, seed=1)
+
+
+def _case(bio_id, words, shapley, loo):
+    return checks.Case(bio_id, words, np.array(shapley, dtype=float), np.array(loo, dtype=float))
+
+
+def _words(n, repeated="python"):
+    return [repeated, "x1", repeated, *[f"w{i}" for i in range(n - 3)]]
+
+
+def _ramp(n):
+    return list(np.linspace(0.0, 1.0, n))
+
+
+def test_the_example_is_the_lowest_spearman_among_bios_whose_top_word_occurs_twice():
+    n = 16
+    shapley = [3.0, *_ramp(n - 1)]  # the top word is word 0, "python", which occurs twice
+    agree = _case("test-1", _words(n), shapley, shapley)
+    swapped = list(shapley)
+    swapped[5], swapped[6] = swapped[6], swapped[5]
+    mild = _case("test-2", _words(n), shapley, swapped)
+    worst = _case("test-3", _words(n), shapley, [3.0, *_ramp(n - 1)[::-1]])
+    picked, spearman = checks.disagreement_example([agree, mild, worst])
+    assert picked.bio_id == "test-3"
+    assert spearman < checks.rank_agreement(mild.shapley, mild.loo)[0] < 1.0
+
+
+def test_a_tie_goes_to_the_first_bio():
+    n = 16
+    shapley = [3.0, *_ramp(n - 1)]
+    loo = [3.0, *_ramp(n - 1)[::-1]]
+    twin = [_case("test-1", _words(n), shapley, loo), _case("test-2", _words(n), shapley, loo)]
+    assert checks.disagreement_example(twin)[0].bio_id == "test-1"
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        [f"w{i}" for i in range(16)],  # the top word occurs once
+        _words(14),  # under 15 units
+        [*_words(16)[:-1], "123456"],  # six digits in a row
+    ],
+)
+def test_a_bio_that_breaks_a_rule_is_never_the_example(words):
+    n = len(words)
+    shapley = [3.0, *_ramp(n - 1)]
+    broken = _case("test-1", words, shapley, [3.0, *_ramp(n - 1)[::-1]])
+    fine = _case("test-2", _words(16), [3.0, *_ramp(15)], [3.0, *_ramp(15)[::-1]][:16])
+    assert checks.disagreement_example([broken, fine])[0].bio_id == "test-2"
+
+
+def test_the_top_word_is_the_largest_absolute_value_and_matches_without_case_or_punctuation():
+    words = ["Python,", "x1", "python.", *[f"w{i}" for i in range(13)]]
+    shapley = [-3.0, *_ramp(15)]  # a negative top value still counts
+    case = _case("test-1", words, shapley, [3.0, *_ramp(15)[::-1]])
+    assert checks.disagreement_example([case])[0].bio_id == "test-1"
+
+
+def test_no_example_when_no_bio_qualifies():
+    assert checks.disagreement_example([]) is None
+
+
+def test_a_bio_whose_correlation_is_undefined_is_skipped():
+    n = 16
+    flat = _case("test-1", _words(n), [3.0, *_ramp(n - 1)], [0.0] * n)
+    assert checks.disagreement_example([flat]) is None
