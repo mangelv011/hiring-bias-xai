@@ -77,6 +77,27 @@ def parse_decision(content: str | None) -> dict | None:
     return None
 
 
+ORIGINS = ("Spain", "Morocco", "Romania", "Hispanic America", "United Kingdom")
+GENDERS = ("female", "male")
+
+
+def parse_name_guess(content: str | None) -> dict | None:
+    """`{"origin": ..., "gender": ...}` read from `content`, or None if it is not exactly that,
+    with an origin among `ORIGINS` or "unclear" and a gender among `GENDERS` or "unclear"."""
+    try:
+        guess = json.loads(content)
+    except (TypeError, ValueError):
+        return None
+    if (
+        isinstance(guess, dict)
+        and set(guess) == {"origin", "gender"}
+        and guess["origin"] in (*ORIGINS, "unclear")
+        and guess["gender"] in (*GENDERS, "unclear")
+    ):
+        return guess
+    return None
+
+
 def thinking_leaked(record: dict) -> bool:
     """Whether a stored call carries reasoning text, so thinking was not switched off."""
     return bool(record["reasoning"]) or "<think>" in record["content"]
