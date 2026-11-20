@@ -78,3 +78,15 @@ def test_wilson_interval_matches_known_values():
     assert (low, round(high, 4)) == (0.0, 0.0714)
     low, high = effects.wilson_interval(50, 50)
     assert (round(low, 4), high) == (0.9286, 1.0)
+
+
+def test_the_hand_check_sample_is_a_fixed_random_draw_of_distinct_ids():
+    ids = [f"test-{i}" for i in range(100)]
+    sample = effects.hand_check_sample(ids, 50)
+    assert len(sample) == len(set(sample)) == 50
+    assert set(sample) <= set(ids)
+    assert sample == effects.hand_check_sample(ids, 50)
+    assert sample == sorted(sample, key=ids.index)  # in the order of the subset
+    assert sample != ids[:50]
+    with pytest.raises(ValueError, match="only 3"):
+        effects.hand_check_sample(ids[:3], 50)
