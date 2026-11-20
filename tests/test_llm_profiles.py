@@ -46,3 +46,10 @@ def test_a_name_arm_sets_the_pronouns_to_the_gender_of_the_name():
         "He is a nurse.", "male", "test-9", "name|Romania|female", GROUPS
     )
     assert header.split()[1] in ("Elena", "Ana") and text == "She is a nurse."
+
+
+def test_the_hardest_confusion_of_each_occupation_is_the_other_one_it_is_most_often_taken_for():
+    true = ["a"] * 6 + ["b"] * 4 + ["c"] * 3 + ["z"] * 5
+    predicted = ["a", "b", "b", "c", "z", "z"] + ["b", "b", "b", "a"] + ["a", "a", "c"] + ["a"] * 5
+    hardest = llm_profiles.hardest_confusions(true, predicted, ["a", "b", "c"])
+    assert hardest == {"a": "b", "b": "a", "c": "a"}  # z is outside the list and is ignored
