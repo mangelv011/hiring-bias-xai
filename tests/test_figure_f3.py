@@ -195,6 +195,12 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
     assert lines <= 2
 
 
+def test_a_sum_whose_interval_ends_at_zero_is_within_noise(f3):
+    touching = {**_MODEL_SUMMARY, "gendered_sum": _shares(0.3, 0.0, 0.6)}
+    text = f3.title([f3.Panel("model", "female_dominated", MODEL_WORDS, touching)])
+    assert text == "Gendered words put women's bios within noise in model."
+
+
 def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_there_are_none(figure):
     surgeon, model = _data_axes(figure)
     assert surgeon.get_title(loc="left") == (
