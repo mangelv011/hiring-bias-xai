@@ -72,7 +72,7 @@ def build(table: pd.DataFrame):
     )
     ax.set_ylim(rows[-1] + 0.6, -0.6)
     ax.set_xlim(0, max(swap["flip_rate_ci_high"].max(), removal["flip_rate_ci_high"].max()) * 1.9)
-    ax.set_xlabel("Share of bios whose predicted occupation changes")
+    ax.set_xlabel("Share of bios whose prediction changes")
     ax.xaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
     return fig
 
