@@ -16,7 +16,9 @@ def _train():
     rows = []
     for i in range(24):  # two occupations, two genders, six bios each
         text = " ".join(WORDS[(i + k) % 8] for k in range(2 + i % 3))
-        rows.append((f"train-{i}", text, ["nurse", "surgeon"][i % 2], ["female", "male"][i // 2 % 2]))
+        rows.append(
+            (f"train-{i}", text, ["nurse", "surgeon"][i % 2], ["female", "male"][i // 2 % 2])
+        )
     return pd.DataFrame(rows, columns=["id", "text", "occupation", "gender"])
 
 
