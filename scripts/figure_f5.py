@@ -4,10 +4,11 @@ Panel a: the main model's deletion curves from `results/deletion_curves.csv`: th
 log-odds of the true occupation as words are removed most important first (MoRF, highlight), at
 random (grey, with its 95% interval over bios) and least important first (LeRF). Panel b: the
 median Spearman correlation and the median top-10 overlap, with 95% bootstrap intervals, of the
-three checks in `results/stability.json`, sorted by the correlation, each marked passed or failed,
-with a mark at each measure's pass threshold.
-The title states the finding from the pass flags of `results/deletion_areas.json` and
-`results/stability.json`; the numbers are in the panels.
+three checks in `results/stability.json`, sorted by the correlation. Each row says what changed
+from the main run (Shapley, delete removal, seed 42).
+The title states the finding: whether the deletion check of `results/deletion_areas.json` holds,
+and whether another way of computing the values moves the ranking further than a rerun with
+another seed does (their correlation intervals do not overlap). The numbers are in the panels.
 """
 
 import json
@@ -27,7 +28,7 @@ HEIGHT_INCHES = 5.2
 LAST_STEP = 0.5  # the deletion curves stop at half of the words
 LABEL_ROOM = 0.22  # room right of the last step for the curve labels, in fractions of the bio
 LABEL_GAP = 0.13  # least distance between curve labels, as a share of the y range
-NAME_X = 1.03  # the two measures are named right of every dot and mark
+NAME_OFFSET_PT = 30  # the measure names sit this far right of the last row's intervals
 LABEL_OFFSET_PT = 8  # gap between a dot and its value, in points
 OFFSET = 0.18  # distance of each dot from the row's centre line
 CURVES = (
@@ -36,30 +37,28 @@ CURVES = (
     ("lerf", LERF, "--", "lowest first\n(LeRF)"),
 )
 CHECK_NAMES = {
-    "seed": "seed 7 vs 42",
-    "removal": "[UNK] vs delete",
-    "method": "leave-one-out vs Shapley",
+    "seed": "same method,\nanother seed",
+    "removal": "[UNK] instead\nof deleting",
+    "method": "leave-one-out,\nnot Shapley",
 }
+OTHER_WAYS = ("removal", "method")  # compared with the seed check, the noise of a rerun
 
 
 def title(areas: dict, stability: dict) -> str:
-    """The finding: whether the top-ranked words matter to the model, and whether the rankings of
-    single words are stable. The numbers are in the panels."""
+    """The finding: whether the top-ranked words matter to the model, and whether computing the
+    values another way changes their order more than rerunning with another seed does."""
     deletion_passed = areas["screeners"][SCREENER]["passed"]
-    flags = [check["passed"] for check in stability["checks"].values()]
+    checks = stability["checks"]
+    rerun_low = checks["seed"]["spearman"]["median_ci"][0]
+    depends = any(checks[name]["spearman"]["median_ci"][1] < rerun_low for name in OTHER_WAYS)
     lead = (
         "Shapley finds the words the model relies on"
         if deletion_passed
         else "Shapley's top words matter no more than random ones"
     )
-    joiner = "but" if deletion_passed and not all(flags) else "and"
-    if all(flags):
-        rankings = "its single-word rankings hold up"
-    elif not any(flags):
-        rankings = "its single-word rankings are unstable"
-    else:
-        rankings = f"its single-word rankings hold up in {sum(flags)} of {len(flags)} checks"
-    return f"{lead}, {joiner} {rankings}."
+    joiner = "but" if deletion_passed and depends else "and"
+    order = "their order depends" if depends else "their order barely depends"
+    return f"{lead}, {joiner} {order} on how it is computed."
 
 
 def _spread(positions: list[float], gap: float) -> list[float]:
@@ -109,40 +108,44 @@ def _agreement_panel(ax, stability: dict) -> None:
     ax.axvline(0, color=DARK, lw=0.6)
     for metric, colour, shift, label in (
         ("spearman", HIGHLIGHT, -OFFSET, "rank correlation"),
-        ("top10_overlap", NEUTRAL, OFFSET, "top-10 overlap"),
+        ("top10_overlap", NEUTRAL, OFFSET, "shared top-10 words"),
     ):
         ys = [row + shift for row in rows]
         values = [checks[name][metric]["median"] for name in names]
         bounds = [checks[name][metric]["median_ci"] for name in names]
         ax.hlines(ys, [b[0] for b in bounds], [b[1] for b in bounds], colors=colour)
         ax.scatter(values, ys, c=colour, zorder=3)
-        thresholds = [checks[name]["thresholds"][f"median_{metric}"] for name in names]
-        ax.plot(thresholds, ys, ls="none", marker="|", color=DARK, markersize=8, markeredgewidth=1)
-        for y, value, bound, threshold in zip(ys, values, bounds, thresholds, strict=True):
-            below = value < threshold  # the mark is to the right of the dot, so the value goes left
+        for y, value, bound in zip(ys, values, bounds, strict=True):
             ax.annotate(
                 f"{value:.2f}",
-                (min(value, bound[0]) if below else max(value, bound[1]), y),
-                xytext=(-LABEL_OFFSET_PT if below else LABEL_OFFSET_PT, 0),
+                (max(value, bound[1]), y),
+                xytext=(LABEL_OFFSET_PT, 0),
                 textcoords="offset points",
                 color=colour,
                 va="center",
-                ha="right" if below else "left",
+                ha="left",
             )
-        ax.text(NAME_X, ys[-1], label, color=colour, va="center", ha="left")
+        last_high = max(
+            max(checks[names[-1]][m]["median_ci"][1], checks[names[-1]][m]["median"])
+            for m in ("spearman", "top10_overlap")
+        )
+        ax.annotate(
+            label,
+            (last_high, ys[-1]),
+            xytext=(NAME_OFFSET_PT, 0),
+            textcoords="offset points",
+            color=colour,
+            va="center",
+            ha="left",
+        )
     ax.set_yticks(rows)
-    ax.set_yticklabels(
-        [
-            f"{CHECK_NAMES[name]}\n{'passed' if checks[name]['passed'] else 'failed'}"
-            for name in names
-        ]
-    )
+    ax.set_yticklabels([CHECK_NAMES[name] for name in names])
     ax.set_ylim(len(names) - 0.5, -0.5)
     ax.set_xlim(min(0, min(checks[n]["spearman"]["median_ci"][0] for n in names)) - 0.15, 1.9)
     ax.set_xticks([0, 0.5, 1])
     ax.xaxis.set_major_formatter(lambda value, _: f"{value:g}")
-    ax.set_xlabel("Median over bios, 95% interval\n| marks the pass threshold")
-    ax.set_title("b  Stability and agreement", loc="left", fontweight="bold")
+    ax.set_xlabel("Agreement with the main run\n(median over bios, 95% interval)")
+    ax.set_title("b  Do the rankings agree?", loc="left", fontweight="bold")
 
 
 def build(curves: pd.DataFrame, areas: dict, stability: dict):

@@ -145,7 +145,12 @@ def _set_spearman(stability, name, low, high):
         (True, (0.41, 0.53), (0.40, 0.43), f"{PASSED_DELETION}, but {DEPENDS}."),
         (True, (0.85, 0.90), (0.40, 0.43), f"{PASSED_DELETION}, but {DEPENDS}."),
         (True, (0.85, 0.90), (0.80, 0.95), f"{PASSED_DELETION}, and {STEADY}."),
-        (True, (0.70, 0.84), (0.84, 0.90), f"{PASSED_DELETION}, but {DEPENDS}."),
+        (
+            True,
+            (0.70, 0.84),
+            (0.84, 0.90),
+            f"{PASSED_DELETION}, and {STEADY}.",
+        ),  # touching = overlap
         (False, (0.41, 0.53), (0.40, 0.43), f"{FAILED_DELETION}, and {DEPENDS}."),
         (False, (0.85, 0.90), (0.86, 0.95), f"{FAILED_DELETION}, and {STEADY}."),
     ],
@@ -225,7 +230,7 @@ def test_checks_are_rows_sorted_by_the_median_correlation_and_say_what_changed(f
     _, bottom = _axes(figure)
     labels = [t.get_text().replace("\n", " ") for t in bottom.get_yticklabels()]
     assert labels == [
-        "leave-one-out instead of Shapley",
+        "leave-one-out, not Shapley",
         "same method, another seed",
         "[UNK] instead of deleting",
     ]
@@ -364,13 +369,19 @@ def test_value_labels_stand_right_of_their_interval_and_clear_their_dots(
             assert box.x0 >= max(px + radius, high) + 2, label.get_text()
 
 
-def test_the_series_names_stand_right_of_every_value_label(figure):
+def test_the_series_names_stand_right_of_the_value_labels_of_their_row(figure):
     _, bottom = _axes(figure)
     names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "shared top-10 words")]
     assert len(names) == 2
     values = [t for t in bottom.texts if re.fullmatch(r"\d\.\d\d", t.get_text())]
-    right_edge = max(t.get_window_extent().x1 for t in values)
-    assert all(t.get_window_extent().x0 > right_edge for t in names)
+    for name in names:
+        box = name.get_window_extent()
+        centre = box.get_points()[:, 1].mean()
+        same_row = [
+            v for v in values if abs(v.get_window_extent().get_points()[:, 1].mean() - centre) < 3
+        ]
+        assert same_row
+        assert all(box.x0 > v.get_window_extent().x1 for v in same_row)
 
 
 def test_no_pass_threshold_is_drawn(figure):
