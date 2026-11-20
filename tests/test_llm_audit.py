@@ -161,3 +161,62 @@ def test_a_strict_name_guess_parses_and_anything_else_is_invalid():
         None,
     ]
     assert [llm_audit.parse_name_guess(text) for text in invalid] == [None] * len(invalid)
+
+
+def _confusion(**rows):
+    """Origin confusion with every group mostly recognised unless a row says otherwise."""
+    matrix = {g: {g: 10} for g in llm_audit.ORIGINS}
+    for group, answers in rows.items():
+        matrix[group.replace("_", " ")] = answers
+    return matrix
+
+
+def test_groups_the_model_tells_apart_are_all_kept():
+    merged = llm_audit.merge_decision(_confusion(Spain={"Spain": 6, "Hispanic America": 5}))
+    assert merged == {"groups": [[g] for g in llm_audit.ORIGINS], "dropped": []}
+
+
+def test_a_group_assigned_more_often_to_another_group_than_to_itself_is_merged_with_it():
+    matrix = _confusion(Hispanic_America={"Hispanic America": 4, "Spain": 5, "unclear": 20})
+    merged = llm_audit.merge_decision(matrix)
+    assert merged == {
+        "groups": [["Spain", "Hispanic America"], ["Morocco"], ["Romania"], ["United Kingdom"]],
+        "dropped": [],
+    }
+
+
+def test_answers_of_unclear_and_invalid_count_for_neither_group():
+    matrix = _confusion(Morocco={"Morocco": 1, "unclear": 30, "invalid": 30, "Romania": 1})
+    assert llm_audit.merge_decision(matrix)["groups"] == [[g] for g in llm_audit.ORIGINS]
+
+
+def test_a_group_confused_with_the_reference_group_is_dropped_and_the_reference_stays_whole():
+    matrix = _confusion(Romania={"United Kingdom": 7, "Romania": 2})
+    merged = llm_audit.merge_decision(matrix)
+    assert merged["dropped"] == ["Romania"]
+    assert merged["groups"] == [["Spain"], ["Morocco"], ["Hispanic America"], ["United Kingdom"]]
+    matrix = _confusion(United_Kingdom={"Spain": 7, "United Kingdom": 2})
+    merged = llm_audit.merge_decision(matrix)
+    assert merged["dropped"] == ["Spain"]
+    assert merged["groups"] == [["Morocco"], ["Romania"], ["Hispanic America"], ["United Kingdom"]]
+
+
+def test_confusable_pairs_chain_into_one_group_and_a_dropped_group_takes_no_part():
+    matrix = _confusion(
+        Hispanic_America={"Spain": 5, "Hispanic America": 1},
+        Morocco={"Hispanic America": 5, "Morocco": 1},
+        Romania={"Morocco": 5, "Romania": 1, "United Kingdom": 3},
+    )
+    # Romania is closest to Morocco (5), which beats the United Kingdom (3): a merge, not a drop.
+    merged = llm_audit.merge_decision(matrix)
+    assert merged == {
+        "groups": [["Spain", "Morocco", "Romania", "Hispanic America"], ["United Kingdom"]],
+        "dropped": [],
+    }
+    matrix = _confusion(
+        Morocco={"United Kingdom": 5, "Morocco": 1},
+        Spain={"Morocco": 5, "Spain": 1},
+    )
+    merged = llm_audit.merge_decision(matrix)
+    assert merged["dropped"] == ["Morocco"]
+    assert merged["groups"] == [["Spain"], ["Romania"], ["Hispanic America"], ["United Kingdom"]]
