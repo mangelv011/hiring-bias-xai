@@ -19,10 +19,12 @@ COLUMNS = [
     "contribution_ci_low",
     "contribution_ci_high",
     "gendered",
+    "freq_female",
+    "freq_male",
 ]
 
 
-def _row(screener, occupation, word, contribution, gendered=False):
+def _row(screener, occupation, word, contribution, gendered=False, freq=(0.5, 0.0)):
     return (
         screener,
         occupation,
@@ -32,6 +34,7 @@ def _row(screener, occupation, word, contribution, gendered=False):
         contribution - 0.1,
         contribution + 0.1,
         gendered,
+        *freq,
     )
 
 
@@ -101,7 +104,10 @@ def test_only_the_rows_of_the_main_model_count(run):
 
 def test_the_sign_is_that_of_the_main_models_gendered_sum_of_the_occupation(run):
     # The baseline sums in the fixture have the opposite sign, so reading them would flip this.
-    rows = [_row("deberta", "surgeon", "up", 1.0), _row("deberta", "surgeon", "down", -1.0)]
+    rows = [
+        _row("deberta", "surgeon", "up", 1.0),
+        _row("deberta", "surgeon", "down", -1.0, freq=(0.0, 0.5)),
+    ]
     assert run(rows, {"surgeon": -0.5})["words"] == ["down"]
     assert run(rows, {"surgeon": 0.5})["words"] == ["up"]
 
@@ -122,3 +128,25 @@ def test_the_file_holds_the_rule_the_sums_and_the_contribution_with_its_interval
     assert sorted(out["gendered_sums"]) == sorted(MALE_DOMINATED + FEMALE_DOMINATED)
     (pager,) = out["occupations"]["surgeon"]
     assert pager == {"word": "pager", "contribution": 3.0, "ci_low": 2.9, "ci_high": 3.1}
+
+
+def test_a_word_both_genders_use_alike_is_left_out_whatever_its_contribution(run):
+    rows = [
+        _row("deberta", "surgeon", "alike", 5.0, freq=(0.4, 0.3)),
+        _row("deberta", "surgeon", "women_only", 1.0, freq=(0.4, 0.0)),
+    ]
+    assert run(rows)["words"] == ["women_only"]
+
+
+def test_the_file_lists_the_occupations_that_add_no_word(run):
+    out = run([_row("deberta", "surgeon", "pager", 3.0), _row("deberta", "nurse", "ward", 2.0)])
+    assert out["occupations_without_words"] == sorted(
+        ["composer", "dietitian", "model", "software_engineer"]
+    )
+
+
+def test_the_file_records_the_usage_rule_and_the_shares_of_each_word(run):
+    out = run([_row("deberta", "surgeon", "pager", 3.0, freq=(0.4, 0.1))], {"surgeon": 1.0})
+    assert out["usage"] == {"ratio": 3, "smoothing": 0.01, "min_share": 0.05}
+    (pager,) = out["occupations"]["surgeon"]
+    assert (pager["freq_female"], pager["freq_male"]) == (0.4, 0.1)
