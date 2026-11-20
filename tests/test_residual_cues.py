@@ -44,6 +44,11 @@ def test_a_listed_name_that_is_a_verb_a_month_or_in_lower_case_is_not_a_cue():
     assert first_names_in(text, NAMES) == []
 
 
+def test_a_listed_name_of_a_place_is_not_a_cue_but_the_first_name_of_a_person_is():
+    text = "I moved from Austin to America and met Maria Lopez in Asia."
+    assert first_names_in(text, NAMES | {"Austin", "America", "Asia"}) == ["Maria"]
+
+
 def test_residual_cues_adds_the_names_to_the_nouns():
     assert residual_cues("Maria is a mother.", NAMES) == ["Maria", "mother"]
     assert residual_cues("Maria is a mother.") == ["mother"]
