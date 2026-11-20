@@ -24,7 +24,7 @@ Expensive explanations run on a fixed showcase subset of the test bios: up to 15
 
 ## Status
 
-Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). The figure style ([docs/figure_guidelines.md](docs/figure_guidelines.md)), the gap statistics (`python scripts/gap_statistics.py`, results in `results/gap_statistics.json`) and figure F1 (`python scripts/figure_f1.py`). Word-level Shapley values (`src/hiring_bias_xai/attribution.py`) for both models on the showcase subset: pilots in `scripts/shapley_pilot.py` (`results/shapley_pilot.json`), the resumable run in `scripts/shapley_run.py` (`results/shapley_summary.json`, attributions in `HBX_ARTIFACTS`), a seed-agreement check in `scripts/shapley_stability.py`, and figure F2 (`python scripts/figure_f2.py`). The pilot chose `delete` removal and 40 random orders per bio; seed agreement stayed below the 0.9 rule (0.889). See [ADR 0003](docs/decisions/0003-shapley-attribution.md). The aggregation by gender is not done yet (#7).
+Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). The figure style ([docs/figure_guidelines.md](docs/figure_guidelines.md)), the gap statistics (`python scripts/gap_statistics.py`, results in `results/gap_statistics.json`) and figure F1 (`python scripts/figure_f1.py`). Word-level Shapley values (`src/hiring_bias_xai/attribution.py`) for both models on the showcase subset: pilots in `scripts/shapley_pilot.py` (`results/shapley_pilot.json`), the resumable run in `scripts/shapley_run.py` (`results/shapley_summary.json`, attributions in `HBX_ARTIFACTS`), a seed-agreement check in `scripts/shapley_stability.py`, and figure F2 (`python scripts/figure_f2.py`). The pilot chose `delete` removal and 40 random orders per bio; seed agreement stayed below the 0.9 rule (0.889). See [ADR 0003](docs/decisions/0003-shapley-attribution.md). The gap decomposition (`python scripts/gap_decomposition.py`, results in `results/gap_decomposition.csv` and `results/gap_explained.json`) and figure F3 (`python scripts/figure_f3.py`) split the score gap by word; see [ADR 0004](docs/decisions/0004-gap-decomposition.md).
 
 ## Results so far
 
@@ -70,7 +70,30 @@ Two showcase-subset bios, main model, `delete` removal, 40 random word orders (e
 
 The bios come from rules fixed beforehand: in each group, the misclassified bio whose gendered units add the most to the log-odds of the predicted occupation (`test-30717`, a composer predicted as rapper, +3.2 over 11 units; `test-9467`, a model predicted as poet, +2.0 over 2 units). Bios under 15 units, and bios with six or more digits in a row, are excluded. Both are the largest of their group (114 and 154 errors), not typical cases. In both, the largest single units are topic words (songs, career, play), and one gendered unit alone is worth +0.6 and +1.0. If a group had no qualifying bio the figure would say so.
 
-The values carry sampling noise and the figure shows no interval per word: the run stored one seed. In the pilot two seeds agreed on the main model with a median Spearman correlation of 0.89 over all words at 40 orders, below the 0.9 the pilot asked for. On the baseline model the other words agreed less than the ten largest, and 7 of the 8 largest were shared on average. Whitespace units glue some words, as in `shoot...she`: 1.2% of units, and 0.28% of gendered units (`results/word_units.json`). See [ADR 0003](docs/decisions/0003-shapley-attribution.md). Read single-word values in one bio as indications; #7 aggregates over bios.
+The values carry sampling noise and the figure shows no interval per word: the run stored one seed. In the pilot two seeds agreed on the main model with a median Spearman correlation of 0.89 over all words at 40 orders, below the 0.9 the pilot asked for. On the baseline model the other words agreed less than the ten largest, and 7 of the 8 largest were shared on average. Whitespace units glue some words, as in `shoot...she`: 1.2% of units, and 0.28% of gendered units (`results/word_units.json`). See [ADR 0003](docs/decisions/0003-shapley-attribution.md). Read single-word values in one bio as indications; the next section aggregates over bios.
+
+### F3: which words make up the score gap
+
+![Gendered words are 15% of the +5.4 model-bio gap; the surgeon gap is too small to split.](results/figures/f3_gap_words.png)
+
+In each showcase occupation the score gap is the mean log-odds score of the true occupation in women's bios minus that in men's bios (positive favours women), on the 1,721 showcase bios. Because Shapley values are efficient and the empty-bio score is the same for everyone, that gap is the sum, over words, of each word's mean value in women's bios minus its mean value in men's bios (a missing word counts 0). The sum matches the gap computed from the scores: the largest error over the 12 screener and occupation pairs is 3.1e-15. Definitions are in [ADR 0004](docs/decisions/0004-gap-decomposition.md). This says how the score splits, not what would happen if a word were edited; that is for the counterfactual swaps.
+
+F3 shows the main model in two occupations picked by a rule fixed beforehand: the male-dominated and the female-dominated showcase occupation with the largest absolute score gap (`results/f3_panels.json`). That is surgeon (-0.77) and model (+5.40). Each panel has the ten words with the largest absolute contribution, a dot for the value and a bar for the 95% bootstrap interval over bios, gendered words in the highlight colour. Under a deuteranopia simulation the highlight and grey stay apart ([check](docs/figure_checks/f3_deuteranopia.png)).
+
+In model bios, the ten largest words are 61% of the gap (95% CI 51% to 77%) and the gendered words 15% (12% to 19%). The largest single contributions are words of modelling profiles (`freeones`, `ranked`, `born`). Women's bios contain them in 35% to 46% of cases and men's bios in at most 8%, so most of each contribution comes from who uses the word, not from a different weight. The surgeon gap's interval includes 0, so its shares are not given: a share divides by the gap, and a gap that may be 0 makes the share meaningless.
+
+| Occupation | Main model: score gap | Top-10 share | Gendered share | Baseline model: score gap | Top-10 share | Gendered share |
+|---|---|---|---|---|---|---|
+| surgeon | -0.77 [-1.54, +0.08] | n/a | n/a | -1.84 [-3.32, -0.33] | 134% [70, 444] | 163% [84, 639] |
+| software engineer | -0.21 [-0.92, +0.51] | n/a | n/a | -0.39 [-1.35, +0.54] | n/a | n/a |
+| composer | -0.16 [-0.86, +0.54] | n/a | n/a | -0.99 [-2.02, +0.14] | n/a | n/a |
+| dietitian | +2.34 [+1.08, +3.68] | 70% [27, 117] | 39% [25, 86] | +5.02 [+3.35, +6.79] | 133% [105, 172] | 50% [36, 76] |
+| nurse | +1.31 [+0.32, +2.34] | 83% [25, 157] | 150% [83, 598] | +2.98 [+1.49, +4.50] | 196% [149, 312] | 134% [89, 266] |
+| model | +5.40 [+4.44, +6.40] | 61% [51, 77] | 15% [12, 19] | +11.72 [+10.02, +13.51] | 76% [68, 92] | 21% [18, 25] |
+
+n/a: the interval of the score gap includes 0. Score gaps are in log-odds, which are on a different scale in the two models, so compare the signs and the shares, not the sizes. Shares can pass 100% because the other words pull the opposite way. Intervals come from resampling bios within each gender, with the top ten re-selected in each resample (`results/gap_explained.json` also has the interval with the ten words fixed). Dietitian has 71 men's bios instead of 150. The bootstrap does not include the sampling noise of the Shapley values (seed agreement 0.889 on the main model, above), which the average over bios reduces but does not remove. Where the main model's gap can be split, gendered words are 15% to 39% of it in two occupations (dietitian, model) and 150% in nurse, whose interval is wide.
+
+Comparing the two models: in every occupation the top ten words of both include pronouns (`she`, `he`, `her`, `his`) and in nurse the titles `mr` (both) and `ms` (main model) or `dr` (baseline model). The two top-ten lists share 5 to 8 words. The baseline model's lists also hold function words (`and`, `of`, `in`, `the`) and generic words (`passionate`, `research`, `links`), and the main model's hold topic words (`computer`, `engineering`, `acoustic`, `piano`, `crna`, `npi`). These are the words of the largest contributions, not a test that either model relies on them.
 
 ## How to run
 
@@ -103,6 +126,8 @@ uv run python scripts/shapley_run.py     # writes attributions to HBX_ARTIFACTS 
 uv run python scripts/shapley_stability.py   # CPU, baseline model: results/shapley_stability.json
 uv run python scripts/word_units.py      # counts glued whitespace units: results/word_units.json
 uv run python scripts/figure_f2.py       # reads the saved attributions and predictions, writes F2 and results/f2_cases.json
+uv run python scripts/gap_decomposition.py   # CPU, 30 s: reads the saved attributions, writes results/gap_decomposition.csv and gap_explained.json
+uv run python scripts/figure_f3.py       # reads those two files, writes F3 and results/f3_panels.json
 ```
 
 The pilot took 11 minutes and the run 2 hours for the main model and 5 minutes for the baseline model on the RTX 3050.

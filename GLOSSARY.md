@@ -145,3 +145,33 @@ _Avoid_: random baseline
 **Deletion curve**:
 Model confidence as words are masked in order of attribution; a faithful attribution makes it fall faster than a random order.
 _Avoid_: ablation curve
+
+## Gap decomposition
+
+**Score gap**:
+In one occupation, the mean log-odds score of the full bios of women minus that of men, for the true occupation. Positive favours women. It is not the TPR gap: it uses scores, not decisions.
+_Avoid_: gender gap, bias score
+
+**Word**:
+In the gap decomposition, a word unit with punctuation at its ends removed and lower-cased (`data.word_core`); a unit with no letter or digit keeps its text. A bio's value for a word is the sum of the Shapley values of its occurrences; a word the bio lacks counts 0.
+_Avoid_: token, term
+
+**Word importance**:
+The mean Shapley value of a word over the bios of one occupation that contain it, reported only for words in at least 20 of them.
+_Avoid_: feature importance, global importance
+
+**Gap contribution**:
+The mean Shapley value of a word over the women's bios of an occupation minus the mean over the men's bios, a missing word counting 0. The contributions of all words add up to the score gap.
+_Avoid_: bias of a word, word effect
+
+**Top-10 share**:
+The sum of the gap contributions of the ten words with the largest absolute contribution, divided by the score gap. It can exceed 100% when the other words pull the other way. It is unstable when the interval of the score gap includes 0.
+_Avoid_: explained variance
+
+**Gendered share**:
+The sum of the gap contributions of the gendered words, divided by the score gap.
+_Avoid_: bias share
+
+**Usage part and weight part**:
+The split of a word's gap contribution into the difference in how often women's and men's bios contain it, and the difference in its mean value when present. They add up to the contribution.
+_Avoid_: frequency effect, coefficient effect
