@@ -411,3 +411,15 @@ def test_load_showcase_subset_stops_on_an_id_that_is_not_in_the_test_split(fake_
     ids_file.write_bytes(b"id\ntest-3\ntest-999\n")
     with pytest.raises(ValueError, match="test-999"):
         data.load_showcase_subset(ids_file)
+
+
+def test_showcase_groups_are_visited_in_sorted_order_whatever_the_order_of_the_rows(
+    fake_raw, monkeypatch
+):
+    # Architect women are rows 0-3 and accountant women rows 4-7, per_group = 2. Sorted order draws
+    # accountant first: default_rng(42) gives [4, 7] from rows 4-7, then [1, 3] from rows 0-3.
+    # Visiting in order of appearance would give [0, 3] and [5, 7].
+    monkeypatch.setattr(data, "_SHOWCASE_PER_GROUP", 2)
+    fake_raw(test=_raw([(f"bio {i}", 1 if i < 4 else 0, 1) for i in range(8)]))
+    subset = data.showcase_subset(data.load_split("test"), ["accountant", "architect"])
+    assert list(subset["id"]) == ["test-1", "test-3", "test-4", "test-7"]

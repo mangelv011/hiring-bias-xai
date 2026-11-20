@@ -74,3 +74,15 @@ def test_representations_run_in_bfloat16_on_the_gpu_and_come_back_as_float32(
     layers, final = model.representations(["alpha beta", "gamma delta"])
     assert set(seen) == {torch.bfloat16}
     assert layers.dtype == final.dtype == np.float32
+
+
+@pytest.mark.gpu
+def test_logits_run_in_bfloat16_on_the_gpu_and_come_back_as_float32(tiny_network, tiny_tokenizer):
+    from hiring_bias_xai.models import DebertaModel
+
+    model = DebertaModel(tiny_network().to("cuda"), tiny_tokenizer(64))
+    seen = []
+    model.network.classifier.register_forward_hook(lambda _m, _i, out: seen.append(out.dtype))
+    logits = model.logits(["alpha beta", "gamma delta"])
+    assert set(seen) == {torch.bfloat16}
+    assert logits.dtype == np.float32

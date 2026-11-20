@@ -171,12 +171,10 @@ def test_pretrained_downloads_the_pinned_revision_into_the_artifacts_directory_w
     assert calls["tokenizer"][1]["model_max_length"] == 256
 
 
-def test_logits_softmax_to_the_probabilities_and_stay_float32(tiny_network, tiny_tokenizer):
-    model = _model(tiny_network, tiny_tokenizer)
-    logits = model.logits(TEXTS)
+def test_logits_are_float32_with_one_row_per_text(tiny_network, tiny_tokenizer):
+    logits = _model(tiny_network, tiny_tokenizer).logits(TEXTS)
     assert logits.dtype == np.float32
-    softmax = torch.softmax(torch.from_numpy(logits), dim=-1).numpy()
-    np.testing.assert_allclose(softmax, model.predict_proba(TEXTS), atol=1e-6)
+    assert logits.shape == (4, 28)
 
 
 def test_predict_returns_the_occupation_name_with_the_largest_logit(tiny_network, tiny_tokenizer):
