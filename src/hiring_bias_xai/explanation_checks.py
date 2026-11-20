@@ -123,3 +123,23 @@ def rank_agreement(one: np.ndarray, other: np.ndarray, top: int = TOP) -> tuple[
     if len(one) < 2 or np.ptp(one) == 0 or np.ptp(other) == 0:
         return float("nan"), overlap
     return float(spearmanr(one, other).statistic), overlap
+
+
+def drop_without(
+    classifier: Classifier, words: Sequence[str], groups: Sequence[Sequence[int]], target: int
+) -> np.ndarray:
+    """For each group of word indices, the log-odds of the full bio minus the log-odds of the bio
+    with that group deleted. The full bio and all the groups go to the classifier in one call."""
+    texts = [" ".join(words)]
+    for group in groups:
+        removed = np.zeros(len(words), dtype=bool)
+        removed[list(group)] = True
+        texts.append(remove_words(words, removed, "delete"))
+    score = log_odds(classifier.logits(texts), target)
+    return score[0] - score[1:]
+
+
+def loo_values(classifier: Classifier, words: Sequence[str], target: int) -> np.ndarray:
+    """Leave-one-out occlusion: the value of each word is the fall in the log-odds of the target
+    occupation when that word alone is deleted."""
+    return drop_without(classifier, words, [[i] for i in range(len(words))], target)
