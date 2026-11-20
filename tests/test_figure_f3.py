@@ -164,6 +164,25 @@ def test_the_title_gives_the_gendered_share_of_a_stable_gap_and_says_when_a_gap_
     assert lines <= 2
 
 
+def test_the_title_covers_two_stable_gaps_and_two_small_ones_in_two_lines(f3):
+    stable = {**_MODEL_SUMMARY, "gendered_share": _shares(0.39, 0.25, 0.86)}
+    stable_gap = {**stable, "score_gap": _shares(2.34, 1.08, 3.68)}
+    both_stable = [
+        f3.Panel("nurse", "female_dominated", MODEL_WORDS, stable_gap),
+        f3.Panel("model", "female_dominated", MODEL_WORDS, _MODEL_SUMMARY),
+    ]
+    text, lines = _title_lines(f3.build(both_stable))
+    assert text == "Gendered words are 39% of the +2.3 nurse-bio gap and 15% of the +5.4 model-bio gap."
+    assert lines <= 2
+    both_small = [
+        f3.Panel("surgeon", "male_dominated", SURGEON_WORDS, _SURGEON_SUMMARY),
+        f3.Panel("composer", "male_dominated", SURGEON_WORDS, _SURGEON_SUMMARY),
+    ]
+    text, lines = _title_lines(f3.build(both_small))
+    assert text == "The surgeon and composer gaps are too small to split."
+    assert lines <= 2
+
+
 def _summary(gap):
     return {"score_gap": {"value": gap}}
 
