@@ -146,3 +146,11 @@ def test_patching_all_positions_at_the_last_layer_restores_everything_but_the_di
 def test_patch_pairs_refuses_pairs_of_different_token_length(model):
     with pytest.raises(ValueError, match="length"):
         patching.patch_pairs(model, ["alpha beta"], ["alpha beta gamma"], TRUE[:1])
+
+
+def test_patch_pairs_refuses_pairs_whose_lengths_differ_even_when_the_padded_batches_match(model):
+    # Each batch pads to 5 tokens, but the two texts of a batch swap their lengths.
+    with pytest.raises(ValueError, match="length"):
+        patching.patch_pairs(
+            model, ["alpha beta", "alpha beta gamma"], ["alpha beta gamma", "alpha beta"], TRUE[:2]
+        )
