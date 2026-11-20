@@ -10,6 +10,7 @@ import matplotlib.collections
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import matplotlib.text
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -352,3 +353,48 @@ def test_the_labels_of_panel_a_fit_inside_the_axes_to_the_right_of_the_last_laye
     box = top.get_window_extent()
     for label in ("main model", "pretrained", "TF-IDF", "occupation only", "majority class"):
         assert _text(top, label).get_window_extent().x1 <= box.x1 + 1, label
+
+
+def test_the_title_says_some_layers_when_only_one_probe_is_above_the_reference(
+    f6, probing, patching
+):
+    rows = probing["model"].isin(["pretrained", "deberta"]) & (probing["subset"] == "all")
+    probing.loc[rows, "ci_low"] = 0.0
+    probing.loc[rows & (probing["model"] == "pretrained") & (probing["layer"] == 0), "ci_low"] = 0.9
+    assert f6.title(probing, patching).startswith("Gender stays readable in only some layers")
+
+
+def test_the_title_says_not_readable_when_no_probe_is_above_the_reference(f6, probing, patching):
+    rows = probing["model"].isin(["pretrained", "deberta"]) & (probing["subset"] == "all")
+    probing.loc[rows, "ci_low"] = 0.0
+    assert f6.title(probing, patching).startswith(
+        "Gender is not readable beyond the occupation once the pronouns are removed, and"
+    )
+
+
+def test_the_note_on_the_last_layer_does_not_cover_a_curve_of_panel_b_with_seven_layers(f6):
+    # The curves of the real run: the note sits in the empty middle left of panel b.
+    shares = {
+        "differing": [1.0, 0.964, 0.908, 0.752, 0.419, 0.167, 0.0],
+        "others": [0.0, 0.034, 0.094, 0.239, 0.558, 0.821, 1.0],
+    }
+    patching = pd.DataFrame(
+        [
+            {"layer": layer, "position_set": name, "mean": v, "mean_ci_low": v, "mean_ci_high": v}
+            for name, values in shares.items()
+            for layer, v in enumerate(values)
+        ]
+    )
+    rows = [
+        _row(model, layer, "all", 0.6) for model in ("pretrained", "deberta") for layer in range(7)
+    ] + [_row(name, None, "all", accuracy) for name, accuracy in REFERENCES.items()]
+    figure = f6.build(pd.DataFrame(rows), patching)
+    figure.canvas.draw()
+    _, bottom = _panels(figure)
+    note = next(t for t in bottom.texts if "[CLS]" in t.get_text())
+    box = note.get_window_extent()
+    for line in bottom.lines:
+        xs, ys = line.get_data()
+        grid = np.linspace(min(xs), max(xs), 200)
+        for x, y in bottom.transData.transform(np.column_stack([grid, np.interp(grid, xs, ys)])):
+            assert not (box.x0 <= x <= box.x1 and box.y0 <= y <= box.y1), line.get_label()
