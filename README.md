@@ -24,7 +24,7 @@ Expensive explanations run on a fixed showcase subset of the test bios: up to 15
 
 ## Status
 
-Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). The figure style ([docs/figure_guidelines.md](docs/figure_guidelines.md)), the gap statistics (`python scripts/gap_statistics.py`, results in `results/gap_statistics.json`) and figure F1 (`python scripts/figure_f1.py`). The Shapley code is in `src/hiring_bias_xai/attribution.py`, with two scripts: `scripts/shapley_pilot.py` (removal and cost pilots, writes `results/shapley_pilot.json`) and `scripts/shapley_run.py` (both models on the showcase subset, resumable, writes `results/shapley_summary.json`). Their results are not in yet; see [ADR 0003](docs/decisions/0003-shapley-attribution.md).
+Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). The figure style ([docs/figure_guidelines.md](docs/figure_guidelines.md)), the gap statistics (`python scripts/gap_statistics.py`, results in `results/gap_statistics.json`) and figure F1 (`python scripts/figure_f1.py`). Word-level Shapley values (`src/hiring_bias_xai/attribution.py`) for both models on the showcase subset: pilots in `scripts/shapley_pilot.py` (`results/shapley_pilot.json`), the resumable run in `scripts/shapley_run.py` (`results/shapley_summary.json`, attributions in `HBX_ARTIFACTS`), a seed-agreement check in `scripts/shapley_stability.py`, and figure F2 (`python scripts/figure_f2.py`). The pilot chose `delete` removal and 40 random orders per bio; seed agreement stayed below the 0.9 rule (0.889). See [ADR 0003](docs/decisions/0003-shapley-attribution.md). The aggregation by gender is not done yet (#7).
 
 ## Results so far
 
@@ -62,6 +62,16 @@ No shuffle reached the observed RMS TPR gap, so the p-value is the smallest this
 
 The per-occupation gaps are descriptive. Only the Holm-adjusted ones support a claim that a gap is not zero. For the main model they are: women favoured in dietitian, model, nurse, paralegal, physician and teacher; men favoured in attorney, chiropractor, pastor and surgeon. The other 18 occupations show no gap at that level; that does not show their gaps are zero.
 
+### F2: two bios, and the words that moved the score
+
+![Gendered words pushed the main model to photographer by 4.3 log-odds in its largest gender-driven error and carry 21% of the weight in its most gendered correct call.](results/figures/f2_shapley_cases.png)
+
+Two showcase-subset bios, main model, `delete` removal, 40 random word orders (each with its reverse) per bio. Each panel shows the bio with its eight largest words underlined, and a bar per word: its Shapley value for the predicted occupation, in log-odds, positive towards it. Gendered words, the ones `data.scrub` removes, are in the highlight colour. Under a deuteranopia simulation they stay apart from the grey ([check](docs/figure_checks/f2_deuteranopia.png)).
+
+The two bios come from rules, not from a hand pick. Error: among the bios the model gets wrong, the one whose gendered words add the most to the log-odds of the predicted occupation (`test-70337`, a fan-fiction page labelled model, predicted photographer, +4.35). Correct: among the bios it gets right, the one where gendered words carry the largest share of the total absolute value (`test-94741`, a nurse, 21%). Bios with a run of six or more digits are excluded, because they may hold a registry number. Both are extremes of their groups (`results/f2_cases.json`), not typical cases.
+
+The values carry sampling noise and the figure shows no interval per word: the run stored one seed. In the pilot two seeds agreed on the main model with a median Spearman correlation of 0.89 over all words at 40 orders, below the 0.9 the pilot asked for. On the baseline model the other words agreed less than the ten largest, and 7 of the 8 largest were shared on average ([ADR 0003](docs/decisions/0003-shapley-attribution.md)). Read single-word values in one bio as indications; #7 aggregates over bios.
+
 ## How to run
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build.
@@ -90,7 +100,11 @@ The Shapley run needs the GPU and nothing else running. Run the pilots first, th
 ```bash
 uv run python scripts/shapley_pilot.py   # writes results/shapley_pilot.json
 uv run python scripts/shapley_run.py     # writes attributions to HBX_ARTIFACTS and results/shapley_summary.json
+uv run python scripts/shapley_stability.py   # CPU, baseline model: results/shapley_stability.json
+uv run python scripts/figure_f2.py       # reads the saved attributions and predictions, writes F2 and results/f2_cases.json
 ```
+
+The pilot took 11 minutes and the run 2 hours for the main model and 5 minutes for the baseline model on the RTX 3050.
 
 `shapley_run.py` skips every bio whose attribution file already exists and matches the pilot's settings, so a crashed run restarts where it stopped.
 

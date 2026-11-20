@@ -1,6 +1,6 @@
 # 0003. Attribution: word-level Shapley values
 
-Status: accepted. The pilot results are filled in after the pilots run.
+Status: accepted. The pilots and the run are done; results are at the end.
 
 ## Context
 
@@ -58,4 +58,49 @@ A smoke run on 4 showcase bios (40 to 103 words) with 5 permutations took 0.66 s
 
 ## Pilot results
 
-To be filled in after the pilots and the run.
+Files: `results/shapley_pilot.json` (both pilots, with their rules), `results/shapley_stability.json`, `results/shapley_summary.json`, `results/f2_cases.json`.
+
+**Removal pilot.** Main model, 200 dev bios, unperturbed macro-F1 0.705. Dropping 30% of the words, 5 draws:
+
+| Removal | Mean macro-F1 drop | Draws |
+|---|---|---|
+| `delete` | 0.088 | 0.053, 0.114, 0.078, 0.132, 0.065 |
+| `unk` | 0.132 | 0.094, 0.164, 0.173, 0.179, 0.051 |
+
+`delete` disturbs the model less, so it is the primary removal and `unk` is the comparison in #9. The draws overlap: `unk` was worse in four of the five draws, and the gap is 0.04 on 200 bios, so the choice is supported, not settled.
+
+**Cost pilot.** Main model, 50 showcase-subset bios, `delete`, seeds 0 and 1:
+
+| Permutations | Median Spearman between seeds | Seconds per bio | Evaluations per bio |
+|---|---|---|---|
+| 5 | 0.607 | 0.45 | 534 |
+| 10 | 0.717 | 0.88 | 1,061 |
+| 20 | 0.834 | 1.73 | 2,108 |
+| 40 | 0.889 | 3.42 | 4,178 |
+
+**The 0.9 rule was not met.** No count reached a median of 0.9; 40 came closest at 0.889. The pilot chose 40 under its fallback (the largest count tried), and the rule's other branch did not apply: the projection for 1,721 bios was 1.64 h, under the 3 h limit, so no fallback to leave-one-out occlusion. The first pilot tried 5, 10 and 20 only; 20 reached 0.834 with a projection of 0.83 h, so 40 was added before looking at more data. The full run took 7,076 s (1.97 h) for the main model, 20% above the projection, and 272 s for the baseline model, 4,489 evaluations per bio, 1,721 bios each, mean 58.2 words. The efficiency error is at most 9e-15 and 1.4e-14.
+
+**What the shortfall means.** The Spearman correlation counts all words of a bio, and most have values near zero. Two seeds order those words differently while agreeing on the words that matter. The check on the baseline model (`scripts/shapley_stability.py`, same 50 bios and seeds, `delete`) supports this only partly:
+
+| Permutations | All words | Top 10 words by size | Other words | Overlap of the 8 largest |
+|---|---|---|---|---|
+| 5 | 0.821 | 0.879 | 0.679 | 0.72 |
+| 10 | 0.893 | 0.915 | 0.797 | 0.78 |
+| 20 | 0.925 | 0.927 | 0.863 | 0.83 |
+| 40 | 0.962 | 0.958 | 0.931 | 0.88 |
+
+The other words agree less than the top ten at every count, but at 40 permutations the gap is 0.03, and on average 7 of the 8 largest words are the same in both seeds. Two caveats. The baseline model is more stable than the main model (0.962 against 0.889 for all words at 40), so these numbers are an upper bound for the main model, whose two-seed values for the run are not stored and were not rechecked. And the top-10 correlation has only ten words, so it is noisy per bio.
+
+So for the main model, per-word values, and especially the ranking of low-value words, carry sampling noise that a single bio does not average out. The word-level claims that follow need many bios: #7 aggregates over the 1,721 bios and over word groups such as gendered words, where the noise averages out, and #9 reports stability. F2 shows single bios and says so in its caption.
+
+**Throughput.** The table above is the measurement behind batch 64. The pilot's own peak allocated memory on the main model was 1,142 MB. The run had no driver errors.
+
+## F2: how the two bios are picked
+
+F2 shows two showcase-subset bios, main model, with the eight words of largest absolute Shapley value. Values are recomputed for the predicted occupation from the stored logits, so the run's target (the true occupation) does not limit the choice. Gendered words are those `data.scrub` removes, matched inside a token, so `shoot...she` counts. Rules, fixed before looking at the candidates:
+
+- **Error case**: among the bios the main model gets wrong, the one where the gendered words add the most to the log-odds of the predicted occupation (largest sum of their Shapley values, above zero).
+- **Correct case**: among the bios it gets right, the one where gendered words carry the largest share of the total absolute Shapley value.
+- Ties go to the bio that comes first in the subset. A bio with a run of 6 or more digits is never picked, because it may hold a licence or registry number; the first correct-case candidate by share held an NPI number and a full name. A bio is skipped when the stored full-bio logits predict another occupation than the saved prediction (1 of 1,721).
+
+Picks (`results/f2_cases.json`): error `test-70337`, true model, predicted photographer, gendered push +4.35; correct `test-94741`, nurse, gendered share 0.206. The error bio is a fan-fiction page with a wrong label, which says something about label noise in the data and not only about the model. The rules do not look at the text. Of 429 errors before the skip, 425 contain a gendered word, so the rule picks the extreme of a common pattern, not a typical error. F2 shows no interval per word, because the run stored one seed.
