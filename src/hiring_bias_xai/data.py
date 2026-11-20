@@ -70,7 +70,7 @@ def _load_raw(split: str) -> pd.DataFrame:
 
 # Quotas are floor(n * size / total); leftover bios go to the largest remainders, ties to
 # the first group in sorted order. Each group draws from one seeded generator, in that order.
-def _stratified_sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
+def stratified_sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
     if n > len(df):
         raise ValueError(f"cannot sample {n} bios from a split of {len(df)}")
     groups = df.groupby(["occupation", "gender"])
@@ -111,7 +111,7 @@ def load_split(split: str, variant: str = "original") -> pd.DataFrame:
         }
     )
     if split in _SUBSAMPLE_SIZES:
-        df = _stratified_sample(df, _SUBSAMPLE_SIZES[split])
+        df = stratified_sample(df, _SUBSAMPLE_SIZES[split])
     return df
 
 
