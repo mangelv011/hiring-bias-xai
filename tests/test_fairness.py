@@ -211,3 +211,50 @@ def test_a_thousand_resamples_of_a_full_test_split_take_well_under_a_minute():
     started = time.perf_counter()
     fairness.evaluate(y_true, y_pred, gender, dict.fromkeys(occupations, 0.5), n_boot=1000)
     assert time.perf_counter() - started < 60
+
+
+def _labels():
+    y_true, gender, y_pred = zip(*ROWS, strict=True)
+    return list(y_true), list(gender), list(y_pred)
+
+
+def test_the_paired_difference_is_the_metric_of_the_second_predictions_minus_the_first():
+    # The perfect predictions score accuracy 1 and macro-F1 1 on every bio and have no gap;
+    # the others get 9 of 12 right.
+    y_true, gender, y_pred = _labels()
+    change = fairness.paired_difference(y_true, y_pred, y_true, gender, SHARE_WOMEN)
+    before = fairness.evaluate(y_true, y_pred, gender, SHARE_WOMEN)
+    assert change["accuracy"]["value"] == pytest.approx(1 - before["accuracy"]["value"])
+    assert change["macro_f1"]["value"] == pytest.approx(1 - before["macro_f1"]["value"])
+    assert change["rms_tpr_gap"]["value"] == pytest.approx(0 - before["rms_tpr_gap"]["value"])
+
+
+def test_the_paired_difference_has_a_percentile_interval_around_its_value():
+    y_true, gender, y_pred = _labels()
+    change = fairness.paired_difference(y_true, y_pred, y_true, gender, SHARE_WOMEN, n_boot=200)
+    for entry in change.values():
+        assert set(entry) >= {"value", "ci_low", "ci_high"}
+        assert entry["ci_low"] <= entry["ci_high"]
+
+
+def test_both_predictions_are_resampled_with_the_same_bios_so_a_tiny_change_has_a_tiny_interval():
+    # 2,000 bios, one gets better: in every resample the accuracy changes by (times that bio is
+    # drawn) / 2000, at most a few thousandths. Two independent resamples of the accuracy
+    # would each move by about 0.01.
+    y_true = ["nurse"] * 2000
+    gender = ["female", "male"] * 1000
+    before = ["nurse"] * 1000 + ["surgeon"] * 1000
+    after = ["nurse"] * 1001 + ["surgeon"] * 999
+    change = fairness.paired_difference(y_true, before, after, gender, {"nurse": 0.5}, n_boot=200)[
+        "accuracy"
+    ]
+    assert change["value"] == pytest.approx(1 / 2000)
+    assert 0 <= change["ci_low"] and change["ci_high"] < 0.003
+
+
+def test_the_paired_difference_is_json_ready_and_repeatable():
+    y_true, gender, y_pred = _labels()
+    a = fairness.paired_difference(y_true, y_pred, y_true, gender, SHARE_WOMEN, n_boot=50)
+    b = fairness.paired_difference(y_true, y_pred, y_true, gender, SHARE_WOMEN, n_boot=50)
+    assert a == b
+    json.dumps(a)
