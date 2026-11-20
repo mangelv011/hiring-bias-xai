@@ -8,6 +8,7 @@ import pytest
 from fakes import BagOfWords
 
 from hiring_bias_xai import attribution, data
+from hiring_bias_xai import explanation_checks as checks
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "stability.py"
 NURSE = data.OCCUPATIONS.index("nurse")
@@ -215,3 +216,49 @@ def test_a_run_made_on_other_words_than_the_main_run_stops_the_check(run):
     run.save("deberta-seed7", BagOfWords({"nurse": WEIGHTS}), other)
     with pytest.raises(ValueError, match="test-1"):
         run()
+
+
+def test_an_interval_runs_from_its_lower_to_its_upper_bound(run):
+    pairs = _pairs([0.2, 0.5, 0.9, 0.7, 0.4, 0.6], [0.1, 0.5, 0.9, 0.7, 0.3, 0.6])
+    check = run.module._check("seed", pairs)
+    for metric in ("spearman", "top10_overlap"):
+        for statistic in ("mean", "median"):
+            low, high = check[metric][f"{statistic}_ci"]
+            assert low < high
+
+
+def test_a_run_on_the_same_words_but_for_another_occupation_stops_the_check(run):
+    (other,) = attribution.shapley(
+        BagOfWords({"nurse": WEIGHTS}), [BIOS[1][1]], ["surgeon"], 3, "delete", 0
+    )
+    attribution.save(attribution.path("deberta-unk", "test-1"), other)
+    with pytest.raises(ValueError, match="test-1"):
+        run()
+
+
+def test_the_settings_record_the_seeds_the_resamples_and_the_target(run):
+    record = run()
+    assert record["settings"]["bootstrap_seed"] == 42
+    assert record["settings"]["n_boot"] == 1000
+    assert record["settings"]["target"] == "true occupation"
+    assert record["sample"]["seed"] == 42
+
+
+def test_the_example_names_the_true_occupation_and_lists_the_largest_words_by_absolute_value(run):
+    saved = attribution.load(attribution.path("deberta", "test-2"))
+    shapley = np.arange(1.0, 17.0)
+    shapley[4] = -50.0  # the largest in absolute value, but negative
+    case = checks.Case("test-2", saved.words, shapley, np.zeros(16))
+    example = run.module._explain(case, 0.1, run.fake)
+    assert example["true_occupation"] == "nurse"
+    assert example["word"] == saved.words[4]
+    assert [entry["shapley"] for entry in example["top_words"]] == [
+        -50.0,
+        16.0,
+        15.0,
+        14.0,
+        13.0,
+        12.0,
+        11.0,
+        10.0,
+    ]

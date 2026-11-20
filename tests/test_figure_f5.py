@@ -394,3 +394,49 @@ def test_each_row_marks_the_pass_threshold_of_both_measures(figure):
         [(0.7, -0.18), (0.9, 0.82), (0.8, 1.82), (0.5, 0.18), (0.7, 1.18), (0.5, 2.18)]
     )
     assert "threshold" in bottom.get_xlabel()
+
+
+def test_curve_labels_stay_apart_when_curves_end_below_zero(f5, curves, areas, stability):
+    below = curves.copy()
+    ends = (below["fraction"] == 0.5) & (below["screener"] == "deberta")
+    below.loc[ends & (below["order"] == "random"), "mean_logodds_drop"] = -2.9
+    below.loc[ends & (below["order"] == "lerf"), "mean_logodds_drop"] = -3.0
+    figure = f5.build(below, areas, stability)
+    top, _ = _axes(figure)
+    ys = sorted(t.get_position()[1] for t in top.texts)
+    span = 8.0 - (-3.0)  # the MoRF end is 8, the lowest end -3
+    assert min(b - a for a, b in zip(ys, ys[1:], strict=False)) >= f5.LABEL_GAP * span - 1e-9
+    plt.close(figure)
+
+
+def test_a_value_on_its_threshold_is_labelled_to_the_right_of_its_dot(f5, curves, areas, stability):
+    stability["checks"]["seed"]["spearman"]["median"] = 0.9
+    stability["checks"]["seed"]["spearman"]["median_ci"] = [0.899, 0.901]
+    stability["checks"]["seed"]["thresholds"]["median_spearman"] = 0.9
+    figure = f5.build(curves, areas, stability)
+    figure.canvas.draw()
+    _, bottom = _axes(figure)
+    label = next(t for t in bottom.texts if t.get_text() == "0.90")
+    dot_x = bottom.transData.transform((0.9, 0))[0]
+    assert label.get_window_extent().x0 > dot_x
+    plt.close(figure)
+
+
+def test_the_measure_names_stand_on_the_rows_of_the_last_check(figure):
+    _, bottom = _axes(figure)
+    last_row = {
+        round(bottom.transData.transform((0, y))[1])
+        for y in (2 - 0.18, 2 + 0.18)  # the correlation and overlap dots of the third row
+    }
+    names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "top-10 overlap")]
+    centres = {round(t.get_window_extent().get_points()[:, 1].mean()) for t in names}
+    assert all(any(abs(c - y) <= 3 for y in last_row) for c in centres)
+
+
+def test_the_dots_are_drawn_above_the_threshold_marks_and_lines(figure):
+    _, bottom = _axes(figure)
+    dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
+    lines = [c for c in bottom.collections if isinstance(c, matplotlib.collections.LineCollection)]
+    assert min(d.get_zorder() for d in dots) > max(
+        [line.get_zorder() for line in bottom.lines] + [c.get_zorder() for c in lines]
+    )
