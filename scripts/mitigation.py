@@ -81,13 +81,31 @@ def _predict(condition: str, results_dir: Path) -> None:
     print(f"condition {condition}: {len(test)} bios in {seconds:.0f} s", flush=True)
 
 
+def _with_both_genders(frame: pd.DataFrame) -> pd.Series:
+    """Whether each bio belongs to an occupation that has women and men among `frame`."""
+    return frame.groupby("occupation")["gender"].transform("nunique") == 2
+
+
 def _block(frame: pd.DataFrame, predicted: pd.Series, share_women: dict, occupations: list) -> dict:
-    """Metrics of one set of bios: macro-F1, accuracy, RMS TPR gap with its null, showcase gaps."""
+    """Metrics of one set of bios: macro-F1, accuracy, RMS TPR gap with its null, showcase gaps.
+
+    Macro-F1 and accuracy use every bio. The gaps use the occupations that have both genders in
+    `frame`: a gap needs a rate for women and one for men.
+    """
     report = fairness.evaluate(
         frame["occupation"], predicted, frame["gender"], share_women, n_boot=N_BOOT
     )
+    both = _with_both_genders(frame)
+    gap_frame, gap_predicted = frame[both], predicted[both]
+    gap_report = (
+        report
+        if both.all()
+        else fairness.evaluate(
+            gap_frame["occupation"], gap_predicted, gap_frame["gender"], share_women, n_boot=N_BOOT
+        )
+    )
     null = gap_statistics.rms_permutation_test(
-        frame["occupation"], predicted, frame["gender"], n_perm=N_PERM, seed=SEED
+        gap_frame["occupation"], gap_predicted, gap_frame["gender"], n_perm=N_PERM, seed=SEED
     )
     null = {
         "mean": null["null_mean"],
@@ -99,9 +117,33 @@ def _block(frame: pd.DataFrame, predicted: pd.Series, share_women: dict, occupat
         "n_bios": len(frame),
         "macro_f1": report["macro_f1"],
         "accuracy": report["accuracy"],
-        "rms_tpr_gap": report["rms_tpr_gap"] | {"null": null},
-        "tpr_gap": {o: report["per_occupation"][o]["tpr_gap"] for o in occupations},
+        "rms_tpr_gap": gap_report["rms_tpr_gap"] | {"null": null},
+        "tpr_gap": {
+            o: gap_report["per_occupation"][o]["tpr_gap"]
+            if o in gap_report["per_occupation"]
+            else None
+            for o in occupations
+        },
     }
+
+
+def _change(rest: pd.DataFrame, before: pd.Series, after: pd.Series, share_women: dict) -> dict:
+    """Paired change of accuracy and macro-F1 (all bios) and of the RMS gap (both-gender jobs)."""
+    change = fairness.paired_difference(
+        rest["occupation"], before, after, rest["gender"], share_women, n_boot=N_BOOT
+    )
+    both = _with_both_genders(rest)
+    if both.all():
+        return change
+    gap = fairness.paired_difference(
+        rest["occupation"][both],
+        before[both],
+        after[both],
+        rest["gender"][both],
+        share_women,
+        n_boot=N_BOOT,
+    )
+    return change | {"rms_tpr_gap": gap["rms_tpr_gap"]}
 
 
 def _share_of_bios(units: list[list[str]], has) -> float:
@@ -129,13 +171,8 @@ def _report(results_dir: Path) -> None:
     for condition, description in CONDITIONS.items():
         block = _block(rest, predictions[condition][outside], share_women, occupations)
         if condition != "a":
-            block["change_from_a"] = fairness.paired_difference(
-                rest["occupation"],
-                predictions["a"][outside],
-                predictions[condition][outside],
-                rest["gender"],
-                share_women,
-                n_boot=N_BOOT,
+            block["change_from_a"] = _change(
+                rest, predictions["a"][outside], predictions[condition][outside], share_women
             )
         conditions[condition] = description | {"outside_showcase": block}
         if condition != "e":
@@ -157,6 +194,9 @@ def _report(results_dir: Path) -> None:
                 "test_bios": len(test),
                 "showcase_bios": int((~outside).sum()),
                 "bios_scored": len(rest),
+                "occupations_left_out_of_gap": sorted(
+                    set(rest["occupation"][~_with_both_genders(rest)])
+                ),
             },
             "proxy_words": words,
             "bios_changed": {
