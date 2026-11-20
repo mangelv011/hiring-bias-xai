@@ -1,4 +1,4 @@
-"""Counterfactual swaps of pronouns and name headers."""
+"""Gender swap of a bio and the residual cues that the swap leaves in it."""
 
 import functools
 import re
@@ -106,8 +106,6 @@ RESIDUAL_NOUNS = (
 )  # fmt: skip
 
 _RESIDUAL_NOUN = re.compile(r"\b(?:" + "|".join(RESIDUAL_NOUNS) + r")\b", re.IGNORECASE)
-
-
 _CAPITALISED_WORD = re.compile(r"\b[A-Z][a-z]+\b")
 
 
@@ -127,8 +125,8 @@ def first_names_in(text: str, first_names: Collection[str]) -> list[str]:
 
 
 def residual_cues(text: str, first_names: Collection[str] = ()) -> list[str]:
-    """The residual cues in the text, each once: the gendered nouns of `RESIDUAL_NOUNS`
-    lower-cased, then the first names of `first_names` as written, in alphabetical order.
+    """The residual cues in the text, each once, in alphabetical order: the nouns of
+    `RESIDUAL_NOUNS` lower-cased and the first names of `first_names` as written.
     """
     nouns = {match.group().lower() for match in _RESIDUAL_NOUN.finditer(text)}
     return sorted(nouns | set(first_names_in(text, first_names)))
