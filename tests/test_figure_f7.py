@@ -218,3 +218,19 @@ def test_main_saves_the_figure_from_mitigation_json(f7, report, tmp_path):
     ]
     assert fig._suptitle.get_text() == f7.title(copy.deepcopy(report))
     plt.close(fig)
+
+
+def test_a_change_whose_interval_only_touches_zero_is_not_called_a_fall(f7, report):
+    d = report["conditions"]["d"]["outside_showcase"]["change_from_a"]
+    d["rms_tpr_gap"] = {"value": -0.01, "ci_low": -0.02, "ci_high": 0.0}
+    d["macro_f1"] = {"value": 0.01, "ci_low": 0.0, "ci_high": 0.02}
+    assert f7.title(report) == (
+        "Scrubbing pronouns does not change the gender gap (0.14 to 0.12) "
+        "and leaves macro-F1 unchanged"
+    )
+
+
+def test_the_chance_band_is_a_translucent_grey(figure):
+    (band,) = [p for p in _ax(figure).patches if isinstance(p, matplotlib.patches.Rectangle)]
+    assert 0 < band.get_alpha() < 1
+    assert _hex([band.get_facecolor()[:3]]) == [plotting.NEUTRAL]

@@ -154,3 +154,13 @@ def test_masking_joins_what_is_left_with_single_spaces():
 
 def test_masking_with_an_empty_list_changes_only_the_spacing():
     assert proxy_words.mask_words("a  b", set()) == "a b"
+
+
+def test_a_smoothed_ratio_of_exactly_three_is_enough():
+    # (0.5 + 0.01) / (0.16 + 0.01) is 3 in floating point.
+    assert _words(_table(("edge", 1.0, 0.5, 1.5, False, (0.5, 0.16)))) == ["edge"]
+
+
+def test_the_smoothing_pulls_the_ratio_of_two_small_shares_towards_one():
+    # Unsmoothed 0.31 / 0.10 is 3.1; smoothed (0.31 + 0.01) / (0.10 + 0.01) is 2.9.
+    assert _words(_table(("shrunk", 1.0, 0.5, 1.5, False, (0.31, 0.10)))) == []

@@ -141,3 +141,17 @@ def test_the_script_prints_one_progress_line_per_evaluation_and_the_training_tim
 def test_the_head_is_initialised_after_seeding_the_global_generators(toy):
     toy(EPOCHS=1)
     assert toy.draws == [torch.rand(1, generator=torch.Generator().manual_seed(42)).item()]
+
+
+def test_the_network_is_moved_to_the_device_of_the_script(toy, monkeypatch):
+    moved = []
+    real = DebertaModel.pretrained.__func__
+
+    def pretrained(cls, max_length, batch_size=32):
+        model = real(cls, max_length, batch_size)
+        model.network.to = lambda device: moved.append(device) or model.network
+        return model
+
+    monkeypatch.setattr(DebertaModel, "pretrained", classmethod(pretrained))
+    toy(EPOCHS=1, DEVICE="cuda:0")
+    assert moved == ["cuda:0"]
