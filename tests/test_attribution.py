@@ -407,3 +407,16 @@ def test_a_path_that_cannot_be_read_as_a_file_is_a_value_error(artifacts):
     target.mkdir(parents=True)  # a directory where the file should be
     with pytest.raises(ValueError, match="test-1.npz"):
         attribution.load(target)
+
+
+def test_a_screener_name_may_carry_a_variant_after_a_dash(artifacts):
+    expected = artifacts / "attributions" / "deberta-seed7" / "test-1.npz"
+    assert attribution.path("deberta-seed7", "test-1") == expected
+
+
+@pytest.mark.parametrize(
+    "screener", ["deberta-", "-seed7", "deberta--seed7", "deberta-Seed7", "deberta-../x", "a-b/c"]
+)
+def test_a_variant_must_be_lowercase_letters_or_digits_after_one_dash(artifacts, screener):
+    with pytest.raises(ValueError, match="screener"):
+        attribution.path(screener, "test-1")
