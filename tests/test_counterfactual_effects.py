@@ -69,3 +69,12 @@ def test_the_toward_share_is_taken_over_the_flips_and_empty_without_flips():
     none = effects.summarise(np.zeros(5, dtype=bool), np.zeros(5), np.zeros(5, dtype=bool), 20)
     assert np.isnan(none["toward_share"])
     assert np.isnan(none["toward_share_ci_low"])
+
+
+def test_wilson_interval_matches_known_values():
+    low, high = effects.wilson_interval(5, 50)
+    assert (round(low, 4), round(high, 4)) == (0.0435, 0.2136)
+    low, high = effects.wilson_interval(0, 50)
+    assert (low, round(high, 4)) == (0.0, 0.0713)
+    low, high = effects.wilson_interval(50, 50)
+    assert (round(low, 4), high) == (0.9287, 1.0)
