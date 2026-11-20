@@ -7,13 +7,16 @@ absolute score gap of the main model (mean score of women's bios minus men's, `s
 contribution to that gap, with their 95% bootstrap intervals.
 """
 
+import json
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import NamedTuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from hiring_bias_xai import plotting
+from hiring_bias_xai import plotting, results
+from hiring_bias_xai.config import RESULTS_DIR
 
 DARK = "#333333"
 ROW_INCHES = 0.17
@@ -103,6 +106,15 @@ def build(panels: Sequence[Panel]):
     return fig
 
 
+SCREENER = "deberta"
+FIGURE_NAME = "f3_gap_words"
+RULE = (
+    "In each of the two kinds of showcase occupation (male-dominated, female-dominated), the "
+    "occupation with the largest absolute score gap of the main model; ties go to the "
+    "occupation listed first."
+)
+
+
 def pick(summaries: Mapping[str, dict], showcase: Mapping[str, Sequence[dict]]) -> dict:
     """For each kind of showcase occupation, the one with the largest absolute score gap.
 
@@ -116,3 +128,31 @@ def pick(summaries: Mapping[str, dict], showcase: Mapping[str, Sequence[dict]]) 
         )
         for kind in KINDS
     }
+
+
+def main(results_dir: Path = RESULTS_DIR):
+    showcase = json.loads((results_dir / "showcase_occupations.json").read_text())
+    explained = json.loads((results_dir / "gap_explained.json").read_text())
+    summaries = explained["screeners"][SCREENER]
+    picked = pick(summaries, showcase)
+    table = pd.read_csv(results_dir / "gap_decomposition.csv")
+    table = table[table["screener"] == SCREENER]
+    panels = [
+        Panel(
+            picked[kind],
+            kind,
+            table[(table["occupation"] == picked[kind]) & table["top"]],
+            summaries[picked[kind]],
+        )
+        for kind in KINDS
+    ]
+    fig = build(panels)
+    plotting.save(fig, FIGURE_NAME, results_dir / "figures")
+    results.write_json(
+        results_dir / "f3_panels.json", {"rule": RULE, "picked": picked, "title": title(panels)}
+    )
+    return fig
+
+
+if __name__ == "__main__":
+    main()
