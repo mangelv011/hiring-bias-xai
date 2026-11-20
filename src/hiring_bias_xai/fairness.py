@@ -41,6 +41,18 @@ def _summary(value, resampled):
     return summary | {"n_dropped": n_dropped} if n_dropped else summary
 
 
+def _encode(y_true, y_pred, gender, share_women):
+    """The sorted occupations of `y_true` and the arrays `_metrics` reads."""
+    y_true, y_pred, gender = np.asarray(y_true), np.asarray(y_pred), np.asarray(gender)
+    occupations = np.unique(y_true)
+    true = np.searchsorted(occupations, y_true)
+    pred = np.searchsorted(occupations, y_pred).clip(max=len(occupations) - 1)
+    pred = np.where(occupations[pred] == y_pred, pred, len(occupations))
+    female = gender == "female"
+    shares = np.array([share_women[occupation] for occupation in occupations])
+    return occupations, true, pred, female, shares
+
+
 def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> dict:
     """Accuracy, macro-F1, TPR gap per occupation, RMS TPR gap and gap-share correlation.
 
@@ -49,14 +61,7 @@ def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> 
     for the metrics that depend on it and is ignored for them; `n_dropped` counts those
     resamples and appears only when there are some.
     """
-    y_true, y_pred, gender = np.asarray(y_true), np.asarray(y_pred), np.asarray(gender)
-    occupations = np.unique(y_true)
-    true = np.searchsorted(occupations, y_true)
-    pred = np.searchsorted(occupations, y_pred).clip(max=len(occupations) - 1)
-    pred = np.where(occupations[pred] == y_pred, pred, len(occupations))
-    female = gender == "female"
-    shares = np.array([share_women[occupation] for occupation in occupations])
-
+    occupations, true, pred, female, shares = _encode(y_true, y_pred, gender, share_women)
     n = len(true)
     point = _metrics(true, pred, female, shares)
     rng = np.random.default_rng(seed)
@@ -80,3 +85,32 @@ def evaluate(y_true, y_pred, gender, share_women, *, n_boot=1000, seed=SEED) -> 
         name: _summary(point[name], resampled[name])
         for name in ("accuracy", "macro_f1", "rms_tpr_gap", "gap_share_pearson")
     } | {"per_occupation": per_occupation}
+
+
+def paired_difference(
+    y_true, pred_before, pred_after, gender, share_women, *, n_boot=1000, seed=SEED
+) -> dict:
+    """How accuracy, macro-F1 and RMS TPR gap change from `pred_before` to `pred_after`.
+
+    Each entry is `{"value", "ci_low", "ci_high"}` of the metric after minus the metric before,
+    with a 95% percentile interval from `n_boot` resamples. Both predictions are scored on the
+    same resampled bios, so the interval is that of the change, much narrower than the two
+    intervals of `evaluate` put together when the predictions mostly agree.
+    """
+    _, true, before, female, shares = _encode(y_true, pred_before, gender, share_women)
+    after = _encode(y_true, pred_after, gender, share_women)[2]
+    names = ("accuracy", "macro_f1", "rms_tpr_gap")
+    point_before = _metrics(true, before, female, shares)
+    point_after = _metrics(true, after, female, shares)
+    rng = np.random.default_rng(seed)
+    runs = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, len(true), size=len(true))
+        run_before = _metrics(true[idx], before[idx], female[idx], shares)
+        run_after = _metrics(true[idx], after[idx], female[idx], shares)
+        runs.append([run_after[name] - run_before[name] for name in names])
+    resampled = np.array(runs)
+    return {
+        name: _summary(point_after[name] - point_before[name], resampled[:, i])
+        for i, name in enumerate(names)
+    }
