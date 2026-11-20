@@ -288,6 +288,9 @@ def test_an_occupation_with_no_man_or_no_woman_outside_the_showcase_subset_is_le
     assert block["tpr_gap"]["surgeon"] is None
     assert block["tpr_gap"]["nurse"]["value"] is not None
     change = out["conditions"]["b"]["outside_showcase"]["change_from_a"]["rms_tpr_gap"]
+    b = out["conditions"]["b"]["outside_showcase"]["rms_tpr_gap"]["value"]
+    assert b != block["rms_tpr_gap"]["value"]
+    assert change["value"] == pytest.approx(b - block["rms_tpr_gap"]["value"])
     for key in ("value", "ci_low", "ci_high"):
         assert math.isfinite(block["rms_tpr_gap"][key])
         assert math.isfinite(change[key])

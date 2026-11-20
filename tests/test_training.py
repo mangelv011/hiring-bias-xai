@@ -306,3 +306,27 @@ def test_the_progress_line_gives_the_label_the_step_the_epoch_and_the_losses(cap
     assert capsys.readouterr().out == (
         "lr=3e-05 step=375 epoch=2 train_loss=0.1234 dev_loss=0.5000 dev_macro_f1=0.7777\n"
     )
+
+
+def test_fit_moves_the_network_to_the_device_it_is_given(monkeypatch, tiny_network, tiny_tokenizer):
+    moved = []
+
+    def pretrained(cls, max_length, batch_size=32):
+        network = tiny_network()
+        network.to = lambda device: moved.append(device) or network
+        return cls(network, tiny_tokenizer(max_length), batch_size)
+
+    monkeypatch.setattr(DebertaModel, "pretrained", classmethod(pretrained))
+    training.fit_deberta(
+        3e-3,
+        _frame(2, "train"),
+        _frame(2, "dev"),
+        device="cuda:0",
+        max_length=64,
+        eval_batch_size=8,
+        epochs=1,
+        batch_size=4,
+        accumulation=1,
+        eval_every=40,
+    )
+    assert moved == ["cuda:0"]
