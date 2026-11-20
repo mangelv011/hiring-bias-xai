@@ -164,3 +164,14 @@ def test_a_smoothed_ratio_of_exactly_three_is_enough():
 def test_the_smoothing_pulls_the_ratio_of_two_small_shares_towards_one():
     # Unsmoothed 0.31 / 0.10 is 3.1; smoothed (0.31 + 0.01) / (0.10 + 0.01) is 2.9.
     assert _words(_table(("shrunk", 1.0, 0.5, 1.5, False, (0.31, 0.10)))) == []
+
+
+def test_a_word_that_pushes_against_the_gendered_sum_is_not_a_proxy_word_even_if_men_use_it():
+    # The gap favours men (negative sum), men use the word, but its contribution is positive.
+    table = _table(("against", 1.0, 0.5, 1.5, False, MEN), ("with", -1.0, -1.5, -0.5, False, MEN))
+    assert _words(table, gendered_sum=-1.0) == ["with"]
+
+
+def test_the_rows_returned_have_the_columns_of_the_table_they_came_from():
+    table = _table(("alpha", 1.0, 0.5, 1.5, False))
+    assert list(proxy_words.proxy_rows(table, 1.0).columns) == list(table.columns)

@@ -258,3 +258,30 @@ def test_the_paired_difference_is_json_ready_and_repeatable():
     b = fairness.paired_difference(y_true, y_pred, y_true, gender, SHARE_WOMEN, n_boot=50)
     assert a == b
     json.dumps(a)
+
+
+def test_identical_predictions_before_and_after_change_nothing_in_any_resample():
+    y_true, gender, y_pred = _labels()
+    change = fairness.paired_difference(y_true, y_pred, y_pred, gender, SHARE_WOMEN, n_boot=100)
+    for entry in change.values():
+        assert (entry["value"], entry["ci_low"], entry["ci_high"]) == (0, 0, 0)
+
+
+def test_the_interval_of_each_metric_is_that_of_its_own_resamples():
+    # Perfect predictions after: every resample changes a metric by (1 or 0) minus its value
+    # before, on the bios that `evaluate` draws with the same seed.
+    y_true, gender, y_pred = _labels()
+    change = fairness.paired_difference(y_true, y_pred, y_true, gender, SHARE_WOMEN, n_boot=200)
+    before = fairness.evaluate(y_true, y_pred, gender, SHARE_WOMEN, n_boot=200)
+    assert change["accuracy"]["ci_low"] == pytest.approx(1 - before["accuracy"]["ci_high"])
+    assert change["accuracy"]["ci_high"] == pytest.approx(1 - before["accuracy"]["ci_low"])
+    assert change["rms_tpr_gap"]["ci_low"] == pytest.approx(-before["rms_tpr_gap"]["ci_high"])
+    assert change["rms_tpr_gap"]["ci_high"] == pytest.approx(-before["rms_tpr_gap"]["ci_low"])
+
+
+def test_the_paired_difference_defaults_are_a_thousand_resamples_and_the_project_seed():
+    y_true, gender, y_pred = _labels()
+    args = (y_true, y_pred, y_true, gender, SHARE_WOMEN)
+    assert fairness.paired_difference(*args) == fairness.paired_difference(
+        *args, n_boot=1000, seed=config.SEED
+    )
