@@ -1,0 +1,192 @@
+{
+  "checks": {
+    "method": {
+      "comparison": "Shapley values (delete, seed 42) against leave-one-out occlusion (delete)",
+      "expected": "Median Spearman about 0.6 to 0.8 and median top-10 overlap about 0.5: both methods find the strongest words, but leave-one-out gives each of several redundant words a small value and Shapley shares the credit. Borderline on the 0.7 threshold.",
+      "n_bios": 1721,
+      "passed": false,
+      "rule": "Passed when the median Spearman correlation and the median top-10 overlap over bios both reach their thresholds.",
+      "spearman": {
+        "mean": 0.38306624893385294,
+        "mean_ci": [
+          0.3710567440700429,
+          0.395085600551618
+        ],
+        "median": 0.4187834224598931,
+        "median_ci": [
+          0.4027534965034965,
+          0.43412352846315105
+        ],
+        "n_undefined": 0
+      },
+      "thresholds": {
+        "median_spearman": 0.7,
+        "median_top10_overlap": 0.5
+      },
+      "top10_overlap": {
+        "mean": 0.47257408483439856,
+        "mean_ci": [
+          0.4648431144683324,
+          0.48053457292271934
+        ],
+        "median": 0.5,
+        "median_ci": [
+          0.5,
+          0.5
+        ],
+        "n_undefined": 0
+      }
+    },
+    "removal": {
+      "comparison": "Shapley values, seed 42, delete removal against unk removal (same orders)",
+      "expected": "Lower than the seed check: the main model reads [UNK] as a token, so the value of a word depends on what replaces its neighbours. Median Spearman about 0.7 to 0.85, so a miss of the 0.8 threshold is likely; median top-10 overlap about 0.5 to 0.7.",
+      "n_bios": 100,
+      "passed": false,
+      "rule": "Passed when the median Spearman correlation and the median top-10 overlap over bios both reach their thresholds.",
+      "spearman": {
+        "mean": 0.48524268704927903,
+        "mean_ci": [
+          0.45027217007641546,
+          0.5201529344217177
+        ],
+        "median": 0.4679968269261819,
+        "median_ci": [
+          0.414477123906878,
+          0.5319311371531091
+        ],
+        "n_undefined": 0
+      },
+      "thresholds": {
+        "median_spearman": 0.8,
+        "median_top10_overlap": 0.5
+      },
+      "top10_overlap": {
+        "mean": 0.5319999999999999,
+        "mean_ci": [
+          0.504,
+          0.56
+        ],
+        "median": 0.5,
+        "median_ci": [
+          0.5,
+          0.6
+        ],
+        "n_undefined": 0
+      }
+    },
+    "seed": {
+      "comparison": "Shapley values, delete removal, seed 42 against seed 7 (40 permutations each)",
+      "expected": "Median Spearman near 0.89, the cost pilot's value at 40 permutations on 50 other bios, so just under the 0.9 rule of ADR 0003 and likely a miss; median top-10 overlap about 0.7 to 0.8, because the largest words are more stable than the many words near zero.",
+      "n_bios": 100,
+      "passed": false,
+      "rule": "Passed when the median Spearman correlation and the median top-10 overlap over bios both reach their thresholds.",
+      "spearman": {
+        "mean": 0.8688767296461036,
+        "mean_ci": [
+          0.8526950809526981,
+          0.8859056957084511
+        ],
+        "median": 0.8938218390804595,
+        "median_ci": [
+          0.8759557973825,
+          0.9100035008933314
+        ],
+        "n_undefined": 0
+      },
+      "thresholds": {
+        "median_spearman": 0.9,
+        "median_top10_overlap": 0.7
+      },
+      "top10_overlap": {
+        "mean": 0.792,
+        "mean_ci": [
+          0.7689999999999999,
+          0.8180000000000001
+        ],
+        "median": 0.8,
+        "median_ci": [
+          0.8,
+          0.8
+        ],
+        "n_undefined": 0
+      }
+    }
+  },
+  "disagreement_example": {
+    "bio_id": "test-73398",
+    "drop_all_occurrences": 0.07133946025126825,
+    "n_occurrences": 2,
+    "n_words": 92,
+    "occurrences": [
+      {
+        "loo": -0.07362293587609514,
+        "position": 19,
+        "shapley": 2.43454092235068
+      },
+      {
+        "loo": 0.042806018811267776,
+        "position": 87,
+        "shapley": 0.7208969910414239
+      }
+    ],
+    "rule": "Among bios with at least 15 word units, no run of six digits, and a top Shapley word (largest absolute value) that occurs at least twice (compared without case and without punctuation at its ends), the bio with the lowest Spearman correlation between Shapley and leave-one-out values; the first in the subset on a tie.",
+    "spearman": -0.27779233389331565,
+    "top_words": [
+      {
+        "loo": -0.07362293587609514,
+        "shapley": 2.43454092235068,
+        "word": "practice"
+      },
+      {
+        "loo": -0.041704400033181876,
+        "shapley": 1.8328355545687507,
+        "word": "practices"
+      },
+      {
+        "loo": -0.07101847374834591,
+        "shapley": 0.7993235749725387,
+        "word": "practices"
+      },
+      {
+        "loo": 0.042806018811267776,
+        "shapley": 0.7208969910414239,
+        "word": "practice"
+      },
+      {
+        "loo": 0.015204328658263933,
+        "shapley": 0.5500094227320916,
+        "word": "MD"
+      },
+      {
+        "loo": -0.028864160315017706,
+        "shapley": 0.5448953367572535,
+        "word": "currently"
+      },
+      {
+        "loo": 0.002550964300668923,
+        "shapley": 0.37314451404107407,
+        "word": "Dr."
+      },
+      {
+        "loo": 0.07949562576357394,
+        "shapley": 0.3395704438234016,
+        "word": "residency"
+      }
+    ],
+    "true_occupation": "surgeon",
+    "word": "practice"
+  },
+  "sample": {
+    "ids_file": "stability_sample_ids.csv",
+    "n_bios": 100,
+    "rule": "100 showcase-subset bios, equal shares from each occupation and gender group (the last 4 go to the first groups in sorted order), drawn without replacement with seed 42.",
+    "seed": 42
+  },
+  "settings": {
+    "bootstrap_seed": 42,
+    "n_boot": 1000,
+    "target": "true occupation",
+    "top": 10,
+    "word_ranking": "Words are ranked by absolute value; ties go to the word that comes first in the bio."
+  }
+}
