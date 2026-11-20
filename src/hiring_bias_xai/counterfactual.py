@@ -11,7 +11,10 @@ _SWAPPED = {
     "hers": "his",
 }
 
-_PRONOUN = re.compile(r"\b(" + "|".join(_SWAPPED) + r")(?!\w)", re.IGNORECASE)
+# Only the Capitalised titles: "MS" is a degree and "ms" a unit.
+_TITLES = {"Mr": "Ms", "Ms": "Mr", "Mrs": "Mr"}
+
+_GENDERED = re.compile(r"\b((?i:" + "|".join(_SWAPPED) + r")|" + "|".join(_TITLES) + r")(?!\w)")
 
 
 def _with_case_of(model: str, word: str) -> str:
@@ -23,8 +26,13 @@ def _with_case_of(model: str, word: str) -> str:
     return word
 
 
+def _replacement(match: re.Match) -> str:
+    word = match.group(1)
+    if word in _TITLES:
+        return _TITLES[word]
+    return _with_case_of(word, _SWAPPED[word.lower()])
+
+
 def swap_gender(text: str) -> str:
-    """The bio with its gendered pronouns swapped, he for she and the reverse."""
-    return _PRONOUN.sub(
-        lambda match: _with_case_of(match.group(1), _SWAPPED[match.group(1).lower()]), text
-    )
+    """The bio with its gendered pronouns and titles swapped, he for she and the reverse."""
+    return _GENDERED.sub(_replacement, text)
