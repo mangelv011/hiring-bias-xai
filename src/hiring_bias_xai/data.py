@@ -44,6 +44,20 @@ def scrub(text: str) -> str:
     return re.sub(" {2,}", " ", _GENDERED.sub("", text)).strip()
 
 
+def word_core(word: str) -> str:
+    """The word in lower case without the punctuation at its ends: "(Her)," gives "her"."""
+    return re.sub(r"^\W+|\W+$", "", word).lower()
+
+
+def is_gendered_word(word: str) -> bool:
+    """Whether the core of the word is one of the words `scrub` removes.
+
+    "She," and "(her)" are gendered; "sheriff" and "shoot...she" are not, because the scrubbed
+    word is only part of them.
+    """
+    return _GENDERED.fullmatch(word_core(word)) is not None
+
+
 # Importing datasets is slow, so only the download path pays for it.
 def _load_raw(split: str) -> pd.DataFrame:
     import datasets
