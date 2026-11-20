@@ -5,6 +5,7 @@ from collections import Counter
 from collections.abc import Sequence
 
 import numpy as np
+import pandas as pd
 
 from hiring_bias_xai.config import SEED
 from hiring_bias_xai.counterfactual import swap_gender
@@ -52,3 +53,37 @@ def hardest_confusions(true: Sequence, predicted: Sequence, occupations: Sequenc
         )
         for occupation in occupations
     }
+
+
+def sample_profiles(
+    subset: pd.DataFrame, hardest: dict, n_match: int, n_nonmatch: int, seed: int = SEED
+) -> pd.DataFrame:
+    """Per job (the keys of `hardest`), `n_match` bios of that occupation and `n_nonmatch` bios of
+    other occupations, half women and half men in each part. Half of the non-matches are hard: they
+    come from the occupation `hardest` names for the job, the rest from the remaining occupations.
+
+    Rows: `job`, the columns of `subset`, `match` and `hard`. Each part draws without replacement
+    from one generator seeded with `seed`, jobs in the order of `hardest`.
+    """
+    rng = np.random.default_rng(seed)
+
+    def draw(pool: pd.DataFrame, n: int) -> pd.DataFrame:
+        halves = [n - n // 2, n // 2]  # the odd one is a woman
+        parts = []
+        for gender, size in zip(("female", "male"), halves, strict=True):
+            rows = pool[pool["gender"] == gender]
+            parts.append(rows.iloc[rng.choice(len(rows), size=size, replace=False)])
+        return pd.concat(parts)
+
+    n_hard = n_nonmatch // 2
+    jobs = []
+    for job, hard_occupation in hardest.items():
+        occupation = subset["occupation"]
+        others = ~occupation.isin([job, hard_occupation])
+        for pool, n, match, hard in (
+            (subset[occupation == job], n_match, True, False),
+            (subset[occupation == hard_occupation], n_hard, False, True),
+            (subset[others], n_nonmatch - n_hard, False, False),
+        ):
+            jobs.append(draw(pool, n).assign(job=job, match=match, hard=hard))
+    return pd.concat(jobs).reset_index(drop=True)
