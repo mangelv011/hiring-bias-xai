@@ -159,3 +159,19 @@ def test_the_script_stops_if_patching_all_positions_does_not_restore_the_clean_r
     monkeypatch.setattr(patching, "restored_share", broken)
     with pytest.raises(RuntimeError, match="all positions"):
         run()
+
+
+def test_the_model_is_loaded_with_the_script_batch_size(monkeypatch, tiny_network, tiny_tokenizer):
+    spec = importlib.util.spec_from_file_location("patching_script", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    loaded = []
+    model = DebertaModel(tiny_network(), tiny_tokenizer(64))
+    monkeypatch.setattr(
+        DebertaModel,
+        "load",
+        classmethod(lambda cls, batch_size: loaded.append(batch_size) or model),
+    )
+    module.DEVICE = "cpu"
+    assert module._load() is model
+    assert loaded == [module.BATCH_SIZE] == [32]
