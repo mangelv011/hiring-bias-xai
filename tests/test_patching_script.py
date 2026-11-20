@@ -87,7 +87,7 @@ def test_the_csv_has_a_row_per_layer_and_position_set_with_the_summary_columns(r
     ]  # fmt: skip
     assert len(table) == 3 * 2
     assert sorted(table["layer"].unique()) == [0, 1, 2]
-    assert set(table["position_set"]) == {"differing", "all"}
+    assert set(table["position_set"]) == {"differing", "others"}
 
 
 def test_only_eligible_pairs_of_equal_token_length_are_patched(run):
@@ -105,14 +105,18 @@ def test_only_eligible_pairs_of_equal_token_length_are_patched(run):
     assert 0 < record["n_patched"] < record["n_eligible"] < 40  # the fixture exercises each rule
 
 
-def test_all_positions_restore_everything_at_every_layer_and_the_checks_are_recorded(run):
+def test_all_positions_are_a_recorded_check_and_not_a_row_of_the_csv(run):
     results = run()
-    table = pd.read_csv(results / "patching.csv")
-    everywhere = table[table["position_set"] == "all"]
-    np.testing.assert_allclose(everywhere["mean"], 1.0, atol=1e-4)
-    np.testing.assert_allclose(everywhere["median"], 1.0, atol=1e-4)
+    assert "all" not in set(pd.read_csv(results / "patching.csv")["position_set"])
     record = json.loads((results / "patching.json").read_text())
     assert record["max_all_positions_error"] < 1e-4
+
+
+def test_the_other_words_restore_nothing_at_the_embeddings_and_everything_at_the_end(run):
+    table = pd.read_csv(run() / "patching.csv")
+    others = table[table["position_set"] == "others"].set_index("layer")
+    assert others.loc[0, "mean"] == pytest.approx(0.0, abs=1e-4)
+    assert others.loc[2, "mean"] == pytest.approx(1.0, abs=1e-4)
 
 
 def test_the_differing_positions_restore_everything_at_the_embeddings_and_nothing_at_the_end(run):
