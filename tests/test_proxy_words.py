@@ -135,3 +135,22 @@ def test_a_word_used_in_fewer_than_five_percent_of_the_favoured_gender_bios_is_n
     )
     assert _words(table, gendered_sum=1.0) == ["five"]
     assert _words(table, gendered_sum=-1.0) == ["men_five"]
+
+
+def test_masking_deletes_the_words_of_the_list_whatever_their_case_and_punctuation():
+    text = "Born in Ohio, She is Ranked (currently) first."
+    assert proxy_words.mask_words(text, {"born", "ranked", "currently"}) == "in Ohio, She is first."
+
+
+def test_masking_keeps_words_that_only_contain_a_word_of_the_list():
+    assert proxy_words.mask_words("borne ranking the-born", {"born", "ranked"}) == (
+        "borne ranking the-born"
+    )
+
+
+def test_masking_joins_what_is_left_with_single_spaces():
+    assert proxy_words.mask_words("a  born\n\nb", {"born"}) == "a b"
+
+
+def test_masking_with_an_empty_list_changes_only_the_spacing():
+    assert proxy_words.mask_words("a  b", set()) == "a b"
