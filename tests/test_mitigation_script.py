@@ -165,20 +165,22 @@ def test_the_script_refuses_an_unknown_command_or_condition(env):
         env("score", "a")
 
 
-@pytest.fixture
-def report(env):
+def _predict_everything(env):
+    """Run every condition and save the predictions of the main run, which differ from condition
+    a on one bio (scored in batches of 4 rather than 64)."""
     for condition in "abcde":
         env("predict", condition)
-    # The predictions of the main run, scored in batches of 4: one bio differs from condition a.
-    saved = pd.read_csv(
-        Path(env.results_dir).parent / "artifacts" / "predictions" / "mitigation_a_test.csv"
-    )
+    folder = Path(env.results_dir).parent / "artifacts" / "predictions"
+    saved = pd.read_csv(folder / "mitigation_a_test.csv")
     saved.loc[3, "predicted_occupation"] = (
         WRONG if saved.loc[3, "predicted_occupation"] != WRONG else "surgeon"
     )
-    saved.to_csv(
-        Path(env.results_dir).parent / "artifacts" / "predictions" / "deberta_test.csv", index=False
-    )
+    saved.to_csv(folder / "deberta_test.csv", index=False)
+
+
+@pytest.fixture
+def report(env):
+    _predict_everything(env)
     env("report")
     return json.loads((env.results_dir / "mitigation.json").read_text())
 
@@ -267,8 +269,7 @@ def test_an_occupation_with_no_man_or_no_woman_outside_the_showcase_subset_is_le
     # every male surgeon bio (test-10 to test-19) and test-0. The 109 bios left still count for
     # accuracy and macro-F1; the RMS gap and the gaps per occupation use the occupations with
     # both genders.
-    for condition in "abcde":
-        env("predict", condition)
+    _predict_everything(env)
     ids = [0, *range(10, 20)]
     (env.results_dir / "showcase_subset_ids.csv").write_text(
         "id" + "".join(f"{chr(10)}test-{i}" for i in ids) + chr(10)
