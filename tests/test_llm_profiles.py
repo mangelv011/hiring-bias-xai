@@ -84,3 +84,33 @@ def test_profiles_hold_matches_hard_and_other_non_matches_half_women_and_half_me
     pd.testing.assert_frame_equal(profiles, again)
     other_seed = llm_profiles.sample_profiles(_subset(), hardest, 4, 4, seed=7)
     assert not profiles["id"].equals(other_seed["id"])
+
+
+def test_merged_groups_pool_their_names_and_dropped_groups_are_left_out():
+    groups = GROUPS | {
+        "Morocco": {"first_names": {"female": ["Fatima"], "male": ["Ali"]}, "surnames": ["Benali"]},
+        "Hispanic America": {
+            "first_names": {"female": ["Maria", "Luz"], "male": ["Juan"]},
+            "surnames": ["Vera"],
+        },
+    }
+    decision = {"groups": [["Spain", "Hispanic America"], ["Romania"]], "dropped": ["Morocco"]}
+    pools = llm_profiles.analysis_groups(groups, decision)
+    assert list(pools) == ["Spain + Hispanic America", "Romania"]
+    assert pools["Spain + Hispanic America"] == {
+        "first_names": {
+            "female": ["Maria", "Carmen", "Luz"],
+            "male": ["Antonio", "Manuel", "Juan"],
+        },
+        "surnames": ["Garcia", "Lopez", "Vera"],
+    }
+    assert pools["Romania"] == groups["Romania"]
+    assert llm_profiles.arm_labels(pools) == [
+        "none",
+        "neutral",
+        "swap",
+        "name|Spain + Hispanic America|female",
+        "name|Spain + Hispanic America|male",
+        "name|Romania|female",
+        "name|Romania|male",
+    ]
