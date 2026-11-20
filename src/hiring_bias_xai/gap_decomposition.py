@@ -69,15 +69,19 @@ def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS, top: int = TOP) -> D
     order = np.argsort(-np.abs(contribution), kind="stable")
     is_top = np.zeros(len(vocabulary), dtype=bool)
     is_top[order[:top]] = True
-    table = pd.DataFrame(
-        {
-            "word": vocabulary,
-            "n_bios": n_bios,
-            "importance": importance,
-            "contribution": contribution,
-            "top": is_top,
-        }
-    )
+    columns = {
+        "word": vocabulary,
+        "n_bios": n_bios,
+        "importance": importance,
+        "contribution": contribution,
+        "top": is_top,
+    }
+    for gender, rows in (("female", female), ("male", ~female)):
+        count = present[rows].sum(axis=0)
+        columns[f"freq_{gender}"] = count / rows.sum()
+        with np.errstate(invalid="ignore"):  # a word absent from the group has no mean value
+            columns[f"value_{gender}"] = np.where(count > 0, values[rows].sum(axis=0) / count, np.nan)
+    table = pd.DataFrame(columns)
     kept = table.iloc[order][frequent[order] | is_top[order]].reset_index(drop=True)
     full = np.array([bio.score for bio in bios])
     empty = np.array([bio.empty for bio in bios])
