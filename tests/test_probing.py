@@ -87,3 +87,63 @@ def test_select_c_gives_a_tie_to_the_smallest_c():
     x = np.array([[-1.0], [1.0]] * 20)
     y = np.array([0, 1] * 20)
     assert probing.select_c(x, y) == min(probing.C_GRID)
+
+
+def _bios(n, seed, reads_gender):
+    """Two occupations whose bios are 80% and 20% female. The first feature tells the occupation;
+    the second tells the gender only if `reads_gender`."""
+    rng = np.random.default_rng(seed)
+    occupation = rng.integers(0, 2, n)
+    female = rng.random(n) < np.where(occupation == 0, 0.8, 0.2)
+    x = rng.normal(size=(n, 6))
+    x[:, 0] += 3 * occupation
+    if reads_gender:
+        x[:, 1] += 3 * female
+    return x, np.where(female, "f", "m"), np.where(occupation == 0, "a", "b")
+
+
+def _run(reads_gender, n_permutations=20, **kwargs):
+    train_x, train_gender, train_occ = _bios(600, 0, reads_gender)
+    test_x, test_gender, _ = _bios(300, 1, reads_gender)
+    flagged = np.arange(300) % 3 == 0
+    return probing.probe(
+        train_x, train_gender, train_occ, test_x, test_gender, ~flagged,
+        n_permutations=n_permutations, n_boot=50, **kwargs,
+    )  # fmt: skip
+
+
+def test_a_probe_that_reads_gender_beats_every_shuffle_within_occupation():
+    result = _run(reads_gender=True)
+    row = result["all"]
+    assert row["accuracy"] > 0.9
+    assert row["p_value"] == pytest.approx(1 / 21)  # (1 + 0 shuffles as good) / (1 + 20)
+    assert row["null_mean"] < 0.85  # the null can only learn the occupation
+
+
+def test_a_probe_that_only_reads_the_occupation_is_not_beyond_the_shuffles():
+    # Shuffling gender within occupation keeps what the occupation says about gender, so a probe
+    # that reads only the occupation is as good as its shuffled versions.
+    row = _run(reads_gender=False)["all"]
+    assert row["p_value"] > 0.2
+    assert abs(row["accuracy"] - row["null_mean"]) < 0.05
+
+
+def test_probe_reports_both_subsets_with_their_sizes_the_chosen_c_and_the_shuffle_count():
+    result = _run(reads_gender=True, n_permutations=7)
+    assert result["n_permutations"] == 7
+    assert result["C"] in probing.C_GRID
+    assert result["all"]["n"] == 300
+    assert result["unflagged"]["n"] == 200
+    assert set(result["all"]) == {"accuracy", "ci_low", "ci_high", "n", "p_value", "null_mean"}
+
+
+def test_the_unflagged_row_scores_the_same_probe_on_the_unflagged_bios_only():
+    result = _run(reads_gender=True)
+    assert result["unflagged"]["accuracy"] != result["all"]["accuracy"]
+    assert result["unflagged"]["p_value"] >= 1 / 21
+
+
+def test_probe_gives_the_same_result_with_one_worker_or_two():
+    assert _run(reads_gender=True, n_permutations=6, n_jobs=1) == _run(
+        reads_gender=True, n_permutations=6, n_jobs=2
+    )
