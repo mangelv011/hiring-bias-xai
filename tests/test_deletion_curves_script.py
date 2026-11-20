@@ -12,7 +12,7 @@ from hiring_bias_xai import explanation_checks as checks
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "deletion_curves.py"
 SCREENERS = ("deberta", "baseline")
-WEIGHTS = {f"w{i}": float(i - 10) for i in range(20)}  # w19 helps nurse most, w0 hurts most
+WEIGHTS = {f"w{i}": float(i - 6) for i in range(20)}  # w19 helps nurse most; a bio sums to +70
 
 
 def _bio_text(start):
