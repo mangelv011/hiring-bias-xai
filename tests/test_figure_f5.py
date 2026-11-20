@@ -146,8 +146,14 @@ def test_each_curve_has_its_interval_band_and_the_zero_reference_is_drawn(figure
     top, _ = _axes(figure)
     bands = [c for c in top.collections if isinstance(c, matplotlib.collections.PolyCollection)]
     assert len(bands) == 3
-    spans = sorted(tuple(b.get_paths()[0].vertices[:, 1].round(2)[[0, 3]]) for b in bands)
-    assert len(spans) == 3
+    spans = sorted(
+        (
+            round(b.get_paths()[0].vertices[:, 1].min(), 2),
+            round(b.get_paths()[0].vertices[:, 1].max(), 2),
+        )
+        for b in bands
+    )
+    assert spans == [(-1.2, 0.2), (-0.2, 2.2), (-0.2, 8.2)]  # LeRF, random, MoRF: mean +- 0.2
     assert any(list(line.get_ydata()) == [0, 0] for line in top.lines)
 
 
@@ -162,7 +168,8 @@ def test_the_deletion_axes_name_the_quantities_and_stop_at_half_of_the_words(fig
     top, _ = _axes(figure)
     assert "log-odds" in top.get_ylabel()
     assert "words removed" in top.get_xlabel().lower()
-    assert max(top.get_xticks()) == 0.5 or max(t for t in top.get_xticks() if t <= 0.5) == 0.5
+    assert [t for t in top.get_xticks() if 0 <= t <= 0.5][-1] == 0.5
+    assert top.get_xlim()[0] == 0
 
 
 def test_checks_are_rows_sorted_by_the_median_correlation_with_pass_or_fail_in_the_label(figure):
@@ -179,9 +186,7 @@ def test_checks_are_rows_sorted_by_the_median_correlation_with_pass_or_fail_in_t
 
 def test_each_row_has_a_correlation_dot_in_the_highlight_and_an_overlap_dot_in_grey(figure):
     _, bottom = _axes(figure)
-    dots = [
-        c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)
-    ]
+    dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
     correlation, overlap = dots
     assert correlation.get_offsets()[:, 0].tolist() == pytest.approx([0.95, 0.89, 0.70])
     assert overlap.get_offsets()[:, 0].tolist() == pytest.approx([0.90, 0.80, 0.60])
