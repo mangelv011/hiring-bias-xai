@@ -5,12 +5,13 @@ baseline model's) call as more words go. The words are removed with `unk`, the r
 attributions did not use, so the check is not circular for the main model.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
 import numpy as np
 
 from hiring_bias_xai.attribution import remove_words
+from hiring_bias_xai.config import SEED
 from hiring_bias_xai.models import Classifier, log_odds
 
 
@@ -84,3 +85,20 @@ def deletion_curve(
         agreement=(logits.argmax(axis=1)[rows] == logits[0].argmax()).astype(float),
         drop=score[0] - score[rows],
     )
+
+
+N_BOOT = 1000
+
+
+def bootstrap_ci(
+    statistic: Callable[[np.ndarray], float | np.ndarray], n: int, n_boot: int = N_BOOT, seed=SEED
+):
+    """The 95% bootstrap interval of `statistic`, resampling `n` bios with replacement.
+
+    `statistic` gets the resampled bio indices and returns a number or an array; the bounds are
+    the 2.5th and 97.5th percentiles, per entry. A resample whose statistic is NaN is ignored.
+    """
+    rng = np.random.default_rng(seed)
+    resampled = np.array([statistic(rng.integers(0, n, n)) for _ in range(n_boot)])
+    low, high = np.nanpercentile(resampled, [2.5, 97.5], axis=0)
+    return low, high
