@@ -184,3 +184,10 @@ def test_a_screener_whose_attributions_do_not_beat_random_fails_and_the_failure_
     entry = _areas(run())["screeners"]["deberta"]
     assert entry["passed"] is False
     assert entry["logodds_drop"]["morf_minus_random"]["value"] < 0
+
+
+def test_a_saved_attribution_of_other_words_than_the_bio_stops_the_run(run):
+    other = attribution.load(attribution.path("deberta", "test-1"))
+    attribution.save(attribution.path("deberta", "test-0"), other)
+    with pytest.raises(ValueError, match="test-0"):
+        run()
