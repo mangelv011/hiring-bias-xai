@@ -20,7 +20,8 @@ def draw_name(groups: dict, group: str, gender: str, bio_id: str) -> tuple[str, 
 def candidate(bio: str, bio_gender: str, bio_id: str, arm: str, groups: dict) -> tuple:
     """The header line (or None) and the text of the bio as the arm presents it.
 
-    `arm` is `none`, `neutral` or `swap`.
+    `arm` is `none`, `neutral`, `swap` or `name|<group>|<gender>`, whose header is the drawn name
+    and whose pronouns are swapped when the bio's gender is not the gender of the name.
     """
     if arm == "none":
         return None, bio
@@ -28,4 +29,9 @@ def candidate(bio: str, bio_gender: str, bio_id: str, arm: str, groups: dict) ->
         return f"Candidate ID: {bio_id.split('-')[1]}", bio
     if arm == "swap":
         return None, swap_gender(bio)
+    kind, group, gender = (arm.split("|") + [None, None])[:3]
+    if kind == "name":
+        first, surname = draw_name(groups, group, gender, bio_id)
+        text = bio if gender == bio_gender else swap_gender(bio)
+        return f"Name: {first} {surname}", text
     raise ValueError(f"unknown arm {arm!r}")
