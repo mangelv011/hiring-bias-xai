@@ -1,3 +1,5 @@
+import pandas as pd
+
 from hiring_bias_xai import llm_profiles
 
 GROUPS = {
@@ -53,3 +55,32 @@ def test_the_hardest_confusion_of_each_occupation_is_the_other_one_it_is_most_of
     predicted = ["a", "b", "b", "c", "z", "z"] + ["b", "b", "b", "a"] + ["a", "a", "c"] + ["a"] * 5
     hardest = llm_profiles.hardest_confusions(true, predicted, ["a", "b", "c"])
     assert hardest == {"a": "b", "b": "a", "c": "a"}  # z is outside the list and is ignored
+
+
+def _subset():
+    groups = [(o, g) for o in "abc" for g in ("female", "male") for _ in range(10)]
+    return pd.DataFrame(
+        [(f"test-{i}", f"bio {o} {g}", o, g) for i, (o, g) in enumerate(groups)],
+        columns=["id", "text", "occupation", "gender"],
+    )
+
+
+def test_profiles_hold_matches_hard_and_other_non_matches_half_women_and_half_men():
+    hardest = {"a": "b", "b": "a", "c": "a"}
+    profiles = llm_profiles.sample_profiles(_subset(), hardest, n_match=4, n_nonmatch=4)
+    assert set(profiles.columns) >= {"job", "id", "text", "occupation", "gender", "match", "hard"}
+    for job, rows in profiles.groupby("job"):
+        assert len(rows) == 8 and rows["id"].is_unique
+        matches = rows[rows["match"]]
+        assert (matches["occupation"] == job).all()
+        assert matches["gender"].value_counts().to_dict() == {"female": 2, "male": 2}
+        hard = rows[~rows["match"] & rows["hard"]]
+        assert (hard["occupation"] == hardest[job]).all()
+        assert hard["gender"].value_counts().to_dict() == {"female": 1, "male": 1}
+        other = rows[~rows["match"] & ~rows["hard"]]
+        assert not other["occupation"].isin([job, hardest[job]]).any()
+        assert other["gender"].value_counts().to_dict() == {"female": 1, "male": 1}
+    again = llm_profiles.sample_profiles(_subset(), hardest, n_match=4, n_nonmatch=4)
+    pd.testing.assert_frame_equal(profiles, again)
+    other_seed = llm_profiles.sample_profiles(_subset(), hardest, 4, 4, seed=7)
+    assert not profiles["id"].equals(other_seed["id"])
