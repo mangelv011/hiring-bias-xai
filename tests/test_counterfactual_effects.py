@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 from hiring_bias_xai import counterfactual_effects as effects
@@ -90,3 +91,36 @@ def test_the_hand_check_sample_is_a_fixed_random_draw_of_distinct_ids():
     assert sample != ids[:50]
     with pytest.raises(ValueError, match="only 3"):
         effects.hand_check_sample(ids[:3], 50)
+
+
+def _checks(verdicts, reasons=None):
+    reasons = reasons or {}
+    return pd.DataFrame(
+        {
+            "id": [f"test-{i}" for i in range(len(verdicts))],
+            "coherent": verdicts,
+            "reason": [reasons.get(i, "") for i in range(len(verdicts))],
+        }
+    )
+
+
+def test_the_hand_check_summary_gives_the_incoherent_share_with_a_wilson_interval():
+    verdicts = ["yes"] * 45 + ["no"] * 5
+    summary = effects.hand_check_summary(_checks(verdicts, dict.fromkeys(range(45, 50), "why")))
+    assert (summary["n"], summary["n_incoherent"]) == (50, 5)
+    assert summary["incoherent_share"] == 0.1
+    assert round(summary["ci_low"], 4) == 0.0435
+    assert round(summary["ci_high"], 4) == 0.2136
+
+
+@pytest.mark.parametrize(
+    ("verdicts", "reasons", "message"),
+    [
+        (["yes", "no"], {}, "reason"),
+        (["yes", "no"], {1: "  "}, "reason"),
+        (["yes", "maybe"], {1: "why"}, "yes or no"),
+    ],
+)
+def test_the_hand_check_needs_yes_or_no_and_a_reason_for_every_no(verdicts, reasons, message):
+    with pytest.raises(ValueError, match=message):
+        effects.hand_check_summary(_checks(verdicts, reasons))
