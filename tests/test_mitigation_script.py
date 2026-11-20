@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import math
 from pathlib import Path
 
 import pandas as pd
@@ -183,7 +184,12 @@ def report(env):
 
 
 def test_every_condition_is_scored_on_the_test_bios_outside_the_showcase_subset(report):
-    assert report["evaluation_set"] == {"test_bios": 120, "showcase_bios": 12, "bios_scored": 108}
+    assert report["evaluation_set"] == {
+        "test_bios": 120,
+        "showcase_bios": 12,
+        "bios_scored": 108,
+        "occupations_left_out_of_gap": [],
+    }
     for condition in "abcde":
         assert report["conditions"][condition]["outside_showcase"]["n_bios"] == 108
 
@@ -252,3 +258,35 @@ def test_the_report_names_the_conditions_that_have_no_predictions_yet(env):
     env("predict", "a")
     with pytest.raises(FileNotFoundError, match="b, c, d, e"):
         env("report")
+
+
+def test_an_occupation_with_no_man_or_no_woman_outside_the_showcase_subset_is_left_out_of_the_gap(
+    env,
+):
+    # Like dietitian, whose 71 men all sit in the showcase subset. Here the showcase subset holds
+    # every male surgeon bio (test-10 to test-19) and test-0. The 109 bios left still count for
+    # accuracy and macro-F1; the RMS gap and the gaps per occupation use the occupations with
+    # both genders.
+    for condition in "abcde":
+        env("predict", condition)
+    ids = [0, *range(10, 20)]
+    (env.results_dir / "showcase_subset_ids.csv").write_text(
+        "id" + "".join(f"{chr(10)}test-{i}" for i in ids) + chr(10)
+    )
+    env("report")
+    out = json.loads((env.results_dir / "mitigation.json").read_text())
+    assert out["evaluation_set"]["occupations_left_out_of_gap"] == ["surgeon"]
+    block = out["conditions"]["a"]["outside_showcase"]
+    assert block["n_bios"] == 109
+    wrong = sum(
+        any(m in row.text.split() for m in ("she", "born"))
+        for row in env.test.itertuples()
+        if row.id not in {f"test-{i}" for i in ids}
+    )
+    assert block["accuracy"]["value"] == pytest.approx(1 - wrong / 109)
+    assert block["tpr_gap"]["surgeon"] is None
+    assert block["tpr_gap"]["nurse"]["value"] is not None
+    change = out["conditions"]["b"]["outside_showcase"]["change_from_a"]["rms_tpr_gap"]
+    for key in ("value", "ci_low", "ci_high"):
+        assert math.isfinite(block["rms_tpr_gap"][key])
+        assert math.isfinite(change[key])
