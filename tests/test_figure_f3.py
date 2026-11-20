@@ -147,7 +147,9 @@ def test_gendered_words_are_in_the_highlight_colour_and_the_others_in_grey(figur
     assert _hex(_dots(surgeon).get_facecolor()) == expected
     assert _hex(_intervals(surgeon).get_color()) == expected
     labels = _hex(t.get_color() for t in surgeon.get_yticklabels())
-    assert labels == [plotting.HIGHLIGHT if c == plotting.HIGHLIGHT else "#333333" for c in expected]
+    assert labels == [
+        plotting.HIGHLIGHT if c == plotting.HIGHLIGHT else "#333333" for c in expected
+    ]
 
 
 def _title_lines(fig):
@@ -175,7 +177,10 @@ def test_the_title_covers_two_stable_gaps_and_two_small_ones_in_two_lines(f3):
         f3.Panel("model", "female_dominated", MODEL_WORDS, _MODEL_SUMMARY),
     ]
     text, lines = _title_lines(f3.build(both_stable))
-    assert text == "Gendered words are 39% of the +2.3 nurse-bio gap and 15% of the +5.4 model-bio gap."
+    assert (
+        text
+        == "Gendered words are 39% of the +2.3 nurse-bio gap and 15% of the +5.4 model-bio gap."
+    )
     assert lines <= 2
     both_small = [
         f3.Panel("surgeon", "male_dominated", SURGEON_WORDS, _SURGEON_SUMMARY),
@@ -189,8 +194,7 @@ def test_the_title_covers_two_stable_gaps_and_two_small_ones_in_two_lines(f3):
 def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_there_are_none(figure):
     surgeon, model = _data_axes(figure)
     assert surgeon.get_title(loc="left") == (
-        "Surgeon (male-dominated), gap -0.8 [-1.5, +0.1]\n"
-        "interval includes 0: no shares given"
+        "Surgeon (male-dominated), gap -0.8 [-1.5, +0.1]\ninterval includes 0: no shares given"
     )
     assert model.get_title(loc="left") == (
         "Model (female-dominated), gap +5.4 [+4.4, +6.4]\n"
@@ -288,4 +292,7 @@ def test_each_panel_is_the_showcase_occupation_of_its_kind_with_the_largest_abso
         "model": _summary(-5.4),
         "dietitian": _summary(2.3),
     }
-    assert f3.pick(summaries, showcase) == {"male_dominated": "surgeon", "female_dominated": "model"}
+    assert f3.pick(summaries, showcase) == {
+        "male_dominated": "surgeon",
+        "female_dominated": "model",
+    }
