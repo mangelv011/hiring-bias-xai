@@ -75,6 +75,7 @@ _SURGEON_SUMMARY = {
     "gap_unstable": True,
     "top_share": _shares(0.45, -1.81, 1.98),
     "gendered_share": _shares(1.45, -8.15, 8.56),
+    "gendered_sum": _shares(-1.12, -1.24, -1.02),
 }
 _MODEL_SUMMARY = {
     "score_gap": _shares(5.402, 4.444, 6.404),
@@ -83,6 +84,7 @@ _MODEL_SUMMARY = {
     "top_words": ["w"] * 10,  # only the number of words is read
     "top_share": _shares(0.61, 0.51, 0.77),
     "gendered_share": _shares(0.15, 0.12, 0.19),
+    "gendered_sum": _shares(0.80, 0.68, 0.91),
 }
 
 
@@ -160,36 +162,36 @@ def _title_lines(fig):
     return title.get_text(), title._get_wrapped_text().count("\n") + 1
 
 
-def test_the_title_gives_the_gendered_share_of_a_stable_gap_and_says_when_a_gap_is_too_small(
-    figure,
-):
-    # Model: gendered words 0.15 of a +5.4 gap. Surgeon: the gap -0.77 has an interval with 0.
+def test_the_title_gives_the_summed_gendered_contribution_in_each_panel(figure):
+    # Gendered words add -1.12 to the women-minus-men gap in surgeon bios and +0.80 in model
+    # bios. Both intervals exclude 0, so both are stated, whatever the total gap does.
     text, lines = _title_lines(figure)
     assert text == (
-        "Gendered words are 15% of the +5.4 model-bio gap; the surgeon gap is too small to split."
+        "Gendered words put women's bios 1.1 below men's in surgeon and 0.8 above men's in model."
     )
     assert lines <= 2
 
 
-def test_the_title_covers_two_stable_gaps_and_two_small_ones_in_two_lines(f3):
-    stable = {**_MODEL_SUMMARY, "gendered_share": _shares(0.39, 0.25, 0.86)}
-    stable_gap = {**stable, "score_gap": _shares(2.34, 1.08, 3.68)}
-    both_stable = [
-        f3.Panel("nurse", "female_dominated", MODEL_WORDS, stable_gap),
+def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
+    nurse = {**_MODEL_SUMMARY, "gendered_sum": _shares(1.97, 1.80, 2.14)}
+    both_above = [
+        f3.Panel("nurse", "female_dominated", MODEL_WORDS, nurse),
         f3.Panel("model", "female_dominated", MODEL_WORDS, _MODEL_SUMMARY),
     ]
-    text, lines = _title_lines(f3.build(both_stable))
-    assert (
-        text
-        == "Gendered words are 39% of the +2.3 nurse-bio gap and 15% of the +5.4 model-bio gap."
+    text, lines = _title_lines(f3.build(both_above))
+    assert text == (
+        "Gendered words put women's bios 2.0 above men's in nurse and 0.8 above men's in model."
     )
     assert lines <= 2
-    both_small = [
+    engineer = {**_SURGEON_SUMMARY, "gendered_sum": _shares(0.05, -0.06, 0.16)}
+    one_clear = [
         f3.Panel("surgeon", "male_dominated", SURGEON_WORDS, _SURGEON_SUMMARY),
-        f3.Panel("composer", "male_dominated", SURGEON_WORDS, _SURGEON_SUMMARY),
+        f3.Panel("composer", "male_dominated", SURGEON_WORDS, engineer),
     ]
-    text, lines = _title_lines(f3.build(both_small))
-    assert text == "The surgeon and composer gaps are too small to split."
+    text, lines = _title_lines(f3.build(one_clear))
+    assert text == (
+        "Gendered words put women's bios 1.1 below men's in surgeon and within noise in composer."
+    )
     assert lines <= 2
 
 
