@@ -420,3 +420,44 @@ def test_a_screener_name_may_carry_a_variant_after_a_dash(artifacts):
 def test_a_variant_must_be_lowercase_letters_or_digits_after_one_dash(artifacts, screener):
     with pytest.raises(ValueError, match="screener"):
         attribution.path(screener, "test-1")
+
+
+def _saved_one(artifacts):
+    result = _one(removal="delete")
+    target = attribution.path("deberta", "test-1")
+    attribution.save(target, result)
+    return target, result
+
+
+def test_a_file_is_current_when_words_target_removal_and_order_count_match(artifacts):
+    target, result = _saved_one(artifacts)
+    assert attribution.is_current(target, result.words, result.target, "delete", 3)
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        {"words": ["alpha", "beta"]},
+        {"target": 0},
+        {"removal": "unk"},
+        {"n_permutations": 4},
+    ],
+)
+def test_a_file_is_not_current_when_one_setting_differs(artifacts, changed):
+    target, result = _saved_one(artifacts)
+    settings = {
+        "words": result.words,
+        "target": result.target,
+        "removal": "delete",
+        "n_permutations": 3,
+        **changed,
+    }
+    assert not attribution.is_current(target, **settings)
+
+
+def test_a_missing_or_damaged_file_is_not_current(artifacts):
+    target = attribution.path("deberta", "test-1")
+    assert not attribution.is_current(target, ["alpha"], 0, "delete", 3)
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"not an npz")
+    assert not attribution.is_current(target, ["alpha"], 0, "delete", 3)
