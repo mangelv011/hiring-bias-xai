@@ -116,14 +116,14 @@ def rank_agreement(one: np.ndarray, other: np.ndarray, top: int = TOP) -> tuple[
 
     The overlap is the share of the `top` words with the largest absolute value in `one` (all the
     words, if the bio has fewer) that are also among the largest in `other`; ties go to the word
-    that comes first. The correlation is NaN when it is undefined: under two words, or all
-    values equal in one vector.
+    that comes first. The correlation is NaN when it is undefined: all values equal in one vector
+    (which includes a bio of one word).
     """
     shown = min(top, len(one))
     largest_one = set(np.argsort(-np.abs(one), kind="stable")[:shown])
     largest_other = set(np.argsort(-np.abs(other), kind="stable")[:shown])
     overlap = len(largest_one & largest_other) / shown
-    if len(one) < 2 or np.ptp(one) == 0 or np.ptp(other) == 0:
+    if np.ptp(one) == 0 or np.ptp(other) == 0:
         return float("nan"), overlap
     return float(spearmanr(one, other).statistic), overlap
 

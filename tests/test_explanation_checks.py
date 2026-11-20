@@ -284,3 +284,64 @@ def test_a_bio_whose_correlation_is_undefined_is_skipped():
     n = 16
     flat = _case("test-1", _words(n), [3.0, *_ramp(n - 1)], [0.0] * n)
     assert checks.disagreement_example([flat]) is None
+
+
+def test_a_resample_whose_statistic_is_nan_is_left_out_of_the_interval():
+    values = np.array([1.0, 2.0, 3.0, 4.0])
+
+    def mean_unless_first_is_zero(rows):
+        return np.nan if rows[0] == 0 else values[rows].mean()
+
+    low, high = checks.bootstrap_ci(mean_unless_first_is_zero, 4, 200, seed=2)
+    assert np.isfinite(low) and np.isfinite(high)
+
+
+def test_the_bootstrap_draws_one_thousand_resamples_by_default():
+    seen = []
+    checks.bootstrap_ci(lambda rows: seen.append(0) or 0.0, 4)
+    assert len(seen) == 1000
+
+
+def test_the_top_words_of_the_second_vector_are_also_ranked_by_absolute_value():
+    one = np.array([3.0, 3.0, 0.1, 0.2])
+    other = np.array([3.0, -3.0, 0.2, 0.1])
+    assert checks.rank_agreement(one, other, top=2)[1] == 1.0
+
+
+def test_a_constant_vector_gives_nan_without_a_warning_from_either_side():
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert np.isnan(checks.rank_agreement(np.arange(5.0), np.zeros(5))[0])
+        assert np.isnan(checks.rank_agreement(np.zeros(5), np.arange(5.0))[0])
+        assert np.isnan(checks.rank_agreement(np.array([1.0]), np.array([2.0]))[0])
+
+
+def test_a_group_with_one_bio_fewer_than_its_share_is_an_error_and_one_with_its_share_is_not():
+    short = _subset({("nurse", "male"): 4, ("nurse", "female"): 5})
+    with pytest.raises(ValueError, match="nurse"):
+        checks.stratified_sample(short, 10, seed=1)
+    exact = _subset({("nurse", "male"): 5, ("nurse", "female"): 5})
+    assert len(checks.stratified_sample(exact, 10, seed=1)) == 10
+
+
+def test_a_bio_of_exactly_15_units_can_be_the_example_and_one_of_14_cannot():
+    def case(bio_id, n, loo_sign):
+        shapley = [3.0, *_ramp(n - 1)]
+        words = ["python", *[f"w{i}" for i in range(n - 2)], "python"]
+        return _case(bio_id, words, shapley, [3.0, *(np.array(_ramp(n - 1)) * loo_sign)])
+
+    fourteen = case("test-1", 14, -1)  # Spearman near -1: it would win if it were eligible
+    fifteen = case("test-2", 15, 1)
+    assert checks.disagreement_example([fourteen, fifteen])[0].bio_id == "test-2"
+    assert checks.disagreement_example([fifteen])[0].bio_id == "test-2"
+
+
+@pytest.mark.parametrize(("digits", "eligible"), [("12345", True), ("123456", False)])
+def test_five_digits_in_a_row_are_fine_and_six_are_a_possible_identifier(digits, eligible):
+    n = 16
+    words = ["python", "python", digits, *[f"w{i}" for i in range(n - 3)]]
+    shapley = [3.0, *_ramp(n - 1)]
+    case = _case("test-1", words, shapley, [3.0, *_ramp(n - 1)[::-1]])
+    assert (checks.disagreement_example([case]) is not None) is eligible

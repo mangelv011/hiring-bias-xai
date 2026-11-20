@@ -415,7 +415,16 @@ def test_a_screener_name_may_carry_a_variant_after_a_dash(artifacts):
 
 
 @pytest.mark.parametrize(
-    "screener", ["deberta-", "-seed7", "deberta--seed7", "deberta-Seed7", "deberta-../x", "a-b/c"]
+    "screener",
+    [
+        "deberta-",
+        "-seed7",
+        "deberta--seed7",
+        "deberta-Seed7",
+        "deberta-../x",
+        "a-b/c",
+        "deberta-a-b",
+    ],
 )
 def test_a_variant_must_be_lowercase_letters_or_digits_after_one_dash(artifacts, screener):
     with pytest.raises(ValueError, match="screener"):

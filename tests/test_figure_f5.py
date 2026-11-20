@@ -242,3 +242,18 @@ def test_main_saves_the_figure_from_the_three_result_files(f5, curves, areas, st
     ]
     assert fig._suptitle.get_text() == f5.title(areas, stability)
     plt.close(fig)
+
+
+def test_curve_labels_are_kept_apart_when_two_curves_end_close_together(
+    f5, curves, areas, stability
+):
+    close = curves.copy()
+    ends = (close["fraction"] == 0.5) & (close["screener"] == "deberta")
+    close.loc[ends & (close["order"] == "random"), "mean_logodds_drop"] = 0.50
+    close.loc[ends & (close["order"] == "lerf"), "mean_logodds_drop"] = 0.45
+    fig = f5.build(close, areas, stability)
+    top, _ = _axes(fig)
+    ys = sorted(t.get_position()[1] for t in top.texts)
+    span = 8.0 - 0.0  # the MoRF end is 8, the lowest end is at or above 0
+    assert min(b - a for a, b in zip(ys, ys[1:], strict=False)) >= f5.LABEL_GAP * span - 1e-9
+    plt.close(fig)
