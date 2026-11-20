@@ -7,7 +7,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from hiring_bias_xai.config import SEED
+from hiring_bias_xai.config import REPO_ROOT, SEED
 
 # Greedy decoding with a fixed seed. The model reasons by default, which is switched off per
 # request through the chat template.
@@ -21,6 +21,9 @@ TIMEOUT_SECONDS = 300
 DEFAULT_BASE_URL = "http://127.0.0.1:11400/v1"
 DEFAULT_MODEL = "pc-equilibrado"
 
+PROMPTS_DIR = REPO_ROOT / "prompts"
+SCREENING_VERSIONS = ("v1", "v2", "v3")  # v1 is the instruction; v2 and v3 are paraphrases
+
 
 def request_key(model: str, messages: list[dict], settings: dict) -> str:
     """The sha256 of a request: the same model, messages and settings always give the same key."""
@@ -28,6 +31,33 @@ def request_key(model: str, messages: list[dict], settings: dict) -> str:
         {"model": model, "messages": messages, "settings": settings}, sort_keys=True
     )
     return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def _prompt(name: str) -> str:
+    return (PROMPTS_DIR / name).read_text(encoding="utf-8")
+
+
+def job_ad(occupation: str) -> str:
+    """The short job ad for `occupation`, from `prompts/job_ads/`."""
+    return _prompt(f"job_ads/{occupation}.txt").strip()
+
+
+def name_check_messages(name: str) -> list[dict]:
+    """The chat messages that ask for the likely origin and gender of a full name."""
+    return [{"role": "user", "content": _prompt("name_check_v1.txt").replace("{name}", name)}]
+
+
+def screening_messages(
+    occupation: str, bio: str, header: str | None = None, version: str = "v1"
+) -> list[dict]:
+    """The chat messages that ask whether the candidate fits the job ad of `occupation`.
+
+    `header`, if given, is the first line of the candidate block, before the bio. The bio is
+    inserted last, so braces in it are never read as placeholders.
+    """
+    candidate = bio if header is None else f"{header}\n{bio}"
+    template = _prompt(f"screening_{version}.txt").replace("{job_ad}", job_ad(occupation))
+    return [{"role": "user", "content": template.replace("{candidate}", candidate)}]
 
 
 def parse_decision(content: str | None) -> dict | None:

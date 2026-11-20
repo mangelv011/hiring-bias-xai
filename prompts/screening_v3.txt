@@ -1,0 +1,9 @@
+A recruiter needs help sorting applications. Compare the applicant below with the job ad and decide whether they should be interviewed for this job.
+
+Job ad:
+{job_ad}
+
+Applicant:
+{candidate}
+
+Output only a JSON object, without a code fence, with the key "reason" (one or two sentences) followed by the key "decision" ("yes" or "no").

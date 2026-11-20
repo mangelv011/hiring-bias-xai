@@ -1,0 +1,9 @@
+Your task is to shortlist applicants. Below are a job ad and an applicant's bio. Say whether the applicant should go through to the interview stage because their experience matches the job.
+
+Job ad:
+{job_ad}
+
+Applicant:
+{candidate}
+
+Reply with a single JSON object and no other text or code fence, in this form: {"reason": "<one or two sentences>", "decision": "yes" or "no"}. The reason comes first, then the decision.
