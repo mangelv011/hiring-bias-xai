@@ -38,8 +38,8 @@ for word, value in {
     "nurse": 3.0, "trained": -0.4,
 }.items():  # fmt: skip
     ERROR_VALUES[ERROR_WORDS.index(word)] = value
-CORRECT_WORDS = "He is a nurse and his ward is busy".split()
-CORRECT_VALUES = np.array([0.5, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 0.5, 0.0])
+MAN_WORDS = "He is a nurse and his ward is busy".split()
+MAN_VALUES = np.array([0.5, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 0.5, 0.0])
 
 
 @pytest.fixture(scope="module")
@@ -49,9 +49,9 @@ def f2():
 
 @pytest.fixture
 def cases(f2):
-    error = f2.Case("test-1", ERROR_WORDS, "surgeon", "nurse", ERROR_VALUES)
-    correct = f2.Case("test-2", CORRECT_WORDS, "nurse", "nurse", CORRECT_VALUES)
-    return error, correct
+    woman = f2.Case("test-1", ERROR_WORDS, "surgeon", "nurse", "female", ERROR_VALUES)
+    man = f2.Case("test-2", MAN_WORDS, "nurse", "surgeon", "male", MAN_VALUES)
+    return woman, man
 
 
 @pytest.fixture
@@ -100,7 +100,7 @@ def test_nothing_is_drawn_outside_the_figure(figure):
 
 
 def test_each_case_has_horizontal_bars_for_its_eight_largest_values_sorted_by_size(figure):
-    error_ax, correct_ax = _bar_axes(figure)
+    error_ax, man_ax = _bar_axes(figure)
     expected = ["nurse", "She", "surgeons", "her", "patients", "care;", "hospital", "trained"]
     labels = [t.get_text() for t in error_ax.get_yticklabels()]
     assert labels == expected  # top to bottom
@@ -108,9 +108,9 @@ def test_each_case_has_horizontal_bars_for_its_eight_largest_values_sorted_by_si
     assert widths == pytest.approx([3.0, 2.0, -1.5, 1.2, 0.9, -0.7, 0.6, -0.4])
     assert [p.get_y() + p.get_height() / 2 for p in error_ax.patches] == pytest.approx(range(8))
     assert error_ax.yaxis_inverted()  # the largest value is the first bar, at the top
-    assert len(correct_ax.patches) == 8
+    assert len(man_ax.patches) == 8
     # Ties (here the zeros and the two 0.5) keep the order of the words in the bio.
-    assert [t.get_text() for t in correct_ax.get_yticklabels()] == [
+    assert [t.get_text() for t in man_ax.get_yticklabels()] == [
         "nurse", "his", "He", "is", "is", "a", "and", "ward"
     ]  # fmt: skip
 
@@ -135,16 +135,16 @@ def test_every_bar_has_its_value_written_at_its_end(figure):
 
 
 def test_there_is_a_zero_line_and_an_axis_label_naming_the_predicted_occupation(figure):
-    error_ax, correct_ax = _bar_axes(figure)
-    for ax in (error_ax, correct_ax):
+    woman_ax, man_ax = _bar_axes(figure)
+    for ax, predicted in ((woman_ax, "nurse"), (man_ax, "surgeon")):
         assert any(np.all(np.asarray(line.get_xdata()) == 0) for line in ax.get_lines())
-        assert "nurse" in ax.get_xlabel()
+        assert predicted in ax.get_xlabel()
         assert "log-odds" in ax.get_xlabel()
 
 
 def test_the_whole_bio_is_written_above_its_bars_in_a_monospaced_font(figure):
-    error_text, correct_text = _text_axes(figure)
-    for ax, words in ((error_text, ERROR_WORDS), (correct_text, CORRECT_WORDS)):
+    error_text, man_text = _text_axes(figure)
+    for ax, words in ((error_text, ERROR_WORDS), (man_text, MAN_WORDS)):
         shown = [t.get_text() for t in ax.texts]
         assert "".join(shown) == "".join(words)
         assert {t.get_fontfamily()[0] for t in ax.texts} == {"monospace"}
@@ -182,65 +182,129 @@ def test_underlines_of_gendered_words_are_highlighted_and_the_rest_dark(figure):
     assert colours == sorted([plotting.HIGHLIGHT] * 2 + ["#333333"] * 6)
 
 
+def _case(f2, words, values, gender="female", bio_id="test-9", true="a", predicted="b"):
+    return f2.Case(bio_id, words, true, predicted, gender, np.array(values, dtype=float))
+
+
 def test_a_word_longer_than_a_line_is_split_over_lines_and_each_piece_underlined_if_it_is_top(f2):
-    from_long = f2.Case("test-9", ["x" * 120, "she"], "a", "b", np.array([5.0, 1.0]))
-    correct = f2.Case("test-8", ["a", "she"], "b", "b", np.array([1.0, 1.0]))
-    fig = f2.build(from_long, correct)
+    fig = f2.build(_case(f2, ["x" * 120, "she"], [5.0, 1.0]), None)
     fig.canvas.draw()
-    error_text, _ = _text_axes(fig)
+    (error_text,) = _text_axes(fig)
     assert "".join(t.get_text() for t in error_text.texts) == "x" * 120 + "she"
-    assert (
-        len(_underlines(error_text))
-        == len([t for t in error_text.texts if "x" in t.get_text()]) + 1
-    )
+    pieces = [t for t in error_text.texts if "x" in t.get_text()]
+    assert len(_underlines(error_text)) == len(pieces) + 1
     plt.close(fig)
 
 
-def test_the_title_states_the_pushes_and_shares_it_measured(figure):
-    title = " ".join(t.get_text() for t in figure.texts if "Gendered" in t.get_text())
-    # Gendered sum in the error bio: 2.0 + 1.2 = 3.2. Share in the correct bio: (0.5 + 1.0) / 4.0.
-    assert "+3.2" in title
-    assert "nurse" in title
-    assert "38%" in title
+def test_a_unit_that_only_contains_a_gendered_word_is_not_highlighted(f2):
+    fig = f2.build(_case(f2, ["shoot...she", "She,", "sheriff"], [5.0, 1.0, 0.5]), None)
+    fig.canvas.draw()
+    (ax,) = _bar_axes(fig)
+    colours = [matplotlib.colors.to_hex(p.get_facecolor()).upper() for p in ax.patches]
+    assert [t.get_text() for t in ax.get_yticklabels()] == ["shoot...she", "She,", "sheriff"]
+    assert colours == [plotting.NEUTRAL, plotting.HIGHLIGHT, plotting.NEUTRAL]
+    (text_ax,) = _text_axes(fig)
+    underline = [matplotlib.colors.to_hex(u.get_color()).upper() for u in _underlines(text_ax)]
+    assert underline == ["#333333", plotting.HIGHLIGHT, "#333333"]
+    plt.close(fig)
+
+
+def _title_lines(fig):
+    (title,) = [t for t in fig.texts if t.get_fontweight() == "bold"]
+    return title.get_text(), title._get_wrapped_text().count("\n") + 1
+
+
+def test_the_title_is_one_sentence_of_at_most_two_lines_with_both_pushes(figure):
+    # Gendered sum of the woman's bio: She 2.0 + her 1.2 = 3.2. Of the man's: He 0.5 + his 1.0.
+    text, lines = _title_lines(figure)
+    assert text == (
+        "Gendered words added +3.2 log-odds to a wrong call for a woman and +1.5 for a man."
+    )
+    assert lines <= 2
+
+
+def test_the_title_says_which_group_has_no_case(f2):
+    woman = _case(f2, ["she", "x"], [2.0, 1.0])
+    only_woman, lines = _title_lines(f2.build(woman, None))
+    assert only_woman == (
+        "Gendered words added +2.0 log-odds to a wrong call for a woman; no misclassified man "
+        "qualified."
+    )
+    assert lines <= 2
+    man = _case(f2, ["he", "x"], [3.0, 1.0], gender="male")
+    only_man, lines = _title_lines(f2.build(None, man))
+    assert only_man == (
+        "Gendered words added +3.0 log-odds to a wrong call for a man; no misclassified woman "
+        "qualified."
+    )
+    assert lines <= 2
+    none, lines = _title_lines(f2.build(None, None))
+    assert none == "No misclassified woman or man met the rules, so there is no case to show."
+    assert lines <= 2
+
+
+def test_a_group_without_a_case_has_a_panel_that_says_so_and_no_bars(f2):
+    fig = f2.build(_case(f2, ["she", "x"], [2.0, 1.0]), None)
+    fig.canvas.draw()
+    assert len(_bar_axes(fig)) == 1
+    texts = [t.get_text() for t in fig.texts]
+    assert "Man in a female-dominated occupation: no bio met the rules." in texts
+    empty = f2.build(None, None)
+    empty.canvas.draw()
+    assert _bar_axes(empty) == []
+    texts = [t.get_text() for t in empty.texts]
+    assert "Woman in a male-dominated occupation: no bio met the rules." in texts
+    assert "Man in a female-dominated occupation: no bio met the rules." in texts
+    plt.close(fig)
+    plt.close(empty)
 
 
 def test_the_figure_says_that_per_word_values_carry_sampling_noise(figure):
     assert any("sampling noise" in t.get_text() for t in figure.texts)
 
 
-def test_the_error_and_the_correct_case_are_named_above_their_sentences(figure):
+def test_each_case_is_named_above_its_sentence_by_gender_true_and_predicted_occupation(figure):
     headers = [t.get_text() for t in figure.texts]
-    assert "Error: true surgeon, predicted nurse (test-1)" in headers
-    assert "Correct: true nurse, predicted nurse (test-2)" in headers
+    assert "Woman, true surgeon, predicted nurse (test-1)" in headers
+    assert "Man, true nurse, predicted surgeon (test-2)" in headers
 
 
-def _subset(ids, texts, occupations):
-    return pd.DataFrame({"id": ids, "text": texts, "occupation": occupations})
+MALE_DOMINATED = ["surgeon", "composer", "software_engineer"]
+FEMALE_DOMINATED = ["dietitian", "nurse", "model"]
+TEXTS = {
+    "female": [
+        "She trains new surgeons every year and she writes her notes late at night in the ward",
+        "As a woman in surgery she often explains her methods to students who ask about her career",
+    ],
+    "male": [
+        "He teaches nursing students every spring and he reviews his notes before his shifts start",
+        "His ward is busy and he supports the patients while his colleagues cover the night rounds",
+    ],
+}
 
 
 @pytest.fixture
 def run(f2, monkeypatch, tmp_path):
-    """Return go(): main() on 8 synthetic bios and a fake classifier; gives the results dir."""
+    """Return go(): main() on 8 synthetic bios and a fake classifier; gives the results dir.
+
+    Four women are surgeons and four men are nurses. `go.subset` can be changed before the call.
+    """
     monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path / "artifacts"))
     model = Hashed()
-    texts = [
-        "She trains nurses and she writes her notes",
-        "He works as a surgeon and his team operates",
-        "She is a nurse here and her ward is busy",
-        "He is a dentist and his clinic is open today",
-    ] * 2
+    genders = ["female"] * 4 + ["male"] * 4
+    texts = [TEXTS[g][i % 2] for i, g in enumerate(genders)]
     ids = [f"test-{i}" for i in range(8)]
-    guesses = model.predict(texts)
-    # Bios 1, 3 and 5 are called right, the other five wrong.
-    occupations = [
-        g if i in (1, 3, 5) else ("surgeon" if g != "surgeon" else "nurse")
-        for i, g in enumerate(guesses)
-    ]
-    subset = _subset(ids, texts, occupations)
+    occupations = ["surgeon"] * 4 + ["nurse"] * 4
+    subset = pd.DataFrame({"id": ids, "text": texts, "occupation": occupations, "gender": genders})
     results_dir = tmp_path / "results"
     results_dir.mkdir()
     (results_dir / "showcase_subset_ids.csv").write_bytes(
         ("id\n" + "".join(f"{i}\n" for i in ids)).encode()
+    )
+    rows = lambda names: [{"occupation": n, "share_women": 0.5} for n in names]  # noqa: E731
+    results.write_json(
+        results_dir / "showcase_occupations.json",
+        {"male_dominated": rows(MALE_DOMINATED), "female_dominated": rows(FEMALE_DOMINATED)},
     )
     monkeypatch.setattr(data, "load_split", lambda split, variant="original": subset)
     for bio_id, text, occupation in zip(ids, texts, occupations, strict=True):
@@ -256,29 +320,22 @@ def run(f2, monkeypatch, tmp_path):
     return go
 
 
-def test_main_saves_the_figure_and_the_record_of_the_two_picked_bios(run):
+def test_main_saves_the_figure_and_the_record_of_the_picked_bios(run):
     results_dir = run()
     names = sorted(p.name for p in (results_dir / "figures").iterdir())
     assert names == ["f2_shapley_cases.pdf", "f2_shapley_cases.png"]
     record = json.loads((results_dir / "f2_cases.json").read_text())
-    assert "gendered" in record["rule_error"]
-    assert "share" in record["rule_correct"]
     assert record["n_bios"] == 8
     assert record["n_skipped"] == 0
-    assert (record["n_errors"], record["n_correct"]) == (5, 3)
-    for key in ("error", "correct"):
-        assert record[key]["bio_id"].startswith("test-")
-        assert record[key]["predicted"] in data.OCCUPATIONS
-    assert record["error"]["true"] != record["error"]["predicted"]
-    assert record["correct"]["true"] == record["correct"]["predicted"]
+    assert record["min_units"] == 15
+    assert "male-dominated" in record["rule"] and "female-dominated" in record["rule"]
+    assert "15 word units" in record["rule"]
+    assert "six or more digits" in record["rule"]
 
 
 def test_a_label_longer_than_14_characters_is_cut_with_an_ellipsis(f2):
-    words = ["x" * 30, "she"]
-    error = f2.Case("test-1", words, "a", "b", np.array([5.0, 1.0]))
-    correct = f2.Case("test-2", ["a", "she"], "b", "b", np.array([1.0, 1.0]))
-    fig = f2.build(error, correct)
-    (error_ax, _) = _bar_axes(fig)
+    fig = f2.build(_case(f2, ["x" * 30, "she"], [5.0, 1.0]), None)
+    (error_ax,) = _bar_axes(fig)
     assert [t.get_text() for t in error_ax.get_yticklabels()] == ["x" * 13 + "\u2026", "she"]
     plt.close(fig)
 
@@ -294,34 +351,53 @@ def test_each_value_is_written_beyond_the_end_of_its_bar_on_the_side_it_points_t
             assert extent.x1 < end
 
 
-def test_the_record_holds_the_rules_and_the_score_and_size_of_each_picked_bio(run):
-    record = json.loads((run() / "f2_cases.json").read_text())
-    assert record["rule_error"].startswith(
-        "Among the showcase-subset bios the main model gets wrong"
-    )
-    assert record["rule_correct"].startswith("Among the bios it gets right")
+def _expected_groups(run):
+    """Per group: the misclassified bios, and the best (bio ID, push) among those that qualify.
+
+    Worked out here from the stored attributions with a plain set of gendered words.
+    """
     gendered = {"she", "her", "he", "his"}
     guesses = run.model.predict(list(run.subset["text"]))
-    scores = {}  # bio ID -> (error?, score), worked out here from the stored attributions
+    groups = {"female": ("surgeon", [], []), "male": ("nurse", [], [])}
     for bio, guess in zip(run.subset.itertuples(), guesses, strict=True):
+        if bio.occupation == guess:
+            continue
         saved = attribution.load(attribution.path("deberta", bio.id))
         values = saved.values_for(data.OCCUPATIONS.index(guess))
         mask = np.array([word.lower() in gendered for word in saved.words])
-        if bio.occupation != guess:
-            scores[bio.id] = ("error", values[mask].sum())
-        else:
-            scores[bio.id] = ("correct", np.abs(values[mask]).sum() / np.abs(values).sum())
-    for key, kind, name in (
-        ("error", "error", "gendered_push"),
-        ("correct", "correct", "gendered_share"),
-    ):
-        best = max(score for k, score in scores.values() if k == kind)
-        entry = record[key]
-        assert scores[entry["bio_id"]] == (kind, pytest.approx(best))
-        assert entry[name] == pytest.approx(best)
-        assert entry["words"] == len(
-            run.subset.set_index("id").loc[entry["bio_id"], "text"].split()
-        )
+        _, wrong, qualified = groups[bio.gender]
+        wrong.append(bio.id)
+        push = values[mask].sum()
+        if len(saved.words) >= 15 and push > 0:
+            qualified.append((bio.id, push))
+    return {
+        gender: (len(wrong), max(qualified, key=lambda pair: pair[1]) if qualified else None)
+        for gender, (_, wrong, qualified) in groups.items()
+    }
+
+
+def test_the_record_holds_the_pick_of_each_group_with_its_score_and_size(run):
+    record = json.loads((run() / "f2_cases.json").read_text())
+    expected = _expected_groups(run)
+    for gender, key in (("female", "women_in_male_dominated"), ("male", "men_in_female_dominated")):
+        n_wrong, best = expected[gender]
+        assert record[key]["n_wrong"] == n_wrong
+        assert best is not None, "the fixture must give both groups a qualifying bio"
+        pick = record[key]["pick"]
+        assert pick["bio_id"] == best[0]
+        assert pick["gendered_push"] == pytest.approx(best[1])
+        assert pick["predicted"] != pick["true"]
+        text = run.subset.set_index("id").loc[pick["bio_id"], "text"]
+        assert pick["words"] == len(text.split())
+
+
+def test_a_group_without_a_qualifying_bio_is_recorded_as_empty_and_the_figure_is_still_saved(run):
+    run.subset["gender"] = "female"  # no man in the female-dominated occupations
+    results_dir = run()
+    record = json.loads((results_dir / "f2_cases.json").read_text())
+    assert record["men_in_female_dominated"] == {"n_wrong": 0, "pick": None}
+    assert record["women_in_male_dominated"]["pick"] is not None
+    assert (results_dir / "figures" / "f2_shapley_cases.png").is_file()
 
 
 def test_a_bio_whose_stored_prediction_differs_from_the_saved_one_is_counted_as_skipped(run):
@@ -330,4 +406,3 @@ def test_a_bio_whose_stored_prediction_differs_from_the_saved_one_is_counted_as_
     results.save_predictions("deberta", run.subset, changed)
     record = json.loads((run() / "f2_cases.json").read_text())
     assert record["n_skipped"] == 1
-    assert record["n_errors"] + record["n_correct"] == 7
