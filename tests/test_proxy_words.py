@@ -28,3 +28,17 @@ def test_a_word_whose_interval_includes_zero_is_not_a_proxy_word():
         ("delta", 2.0, -4.0, 0.0, False),
     )
     assert _words(table) == ["alpha"]
+
+
+def test_a_proxy_word_pushes_the_gap_the_way_the_gendered_sum_does():
+    table = _table(
+        ("up", 1.0, 0.5, 1.5, False),
+        ("down", -1.0, -1.5, -0.5, False),
+    )
+    assert _words(table, gendered_sum=0.3) == ["up"]
+    assert _words(table, gendered_sum=-0.3) == ["down"]
+
+
+def test_with_a_gendered_sum_of_exactly_zero_no_word_pushes_the_same_way():
+    table = _table(("up", 1.0, 0.5, 1.5, False), ("down", -1.0, -1.5, -0.5, False))
+    assert _words(table, gendered_sum=0.0) == []
