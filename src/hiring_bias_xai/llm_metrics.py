@@ -175,3 +175,33 @@ def contrasts(
     ]
     adjusted = holm([report[n]["p"] for n in family])
     return {"statistics": report, "holm": dict(zip(family, adjusted, strict=True))}
+
+
+def name_ranges(
+    calls: pd.DataFrame, n_shuffle: int = 200, seed: int = SEED, min_cells: int = 10
+) -> dict:
+    """For each name arm cell (`<group>|<gender>`), the range of the TPR across first names with
+    at least `min_cells` valid answers on matches, and the range that shuffling the first names
+    across the cell's answers gives (`shuffled_mean` and `shuffled_p95` over `n_shuffle`)."""
+    rng = np.random.default_rng(seed)
+    named = calls[(calls["kind"] == "name") & calls["match"] & calls["yes"].notna()]
+    ranges = {}
+    for (group, gender), rows in named.groupby(["group", "name_gender"], sort=False):
+        size = rows.groupby("first")["yes"].transform("size")
+        rows = rows[size >= min_cells]
+        if rows["first"].nunique() < 2:
+            continue
+        names, yes = pd.factorize(rows["first"])[0], rows["yes"].to_numpy()
+
+        def spread(labels, yes=yes):
+            means = np.bincount(labels, yes) / np.bincount(labels)
+            return float(means.max() - means.min())
+
+        shuffled = [spread(rng.permutation(names)) for _ in range(n_shuffle)]
+        ranges[f"{group}|{gender}"] = {
+            "range": spread(names),
+            "n_names": int(rows["first"].nunique()),
+            "shuffled_mean": float(np.mean(shuffled)),
+            "shuffled_p95": float(np.percentile(shuffled, 95)),
+        }
+    return ranges
