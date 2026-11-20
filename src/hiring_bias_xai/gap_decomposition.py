@@ -191,6 +191,10 @@ def decompose(
             "value": _value(_share(contribution[gendered].sum(), total)),
             **_interval(_share(boot_contribution[:, gendered].sum(axis=1), boot_total)),
         },
+        "gendered_sum": {
+            "value": float(contribution[gendered].sum()),
+            **_interval(boot_contribution[:, gendered].sum(axis=1)),
+        },
         "empty_score_drift": float(score_gap - total),
         "decomposition_error": float(abs(total - exact)),
     }
