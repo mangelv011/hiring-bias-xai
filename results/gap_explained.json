@@ -1,0 +1,507 @@
+{
+  "max_decomposition_error": 3.1086244689504383e-15,
+  "screeners": {
+    "baseline": {
+      "composer": {
+        "decomposed_gap": {
+          "ci_high": 0.14332037728418087,
+          "ci_low": -2.015335211401678,
+          "value": -0.9949126263470951
+        },
+        "decomposition_error": 2.220446049250313e-16,
+        "empty_score_drift": -1.1102230246251565e-15,
+        "gap_unstable": true,
+        "gendered_share": {
+          "ci_high": 20.729631673302162,
+          "ci_low": -9.333788738879964,
+          "value": 2.7665710753210684
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 0.14332037728418204,
+          "ci_low": -2.0153352114016774,
+          "value": -0.9949126263470962
+        },
+        "top_share": {
+          "ci_high": 7.196252311139181,
+          "ci_low": -0.7783308058288553,
+          "fixed_ci_high": 8.085871682005871,
+          "fixed_ci_low": -1.5579824319211815,
+          "value": 1.7010774491285352
+        },
+        "top_words": [
+          "she",
+          "her",
+          "composition",
+          "music",
+          "his",
+          "composer",
+          "sound",
+          "film",
+          "sounds",
+          "ensemble"
+        ]
+      },
+      "dietitian": {
+        "decomposed_gap": {
+          "ci_high": 6.786075534904363,
+          "ci_low": 3.3471549721054137,
+          "value": 5.023153871985846
+        },
+        "decomposition_error": 2.6645352591003757e-15,
+        "empty_score_drift": -2.6645352591003757e-15,
+        "gap_unstable": false,
+        "gendered_share": {
+          "ci_high": 0.7592655729345325,
+          "ci_low": 0.35655213783839484,
+          "value": 0.495693323366375
+        },
+        "n_female": 150,
+        "n_male": 71,
+        "score_gap": {
+          "ci_high": 6.786075534904358,
+          "ci_low": 3.3471549721054137,
+          "value": 5.023153871985843
+        },
+        "top_share": {
+          "ci_high": 1.724514320905069,
+          "ci_low": 1.0525509614967978,
+          "fixed_ci_high": 1.7435017697057629,
+          "fixed_ci_low": 1.0016599313909795,
+          "value": 1.3252086833846917
+        },
+        "top_words": [
+          "nutrition",
+          "he",
+          "dietitian",
+          "his",
+          "registered",
+          "and",
+          "nutritional",
+          "she",
+          "eating",
+          "food"
+        ]
+      },
+      "model": {
+        "decomposed_gap": {
+          "ci_high": 13.51209654914998,
+          "ci_low": 10.019489990702054,
+          "value": 11.721021515739297
+        },
+        "decomposition_error": 1.7763568394002505e-15,
+        "empty_score_drift": -1.7763568394002505e-15,
+        "gap_unstable": false,
+        "gendered_share": {
+          "ci_high": 0.24959410641138635,
+          "ci_low": 0.17750627694614796,
+          "value": 0.209590407200739
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 13.51209654914998,
+          "ci_low": 10.019489990702052,
+          "value": 11.721021515739295
+        },
+        "top_share": {
+          "ci_high": 0.9179273149334234,
+          "ci_low": 0.6847867026084202,
+          "fixed_ci_high": 0.8418265577330111,
+          "fixed_ci_low": 0.6812935929609035,
+          "value": 0.7618613175029793
+        },
+        "top_words": [
+          "freeones",
+          "links",
+          "ranked",
+          "listed",
+          "born",
+          "he",
+          "she",
+          "currently",
+          "in",
+          "his"
+        ]
+      },
+      "nurse": {
+        "decomposed_gap": {
+          "ci_high": 4.4971543221957395,
+          "ci_low": 1.4916819782127153,
+          "value": 2.9787385785773624
+        },
+        "decomposition_error": 3.1086244689504383e-15,
+        "empty_score_drift": 2.220446049250313e-15,
+        "gap_unstable": false,
+        "gendered_share": {
+          "ci_high": 2.6611571000416605,
+          "ci_low": 0.8873904827170561,
+          "value": 1.3383947091915909
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 4.497154322195743,
+          "ci_low": 1.4916819782127124,
+          "value": 2.9787385785773646
+        },
+        "top_share": {
+          "ci_high": 3.1150020616498084,
+          "ci_low": 1.4859303569978672,
+          "fixed_ci_high": 3.367836293506783,
+          "fixed_ci_low": 1.4520620637361574,
+          "value": 1.9634453137204357
+        },
+        "top_words": [
+          "he",
+          "nurse",
+          "his",
+          "she",
+          "mr",
+          "graduated",
+          "her",
+          "dr",
+          "medical",
+          "medicine"
+        ]
+      },
+      "software_engineer": {
+        "decomposed_gap": {
+          "ci_high": 0.5429440538278271,
+          "ci_low": -1.3496320756379976,
+          "value": -0.39174800515632224
+        },
+        "decomposition_error": 4.440892098500626e-16,
+        "empty_score_drift": -3.3306690738754696e-16,
+        "gap_unstable": true,
+        "gendered_share": {
+          "ci_high": 40.12653224750443,
+          "ci_low": -44.02784039239364,
+          "value": 4.6913931704239555
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 0.5429440538278261,
+          "ci_low": -1.349632075637998,
+          "value": -0.3917480051563226
+        },
+        "top_share": {
+          "ci_high": 18.33177794878691,
+          "ci_low": -19.208548725602867,
+          "fixed_ci_high": 24.4526964560377,
+          "fixed_ci_low": -22.987159849901282,
+          "value": 2.8516387275770314
+        },
+        "top_words": [
+          "he",
+          "her",
+          "she",
+          "the",
+          "and",
+          "of",
+          "software",
+          "research",
+          "passionate",
+          "developer"
+        ]
+      },
+      "surgeon": {
+        "decomposed_gap": {
+          "ci_high": -0.32644370070566747,
+          "ci_low": -3.318341653640716,
+          "value": -1.838516693570949
+        },
+        "decomposition_error": 3.1086244689504383e-15,
+        "empty_score_drift": -3.552713678800501e-15,
+        "gap_unstable": false,
+        "gendered_share": {
+          "ci_high": 6.388154237934625,
+          "ci_low": 0.843233235999192,
+          "value": 1.6295637559477434
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": -0.32644370070566914,
+          "ci_low": -3.318341653640715,
+          "value": -1.8385166935709525
+        },
+        "top_share": {
+          "ci_high": 4.4357153990378055,
+          "ci_low": 0.6972347188939747,
+          "fixed_ci_high": 4.577624208524003,
+          "fixed_ci_low": 0.6788212114583004,
+          "value": 1.341497685839459
+        },
+        "top_words": [
+          "she",
+          "dental",
+          "surgery",
+          "he",
+          "her",
+          "his",
+          "orthopedic",
+          "plastic",
+          "surgeon",
+          "surgical"
+        ]
+      }
+    },
+    "deberta": {
+      "composer": {
+        "decomposed_gap": {
+          "ci_high": 0.5450117998421797,
+          "ci_low": -0.8558481820109204,
+          "value": -0.16463885986228743
+        },
+        "decomposition_error": 1.9984014443252818e-15,
+        "empty_score_drift": -0.00010721497344534647,
+        "gap_unstable": true,
+        "gendered_share": {
+          "ci_high": 44.853090579847354,
+          "ci_low": -38.0423767456474,
+          "value": 6.594874722225085
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 0.544541394146189,
+          "ci_low": -0.856165806369752,
+          "value": -0.16474607483573278
+        },
+        "top_share": {
+          "ci_high": 14.922657372133052,
+          "ci_low": -11.489345290264334,
+          "fixed_ci_high": 13.676312421116908,
+          "fixed_ci_low": -16.26462500762579,
+          "value": -1.7995389052670825
+        },
+        "top_words": [
+          "she",
+          "music",
+          "composition",
+          "her",
+          "composer",
+          "he",
+          "his",
+          "composers",
+          "acoustic",
+          "piano"
+        ]
+      },
+      "dietitian": {
+        "decomposed_gap": {
+          "ci_high": 3.676190250207876,
+          "ci_low": 1.0755341450629239,
+          "value": 2.3397849501244092
+        },
+        "decomposition_error": 1.7763568394002505e-15,
+        "empty_score_drift": 0.00036175394770898706,
+        "gap_unstable": false,
+        "gendered_share": {
+          "ci_high": 0.8612550742128187,
+          "ci_low": 0.24529082489890264,
+          "value": 0.3916932050068671
+        },
+        "n_female": 150,
+        "n_male": 71,
+        "score_gap": {
+          "ci_high": 3.6761213214151365,
+          "ci_low": 1.0761124625225722,
+          "value": 2.3401467040721182
+        },
+        "top_share": {
+          "ci_high": 1.1722280531269422,
+          "ci_low": 0.26687192785933017,
+          "fixed_ci_high": 1.2029580048899746,
+          "fixed_ci_low": 0.28006741298477145,
+          "value": 0.7010723017876183
+        },
+        "top_words": [
+          "nutrition",
+          "dietitian",
+          "she",
+          "he",
+          "nutritional",
+          "eating",
+          "health",
+          "diet",
+          "dietetic",
+          "food"
+        ]
+      },
+      "model": {
+        "decomposed_gap": {
+          "ci_high": 6.404275996657374,
+          "ci_low": 4.4434430520104735,
+          "value": 5.4018907958353335
+        },
+        "decomposition_error": 8.881784197001252e-16,
+        "empty_score_drift": 0.0001626577587288125,
+        "gap_unstable": false,
+        "gendered_share": {
+          "ci_high": 0.18973178033411778,
+          "ci_low": 0.11686580284429307,
+          "value": 0.14734056664058942
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 6.404383202907445,
+          "ci_low": 4.443602752355405,
+          "value": 5.402053453594062
+        },
+        "top_share": {
+          "ci_high": 0.7728360953089062,
+          "ci_low": 0.5113588240469439,
+          "fixed_ci_high": 0.7447541265858914,
+          "fixed_ci_low": 0.5011054119353316,
+          "value": 0.6103548259359545
+        },
+        "top_words": [
+          "freeones",
+          "ranked",
+          "born",
+          "gallery",
+          "currently",
+          "listed",
+          "she",
+          "model",
+          "he",
+          "is"
+        ]
+      },
+      "nurse": {
+        "decomposed_gap": {
+          "ci_high": 2.338454951222022,
+          "ci_low": 0.3203919548017353,
+          "value": 1.3129569235587093
+        },
+        "decomposition_error": 8.881784197001252e-16,
+        "empty_score_drift": -4.186409134021574e-06,
+        "gap_unstable": false,
+        "gendered_share": {
+          "ci_high": 5.981455437522689,
+          "ci_low": 0.8329290375423928,
+          "value": 1.501291721864079
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 2.338451942240459,
+          "ci_low": 0.32038266620647254,
+          "value": 1.3129527371495753
+        },
+        "top_share": {
+          "ci_high": 1.572154416542446,
+          "ci_low": 0.25122737008914797,
+          "fixed_ci_high": 2.09154344000747,
+          "fixed_ci_low": 0.39338763097247864,
+          "value": 0.8329341737692226
+        },
+        "top_words": [
+          "she",
+          "he",
+          "mr",
+          "nurse",
+          "npi",
+          "practitioner",
+          "her",
+          "his",
+          "ms",
+          "crna"
+        ]
+      },
+      "software_engineer": {
+        "decomposed_gap": {
+          "ci_high": 0.5103978779526445,
+          "ci_low": -0.9228314681040239,
+          "value": -0.20645374783540715
+        },
+        "decomposition_error": 1.3322676295501878e-15,
+        "empty_score_drift": -5.551115123125783e-16,
+        "gap_unstable": true,
+        "gendered_share": {
+          "ci_high": 1.5801131040397483,
+          "ci_low": -1.7286523798156281,
+          "value": -0.26043547694633434
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 0.5103966987274481,
+          "ci_low": -0.9228314681040238,
+          "value": -0.2064537478354077
+        },
+        "top_share": {
+          "ci_high": 14.558533953503815,
+          "ci_low": -10.708967300662485,
+          "fixed_ci_high": 15.805294081899277,
+          "fixed_ci_low": -15.060722343556355,
+          "value": -2.344479075849503
+        },
+        "top_words": [
+          "he",
+          "her",
+          "she",
+          "software",
+          "computer",
+          "engineering",
+          "the",
+          "tech",
+          "his",
+          "technical"
+        ]
+      },
+      "surgeon": {
+        "decomposed_gap": {
+          "ci_high": 0.07647923355081766,
+          "ci_low": -1.5398715114765438,
+          "value": -0.7744225470735022
+        },
+        "decomposition_error": 1.5543122344752192e-15,
+        "empty_score_drift": 2.0594873505475064e-06,
+        "gap_unstable": true,
+        "gendered_share": {
+          "ci_high": 8.55727120956451,
+          "ci_low": -8.152294875089117,
+          "value": 1.4479535085286055
+        },
+        "n_female": 150,
+        "n_male": 150,
+        "score_gap": {
+          "ci_high": 0.07647833252510126,
+          "ci_low": -1.5398713055278086,
+          "value": -0.7744204875861517
+        },
+        "top_share": {
+          "ci_high": 1.980166633425931,
+          "ci_low": -1.8100203698552766,
+          "fixed_ci_high": 1.8182370225338884,
+          "fixed_ci_low": -0.7148140712719803,
+          "value": 0.4468297048442465
+        },
+        "top_words": [
+          "surgery",
+          "she",
+          "surgeon",
+          "he",
+          "her",
+          "medical",
+          "surgical",
+          "orthopedic",
+          "his",
+          "practice"
+        ]
+      }
+    }
+  },
+  "settings": {
+    "min_bios": 20,
+    "n_boot": 1000,
+    "seed": 42,
+    "top": 10
+  }
+}
