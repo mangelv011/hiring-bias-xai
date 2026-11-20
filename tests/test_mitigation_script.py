@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hiring_bias_xai import data, results
+from hiring_bias_xai import config, data, fairness, gap_statistics, results
 from hiring_bias_xai.models import DebertaModel
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "mitigation.py"
@@ -30,15 +30,19 @@ class FakeDeberta:
     model on `she` and `born`, the scrubbed model on `born` only."""
 
     loads = []
+    devices = []
+    texts = []
 
     def __init__(self, name):
         self.name = name
         self.network = self
 
     def to(self, device):
+        FakeDeberta.devices.append(device)
         return self
 
     def predict(self, texts):
+        FakeDeberta.texts = list(texts)
         wrong = {"she", "born"} if self.name == "deberta" else {"born"}
         return [WRONG if wrong & set(text.split()) else text.split()[0] for text in texts]
 
@@ -47,7 +51,7 @@ class FakeDeberta:
 def env(monkeypatch, tmp_path):
     """env(): the script module on synthetic splits and a fake model, with the results directory
     that holds the showcase files and the proxy-word list. `env.module.main(...)` runs it."""
-    FakeDeberta.loads = []
+    FakeDeberta.loads, FakeDeberta.devices, FakeDeberta.texts = [], [], []
     test = _split("test")
     scrubbed = test.assign(text=test["text"].str.replace(r" (she|he)$", "", regex=True))
 
@@ -258,7 +262,7 @@ def test_the_file_records_the_proxy_words_the_share_of_bios_they_touch_and_the_l
 
 def test_the_report_names_the_conditions_that_have_no_predictions_yet(env):
     env("predict", "a")
-    with pytest.raises(FileNotFoundError, match="b, c, d, e"):
+    with pytest.raises(FileNotFoundError, match=r"conditions: b, c, d, e$"):
         env("report")
 
 
@@ -294,3 +298,157 @@ def test_an_occupation_with_no_man_or_no_woman_outside_the_showcase_subset_is_le
     for key in ("value", "ci_low", "ci_high"):
         assert math.isfinite(block["rms_tpr_gap"][key])
         assert math.isfinite(change[key])
+
+
+def test_each_condition_loads_the_model_and_texts_of_its_definition(env):
+    # `she` and `he` are in the raw bios only; `born` is in the raw and the scrubbed bios.
+    seen = {}
+    for condition in "abcde":
+        env("predict", condition)
+        seen[condition] = (
+            FakeDeberta.loads[-1][0],
+            any("she" in t.split() for t in FakeDeberta.texts),
+        )
+    assert seen == {
+        "a": ("deberta", True),
+        "b": ("deberta", False),
+        "c": ("deberta-scrubbed", True),
+        "d": ("deberta-scrubbed", False),
+        "e": ("deberta", True),
+    }
+
+
+def test_the_network_is_moved_to_the_device_of_the_script(env):
+    env.module.DEVICE = "cuda:0"
+    env("predict", "a")
+    assert FakeDeberta.devices == ["cuda:0"]
+
+
+def test_the_defaults_are_a_thousand_resamples_and_a_thousand_permutations(env):
+    spec = importlib.util.spec_from_file_location("mitigation_defaults", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert (module.N_BOOT, module.N_PERM) == (1000, 1000)
+
+
+def test_the_settings_and_the_conditions_are_recorded_as_run(env):
+    _predict_everything(env)
+    env.module.N_PERM = 25
+    env("report")
+    out = json.loads((env.results_dir / "mitigation.json").read_text())
+    assert out["settings"] == {
+        "n_bootstrap": 40,
+        "n_permutations": 25,
+        "seed": config.SEED,
+        "scoring_batch_size": 64,
+    }
+    assert out["conditions"]["a"]["outside_showcase"]["rms_tpr_gap"]["null"]["n_permutations"] == 25
+    described = {c: (v["model"], v["text"]) for c, v in out["conditions"].items()}
+    assert described == {
+        "a": ("deberta", "original"),
+        "b": ("deberta", "scrubbed"),
+        "c": ("deberta-scrubbed", "original"),
+        "d": ("deberta-scrubbed", "scrubbed"),
+        "e": ("deberta", "proxy words deleted"),
+    }
+
+
+def _close(actual, expected):
+    assert actual == pytest.approx(expected, abs=1e-12, nan_ok=True)
+
+
+def _same_summary(actual, expected):
+    for key in ("value", "ci_low", "ci_high"):
+        _close(actual[key], expected[key])
+
+
+@pytest.mark.parametrize("showcase", [range(0, 120, 10), [0, *range(10, 20)]])
+def test_every_block_is_what_the_metrics_give_on_the_bios_outside_the_showcase_subset(
+    env, showcase
+):
+    # With the second subset surgeon has no man left outside it, so the gaps leave it out.
+    _predict_everything(env)
+    (env.results_dir / "showcase_subset_ids.csv").write_text(
+        "id" + "".join(f"{chr(10)}test-{i}" for i in showcase) + chr(10)
+    )
+    env("report")
+    out = json.loads((env.results_dir / "mitigation.json").read_text())["conditions"]
+    outside = ~env.test["id"].isin({f"test-{i}" for i in showcase})
+    rest = env.test[outside]
+    share_women = data.share_women(_split("train"))
+    n = 40
+
+    def predicted(condition):
+        return results.load_predictions(f"mitigation_{condition}", env.test)[outside]
+
+    def gender_gaps(frame, pred):
+        both = frame.groupby("occupation")["gender"].transform("nunique") == 2
+        return frame[both], pred[both]
+
+    for condition in "abcde":
+        block = out[condition]["outside_showcase"]
+        pred = predicted(condition)
+        every = fairness.evaluate(rest["occupation"], pred, rest["gender"], share_women, n_boot=n)
+        gap_rest, gap_pred = gender_gaps(rest, pred)
+        gaps = fairness.evaluate(
+            gap_rest["occupation"], gap_pred, gap_rest["gender"], share_women, n_boot=n
+        )
+        _same_summary(block["macro_f1"], every["macro_f1"])
+        _same_summary(block["accuracy"], every["accuracy"])
+        _same_summary(block["rms_tpr_gap"], gaps["rms_tpr_gap"])
+        for occupation, entry in block["tpr_gap"].items():
+            if entry is not None:
+                _same_summary(entry, gaps["per_occupation"][occupation]["tpr_gap"])
+        null = gap_statistics.rms_permutation_test(
+            gap_rest["occupation"], gap_pred, gap_rest["gender"], n_perm=n, seed=config.SEED
+        )
+        assert block["rms_tpr_gap"]["null"] == {
+            "mean": null["null_mean"],
+            "p95": null["null_p95"],
+            "p_value": null["p_value"],
+            "n_permutations": n,
+        }
+        if condition == "a":
+            continue
+        change = fairness.paired_difference(
+            rest["occupation"], predicted("a"), pred, rest["gender"], share_women, n_boot=n
+        )
+        gap_change = fairness.paired_difference(
+            gap_rest["occupation"],
+            predicted("a")[gap_rest.index],
+            gap_pred,
+            gap_rest["gender"],
+            share_women,
+            n_boot=n,
+        )
+        _same_summary(block["change_from_a"]["accuracy"], change["accuracy"])
+        _same_summary(block["change_from_a"]["macro_f1"], change["macro_f1"])
+        _same_summary(block["change_from_a"]["rms_tpr_gap"], gap_change["rms_tpr_gap"])
+
+
+def test_the_bios_changed_count_the_words_whatever_their_case_and_punctuation(env, monkeypatch):
+    shouted = env.test.assign(text=env.test["text"].str.replace("born", "Born,"))
+    split = data.load_split
+    monkeypatch.setattr(
+        data,
+        "load_split",
+        lambda name, variant="original": (
+            shouted if (name, variant) == ("test", "original") else split(name, variant)
+        ),
+    )
+    _predict_everything(env)
+    env("report")
+    out = json.loads((env.results_dir / "mitigation.json").read_text())
+    assert out["bios_changed"]["proxy_word_share"] == pytest.approx(24 / 108)
+
+
+def test_the_script_reads_its_command_from_the_command_line_by_default(env, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["mitigation.py", "predict", "a"])
+    env.module.main(env.results_dir)
+    assert len(FakeDeberta.loads) == 1
+
+
+@pytest.mark.parametrize("argv", [("predict", "a", "b"), ("report", "now"), ("predict",), ()])
+def test_the_script_refuses_extra_or_missing_arguments(env, argv):
+    with pytest.raises(ValueError, match="usage"):
+        env(*argv)

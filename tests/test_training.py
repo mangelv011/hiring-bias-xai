@@ -1,3 +1,4 @@
+import contextlib
 import random
 
 import numpy as np
@@ -330,3 +331,39 @@ def test_fit_moves_the_network_to_the_device_it_is_given(monkeypatch, tiny_netwo
         eval_every=40,
     )
     assert moved == ["cuda:0"]
+
+
+def test_the_recipe_constants_are_five_epochs_and_batches_of_4_by_8():
+    assert (training.EPOCHS, training.BATCH_SIZE, training.ACCUMULATION) == (5, 4, 8)  # 4 x 8 = 32
+    assert (training.EVAL_BATCH_SIZE, training.EVAL_EVERY, training.MAX_LENGTH) == (4, 375, 256)
+
+
+def test_fit_hands_the_rate_epochs_batches_and_evaluation_interval_to_train(fit, monkeypatch):
+    seen = {}
+    real = training.train
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(training, "train", spy)
+    fit(learning_rate=2e-3, epochs=1, batch_size=2, accumulation=3, eval_every=5)
+    assert (seen["learning_rate"], seen["epochs"], seen["batch_size"]) == (2e-3, 1, 2)
+    assert (seen["accumulation"], seen["eval_every"]) == (3, 5)
+
+
+def test_the_progress_line_is_flushed_at_once():
+    class Out:
+        flushes = 0
+
+        def write(self, text):
+            return len(text)
+
+        def flush(self):
+            self.flushes += 1
+
+    out = Out()
+    row = {"step": 1, "epoch": 1, "train_loss": 0.1, "dev_loss": 0.2, "dev_macro_f1": 0.3}
+    with contextlib.redirect_stdout(out):
+        training.progress_printer("x")(row)
+    assert out.flushes == 1

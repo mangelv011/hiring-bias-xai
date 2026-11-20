@@ -384,3 +384,23 @@ def test_patching_does_not_change_later_runs_of_the_model(tiny_network, tiny_tok
     before = model.logits([CORRUPTED])
     model.patched_logits(corrupted, 1, states[1], torch.ones(1, 6, dtype=torch.bool))
     np.testing.assert_array_equal(model.logits([CORRUPTED]), before)
+
+
+def test_a_model_saved_under_a_name_loads_its_own_tokenizer(
+    monkeypatch, tmp_path, tiny_network, tiny_tokenizer
+):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    _model(tiny_network, tiny_tokenizer, max_length=5).save()
+    _model(tiny_network, tiny_tokenizer, max_length=9).save(name="deberta-scrubbed")
+    assert DebertaModel.load(name="deberta-scrubbed").tokenizer.model_max_length == 9
+    assert DebertaModel.load().tokenizer.model_max_length == 5
+
+
+def test_a_checkpoint_name_may_hold_digits_and_hyphens_but_not_underscores(
+    monkeypatch, tmp_path, tiny_network, tiny_tokenizer
+):
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path))
+    _model(tiny_network, tiny_tokenizer).save(name="v2-3")
+    assert (tmp_path / "models" / "v2-3" / "config.json").is_file()
+    with pytest.raises(ValueError, match="checkpoint name"):
+        _model(tiny_network, tiny_tokenizer).save(name="v_2")

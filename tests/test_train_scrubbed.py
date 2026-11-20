@@ -155,3 +155,56 @@ def test_the_network_is_moved_to_the_device_of_the_script(toy, monkeypatch):
     monkeypatch.setattr(DebertaModel, "pretrained", classmethod(pretrained))
     toy(EPOCHS=1, DEVICE="cuda:0")
     assert moved == ["cuda:0"]
+
+
+def test_the_script_hands_each_constant_to_the_fit_and_prints_the_seconds_to_a_tenth(
+    monkeypatch, tmp_path, capsys
+):
+    module = _load_script()
+    constants = {
+        "LEARNING_RATE": 0.5,
+        "EPOCHS": 11,
+        "BATCH_SIZE": 12,
+        "ACCUMULATION": 13,
+        "EVAL_EVERY": 14,
+        "MAX_LENGTH": 15,
+        "EVAL_BATCH_SIZE": 16,
+        "DEVICE": "cpu",
+    }
+    for name, value in constants.items():
+        monkeypatch.setattr(module, name, value)
+    seen = {}
+
+    class Saved:
+        def save(self, name):
+            seen["checkpoint"] = name
+
+    def fit(learning_rate, train_frame, dev_frame, **kwargs):
+        seen.update(kwargs, learning_rate=learning_rate)
+        row = dict.fromkeys(
+            ["step", "epoch", "train_loss", "dev_loss", "dev_macro_f1", "learning_rate"], 1.0
+        )
+        return Saved(), [row], 12.34
+
+    monkeypatch.setattr(module, "fit_deberta", fit)
+    monkeypatch.setattr(data, "load_split", lambda split, variant="original": pd.DataFrame())
+    module.main(tmp_path / "results")
+    seen.pop("on_evaluation")
+    assert seen == {
+        "learning_rate": 0.5,
+        "device": "cpu",
+        "max_length": 15,
+        "eval_batch_size": 16,
+        "epochs": 11,
+        "batch_size": 12,
+        "accumulation": 13,
+        "eval_every": 14,
+        "checkpoint": "deberta-scrubbed",
+    }
+    assert "training seconds: 12.3\n" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("available, device", [(True, "cuda"), (False, "cpu")])
+def test_the_device_is_the_gpu_when_there_is_one(available, device, monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: available)
+    assert _load_script().DEVICE == device

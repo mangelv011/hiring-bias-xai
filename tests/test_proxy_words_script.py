@@ -157,3 +157,10 @@ def test_the_file_records_the_usage_rule_and_the_shares_of_each_word(run):
     assert out["usage"] == {"ratio": 3, "smoothing": 0.01, "min_share": 0.05}
     (pager,) = out["occupations"]["surgeon"]
     assert (pager["freq_female"], pager["freq_male"]) == (0.4, 0.1)
+
+
+def test_words_made_of_digits_stay_text(run):
+    rows = [_row("deberta", "surgeon", w, 1.0 + i) for i, w in enumerate(["2019", "2020"])]
+    out = run(rows)
+    assert out["words"] == ["2019", "2020"]
+    assert [w["word"] for w in out["occupations"]["surgeon"]] == ["2020", "2019"]
