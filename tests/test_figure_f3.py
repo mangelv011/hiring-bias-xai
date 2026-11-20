@@ -183,6 +183,18 @@ def test_the_title_covers_two_stable_gaps_and_two_small_ones_in_two_lines(f3):
     assert lines <= 2
 
 
+def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_there_are_none(figure):
+    surgeon, model = _data_axes(figure)
+    assert surgeon.get_title(loc="left") == (
+        "Surgeon (male-dominated), gap -0.8 [-1.5, +0.1]\n"
+        "its interval includes 0, so the shares are not given"
+    )
+    assert model.get_title(loc="left") == (
+        "Model (female-dominated), gap +5.4 [+4.4, +6.4]\n"
+        "top 10 words: 61% [51%, 77%]; gendered: 15% [12%, 19%]"
+    )
+
+
 def _summary(gap):
     return {"score_gap": {"value": gap}}
 
