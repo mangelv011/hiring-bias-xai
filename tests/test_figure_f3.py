@@ -147,6 +147,24 @@ def test_gendered_words_are_in_the_highlight_colour_and_the_others_in_grey(figur
     assert labels == [plotting.HIGHLIGHT if c == plotting.HIGHLIGHT else "#333333" for c in expected]
 
 
+def _title_lines(fig):
+    fig.canvas.draw()
+    title = fig._suptitle
+    return title.get_text(), title._get_wrapped_text().count("\n") + 1
+
+
+def test_the_title_gives_the_gendered_share_of_a_stable_gap_and_says_when_a_gap_is_too_small(
+    figure,
+):
+    # Model: gendered words 0.15 of a +5.4 gap. Surgeon: the gap -0.77 has an interval with 0.
+    text, lines = _title_lines(figure)
+    assert text == (
+        "Gendered words carry 15% of the main model's +5.4 score gap in model bios; "
+        "the surgeon gap (-0.8) is too close to 0 to split."
+    )
+    assert lines <= 2
+
+
 def _summary(gap):
     return {"score_gap": {"value": gap}}
 
