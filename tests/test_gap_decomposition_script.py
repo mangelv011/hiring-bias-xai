@@ -6,7 +6,8 @@ import pandas as pd
 import pytest
 from fakes import Hashed
 
-from hiring_bias_xai import attribution, data, results
+from hiring_bias_xai import attribution, data, gap_decomposition, results
+from hiring_bias_xai.config import SEED
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "gap_decomposition.py"
 MALE_DOMINATED = ["surgeon", "composer", "software_engineer"]
@@ -49,7 +50,10 @@ def run(monkeypatch, tmp_path):
     monkeypatch.setattr(data, "load_split", lambda split, variant="original": subset)
     for screener in SCREENERS:
         for row in subset.itertuples():
-            (saved,) = attribution.shapley(model, [row.text], [row.occupation], 3, "delete", seed=1)
+            seed = 1 if screener == "deberta" else 2  # the two screeners store different values
+            (saved,) = attribution.shapley(
+                model, [row.text], [row.occupation], 3, "delete", seed=seed
+            )
             attribution.save(attribution.path(screener, row.id), saved)
     spec = importlib.util.spec_from_file_location("gap_decomposition_script", SCRIPT)
     module = importlib.util.module_from_spec(spec)
@@ -129,3 +133,27 @@ def test_the_json_has_the_summary_of_every_screener_and_occupation(run, capsys):
         for occupation, summary in by_occupation.items():
             flagged = f"{screener} {occupation}: the total gap" in shown
             assert flagged == summary["gap_unstable"]
+            gap = summary["decomposed_gap"]
+            if summary["gap_unstable"]:
+                assert (
+                    f"{screener} {occupation}: the total gap {gap['value']:+.3f} has an interval "
+                    f"[{gap['ci_low']:+.3f}, {gap['ci_high']:+.3f}] that includes 0, so its "
+                    "shares are unstable\n"
+                ) in shown
+
+
+def test_each_summary_is_what_decompose_gives_for_that_screeners_bios_with_their_genders(run):
+    results_dir = run()
+    explained = json.loads((results_dir / "gap_explained.json").read_text())
+    assert explained["settings"]["seed"] == SEED
+    for screener in SCREENERS:
+        for occupation in MALE_DOMINATED + FEMALE_DOMINATED:
+            rows = run.subset[run.subset["occupation"] == occupation]
+            bios = [
+                gap_decomposition.bio_from_attribution(
+                    attribution.load(attribution.path(screener, row.id)), row.gender
+                )
+                for row in rows.itertuples()
+            ]
+            expected = gap_decomposition.decompose(bios, n_boot=20).summary
+            assert explained["screeners"][screener][occupation] == json.loads(json.dumps(expected))
