@@ -213,19 +213,27 @@ class DebertaModel(_Screener):
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
         return torch.softmax(torch.from_numpy(self.logits(texts)), dim=-1).numpy()
 
-    def representations(self, texts: Sequence[str]) -> Representations:
-        """The [CLS] state after the embeddings and after each transformer layer, and the
-        final vector the classification head reads.
+    def representations(self, texts: Sequence[str], pooling: str = "cls") -> Representations:
+        """The state after the embeddings and after each transformer layer, and the final vector
+        the classification head reads.
 
-        `layers` has shape (n, n_layers + 1, hidden_size), `final` (n, hidden_size). `final`
-        is the [CLS] state of the last layer passed through the head's pooler (dense layer and
-        activation); the classifier is a linear map of it.
+        `layers` has shape (n, n_layers + 1, hidden_size): with `pooling="cls"` the [CLS] state,
+        with `pooling="mean"` the mean over the non-padding tokens, special tokens included.
+        `final` (n, hidden_size) is the [CLS] state of the last layer passed through the head's
+        pooler (dense layer and activation); the classifier is a linear map of it.
         """
+        if pooling not in ("cls", "mean"):
+            raise ValueError(f"pooling must be cls or mean; got {pooling!r}")
         layers, final, positions = [], [], []
         with torch.inference_mode(), autocast(self.network):
             for chosen, inputs in self.batches(texts):
                 states = self.network.deberta(**inputs, output_hidden_states=True)
-                layers.append(torch.stack([state[:, 0] for state in states.hidden_states], dim=1))
+                stacked = torch.stack(states.hidden_states, dim=1)  # (batch, layer, token, dim)
+                if pooling == "cls":
+                    layers.append(stacked[:, :, 0])
+                else:
+                    mask = inputs["attention_mask"][:, None, :, None].to(stacked.dtype)
+                    layers.append((stacked * mask).sum(dim=2) / mask.sum(dim=2))
                 final.append(self.network.pooler(states.last_hidden_state))
                 positions.append(chosen)
         return Representations(
