@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 from fakes import BagOfWords
 
@@ -180,3 +181,40 @@ def test_deleting_a_group_rejoins_the_other_words_with_single_spaces():
     classifier = BagOfWords({})
     checks.drop_without(classifier, ["a", "b", "c"], [[1]], NURSE)
     assert classifier.calls == [["a b c", "a c"]]
+
+
+def _subset(sizes):
+    rows = [
+        (occupation, gender) for (occupation, gender), size in sizes.items() for _ in range(size)
+    ]
+    return pd.DataFrame(rows, columns=["occupation", "gender"])
+
+
+SIZES = {("nurse", "male"): 6, ("nurse", "female"): 9, ("model", "male"): 7, ("model", "female"): 8}
+
+
+def test_the_sample_takes_equal_shares_from_each_occupation_and_gender_remainder_first():
+    subset = _subset(SIZES)
+    picked = subset.iloc[checks.stratified_sample(subset, 10, seed=1)]
+    counts = picked.groupby(["occupation", "gender"]).size()
+    # 10 over 4 strata: 2 each, and the 2 left over go to the first two strata in sorted order
+    assert counts.to_dict() == {
+        ("model", "female"): 3,
+        ("model", "male"): 3,
+        ("nurse", "female"): 2,
+        ("nurse", "male"): 2,
+    }
+
+
+def test_the_sample_is_sorted_positions_without_repeats_that_follow_the_seed():
+    subset = _subset(SIZES)
+    one = checks.stratified_sample(subset, 10, seed=1)
+    assert one.tolist() == sorted(set(one.tolist()))
+    np.testing.assert_array_equal(one, checks.stratified_sample(subset, 10, seed=1))
+    assert not np.array_equal(one, checks.stratified_sample(subset, 10, seed=2))
+
+
+def test_a_stratum_smaller_than_its_share_is_an_error_not_a_smaller_sample():
+    subset = _subset({("nurse", "male"): 1, ("nurse", "female"): 9})
+    with pytest.raises(ValueError, match="nurse"):
+        checks.stratified_sample(subset, 10, seed=1)
