@@ -144,3 +144,23 @@ def test_a_bio_whose_stored_full_text_gives_another_prediction_than_the_saved_on
     cases, skipped = f2.load_cases(subset, [other, predicted[1]])
     assert skipped == 1
     assert [case.bio_id for case in cases] == ["test-1"]
+
+
+def test_a_number_of_six_digits_marks_an_identifier_and_one_of_five_does_not(f2):
+    cases = [
+        _case(f2, "test-1", "a", "b", "she has 123456 and", [9.0, 0.0, 0.0, 0.0]),
+        _case(f2, "test-2", "a", "b", "she has 12345 and", [1.0, 0.0, 0.0, 0.0]),
+    ]
+    assert f2.pick_error(cases).bio_id == "test-2"
+
+
+def test_the_sentence_wraps_when_the_next_word_would_pass_the_line_and_not_before(f2):
+    # Lines hold 5 characters. "ab" and "cd" fill a line exactly (columns 0 and 3); "ef" starts a
+    # new one; a word longer than a line is cut into pieces.
+    assert f2._layout(["ab", "cd", "ef"], 5) == [(0, 0, 0, "ab"), (0, 3, 1, "cd"), (1, 0, 2, "ef")]
+    assert f2._layout(["abcdefghijkl", "x"], 5) == [
+        (0, 0, 0, "abcde"),
+        (1, 0, 0, "fghij"),
+        (2, 0, 0, "kl"),
+        (2, 3, 1, "x"),
+    ]
