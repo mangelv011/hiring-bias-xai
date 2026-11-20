@@ -31,6 +31,8 @@ ACCURACY = {"pretrained": [0.60, 0.64, 0.66], "deberta": [0.60, 0.59, 0.57]}
 REFERENCES = {"majority": 0.48, "occupation_only": 0.52, "tfidf": 0.58}
 # restored share of the differing positions at layers 0, 1, 2 (mean, interval -/+ 0.03)
 SHARE = [1.0, 0.7, 0.0]
+# the same for all the other words
+OTHERS = [0.0, 0.2, 1.0]
 
 
 def _row(model, layer, subset, accuracy):
@@ -73,10 +75,10 @@ def patching():
         rows.append(
             {
                 "layer": layer,
-                "position_set": "all",
-                "mean": 1.0,
-                "mean_ci_low": 1.0,
-                "mean_ci_high": 1.0,
+                "position_set": "others",
+                "mean": OTHERS[layer],
+                "mean_ci_low": OTHERS[layer] - 0.02,
+                "mean_ci_high": OTHERS[layer] + 0.02,
             }
         )
     return pd.DataFrame(rows)
@@ -117,15 +119,17 @@ def test_the_title_counts_layers_above_the_occupation_reference_and_names_the_la
     # lowest is the main model at layer 2 (0.55). The differing positions have an interval above
     # one half at layer 1 (0.67 to 0.73) and below it at layer 2.
     assert f6.title(probing, patching) == (
-        "Gender is readable from scrubbed bios in all 6 layers (57% to 66%, against 52% from the "
-        "occupation alone), and the swap's effect leaves the edited words by layer 2."
+        "Gender stays readable after the pronouns are removed, and the swap's effect leaves the "
+        "edited words by layer 2."
     )
 
 
-def test_the_title_says_how_many_layers_when_not_all_are_above_the_reference(f6, probing, patching):
+def test_the_title_says_in_only_some_layers_when_not_all_are_above_the_reference(
+    f6, probing, patching
+):
     probing.loc[(probing["model"] == "deberta") & (probing["layer"] == 2), ["ci_low"]] = 0.50
     assert f6.title(probing, patching).startswith(
-        "Gender is readable from scrubbed bios in 5 of 6 layers (57% to 66%,"
+        "Gender stays readable in only some layers after the pronouns are removed, and"
     )
 
 
@@ -138,7 +142,7 @@ def test_the_title_names_no_layer_when_the_effect_stays_above_one_half(f6, probi
 
 def test_the_title_ignores_the_unflagged_rows(f6, probing, patching):
     probing.loc[probing["subset"] == "unflagged", "ci_low"] = 0.0
-    assert "in all 6 layers" in f6.title(probing, patching)
+    assert f6.title(probing, patching).startswith("Gender stays readable after the pronouns")
 
 
 def test_panel_a_draws_the_two_models_per_layer_with_their_intervals_in_grey_and_highlight(figure):
@@ -187,20 +191,24 @@ def test_panel_b_draws_the_restored_share_at_the_differing_positions_in_the_high
     assert vertices[:, 1].max() == pytest.approx(1.03)
 
 
-def test_panel_b_draws_all_positions_in_grey_and_the_reference_lines_at_zero_and_one(figure):
+def test_panel_b_draws_the_other_words_in_grey_and_the_reference_lines_at_zero_and_one(figure):
     _, bottom = _panels(figure)
-    everywhere = _line(bottom, "all")
-    assert list(everywhere.get_ydata()) == [1.0, 1.0, 1.0]
-    assert matplotlib.colors.to_hex(everywhere.get_color()).upper() == plotting.NEUTRAL
+    others = _line(bottom, "others")
+    assert list(others.get_ydata()) == pytest.approx(OTHERS)
+    assert matplotlib.colors.to_hex(others.get_color()).upper() == plotting.NEUTRAL
+    vertices = _band(bottom, plotting.NEUTRAL).get_paths()[0].vertices
+    assert vertices[:, 1].min() == pytest.approx(-0.02)
+    assert vertices[:, 1].max() == pytest.approx(1.02)
     references = [line for line in bottom.lines if line.get_label() in ("zero", "one")]
     assert sorted(line.get_ydata()[0] for line in references) == [0, 1]
 
 
-def test_panel_b_labels_the_lines_and_says_the_flat_line_holds_by_construction(figure):
+def test_panel_b_labels_the_lines_and_explains_the_zero_at_the_last_layer(figure):
     _, bottom = _panels(figure)
     texts = {t.get_text() for t in bottom.texts}
-    assert "edited words only" in texts
-    assert any(t.startswith("all positions") and "by construction" in t for t in texts)
+    assert {"edited words only", "all other words"} <= texts
+    note = next(t for t in texts if "[CLS]" in t)
+    assert "last layer" in note.lower() and "0%" in note
     assert bottom.get_legend() is None
 
 
@@ -280,7 +288,7 @@ def test_a_probe_whose_interval_starts_exactly_at_the_reference_interval_end_doe
 ):
     ends = _occupation_reference(probing, "ci_high")
     probing.loc[(probing["model"] == "deberta") & (probing["layer"] == 2), "ci_low"] = ends
-    assert "in 5 of 6 layers" in f6.title(probing, patching)
+    assert "in only some layers" in f6.title(probing, patching)
 
 
 def test_a_probe_counts_only_when_its_interval_starts_above_the_end_of_the_reference_interval(
@@ -290,7 +298,7 @@ def test_a_probe_counts_only_when_its_interval_starts_above_the_end_of_the_refer
         _occupation_reference(probing, "accuracy") + 0.01
     )  # above the accuracy, in the interval
     probing.loc[(probing["model"] == "deberta") & (probing["layer"] == 2), "ci_low"] = inside
-    assert "in 5 of 6 layers" in f6.title(probing, patching)
+    assert "in only some layers" in f6.title(probing, patching)
 
 
 def test_spread_moves_labels_up_to_the_gap_and_keeps_their_order(f6):
@@ -316,8 +324,7 @@ def test_panel_b_ticks_zero_half_and_one_and_labels_its_lines_around_their_last_
     _, bottom = _panels(figure)
     assert list(bottom.get_yticks()) == [0, 0.5, 1]
     assert _text(bottom, "edited words only").get_position()[1] == pytest.approx(0.0 + 0.12)
-    label = next(t for t in bottom.texts if t.get_text().startswith("all positions"))
-    assert label.get_position()[1] == pytest.approx(1.0 - 0.1)
+    assert _text(bottom, "all other words").get_position()[1] == pytest.approx(1.0 - 0.1)
 
 
 def test_the_bands_are_translucent_and_the_x_axis_line_spans_the_layers(figure):

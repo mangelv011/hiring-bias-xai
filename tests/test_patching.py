@@ -114,8 +114,8 @@ def test_patch_pairs_returns_clean_and_corrupted_log_odds_in_input_order(model):
 
 def test_patch_pairs_has_one_log_odds_per_bio_layer_and_position_set(model):
     result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
-    assert patching.POSITION_SETS == ("differing", "all")
-    assert result["patched"].shape == (4, 3, 2)  # the tiny network has 2 layers
+    assert patching.POSITION_SETS == ("differing", "others", "all")
+    assert result["patched"].shape == (4, 3, 3)  # the tiny network has 2 layers
 
 
 def test_patching_all_positions_at_the_embeddings_restores_the_whole_effect(model):
@@ -123,7 +123,7 @@ def test_patching_all_positions_at_the_embeddings_restores_the_whole_effect(mode
     # is left, so the share is 100%.
     result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
     shares = patching.restored_share(
-        result["clean"], result["corrupted"], result["patched"][:, 0, 1]
+        result["clean"], result["corrupted"], result["patched"][:, 0, 2]
     )
     np.testing.assert_allclose(shares, 1.0, atol=1e-4)
 
@@ -139,8 +139,26 @@ def test_patching_all_positions_at_the_last_layer_restores_everything_but_the_di
 ):
     # The classifier reads the [CLS] state of the last layer, and [CLS] never differs.
     result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
-    np.testing.assert_allclose(result["patched"][:, -1, 1], result["clean"], atol=1e-4)
+    np.testing.assert_allclose(result["patched"][:, -1, 2], result["clean"], atol=1e-4)
     np.testing.assert_allclose(result["patched"][:, -1, 0], result["corrupted"], atol=1e-4)
+
+
+def test_patching_the_other_words_changes_nothing_at_the_embeddings_and_restores_all_at_the_end(
+    model,
+):
+    # The other words have the same token before any layer, so their clean states are the
+    # corrupted ones. At the last layer they include [CLS], the only state the classifier reads.
+    result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
+    np.testing.assert_allclose(result["patched"][:, 0, 1], result["corrupted"], atol=1e-4)
+    np.testing.assert_allclose(result["patched"][:, -1, 1], result["clean"], atol=1e-4)
+
+
+def test_patching_the_other_words_in_a_middle_layer_gives_a_third_value(model):
+    result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
+    middle = result["patched"][:, 1]
+    assert not np.allclose(middle[:, 1], result["corrupted"], atol=1e-3)
+    assert not np.allclose(middle[:, 1], result["clean"], atol=1e-3)
+    assert not np.allclose(middle[:, 1], middle[:, 0], atol=1e-3)
 
 
 def test_patch_pairs_refuses_pairs_of_different_token_length(model):
