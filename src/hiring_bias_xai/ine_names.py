@@ -6,6 +6,28 @@ them and are only read cell by cell as text and numbers.
 
 import unicodedata
 
+import xlrd
+
+_BASE = "https://www.ine.es/daco/daco42/nombyapel/"
+# file key -> (url, sha256 of the files downloaded on 2026-11-20)
+FILES = {
+    "first_names": (
+        _BASE + "nombres_por_nacionalidades.xls",
+        "39e39766f28f2aae9be8371119ef954758e0778d5a09712be497dfb076ed2698",
+    ),
+    "surnames": (
+        _BASE + "apellidos_por_nacionalidad.xls",
+        "c8281170819b3cff9acb355ba1b4919f2d4aeda585e34c1d79e1385d74248c1b",
+    ),
+    "spain_first_names": (
+        _BASE + "nombres_mas_frecuentes.xls",
+        "c8b4d7d867f3b0e12630c6a9603bbb164d1917f4c0adfee577ff901f3ea5fb0d",
+    ),
+    "spain_surnames": (
+        _BASE + "apellidos_mas_frecuentes.xls",
+        "5f7cfa24abd6e013e0277422c4536229918c0d837184c6cd6790b25be848fa3c",
+    ),
+}
 N_FIRST_NAMES = 10  # per sex
 N_SURNAMES = 20
 
@@ -19,6 +41,18 @@ NATIONALITIES = {
 GROUPS = ("Spain", *NATIONALITIES)
 
 _SEXES = {"male": "hombres", "female": "mujeres"}
+
+
+def read_sheets(content: bytes) -> dict[str, list[list]]:
+    """The cells of every sheet of an .xls workbook, by sheet name. Raises ValueError if the
+    bytes are not a workbook. Only values are read; nothing in the file is executed."""
+    try:
+        workbook = xlrd.open_workbook(file_contents=content, formatting_info=False)
+    except xlrd.XLRDError as error:
+        raise ValueError(f"not an .xls workbook: {error}") from error
+    return {
+        sheet.name: [sheet.row_values(i) for i in range(sheet.nrows)] for sheet in workbook.sheets()
+    }
 
 
 def _plain(cell) -> str:
