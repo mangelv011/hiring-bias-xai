@@ -1,0 +1,10 @@
+{
+  "n_bios": 1721,
+  "n_gendered_units": 4986,
+  "n_glued": 1171,
+  "n_glued_with_gendered_part": 14,
+  "n_units": 100246,
+  "rule": "Units are whitespace-separated words. A unit is glued when its core (punctuation at its ends removed) has letters on both sides of punctuation inside it, apostrophes excepted. A glued unit has a gendered part when a piece between that punctuation is a scrubbed word. Gendered units are the whole units whose core is a scrubbed word plus the glued units with a gendered part.",
+  "share_glued": 0.011681264090337769,
+  "share_of_gendered_units_glued": 0.0028
+}
