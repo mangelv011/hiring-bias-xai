@@ -90,3 +90,31 @@ def test_the_csv_has_the_top_words_of_every_screener_and_occupation_with_their_c
     assert (pairs["top"].sum() == 10).all()
     assert (pairs.size() == 10).all()
     assert table["importance"].isna().all()
+
+
+def test_the_json_has_the_summary_of_every_screener_and_occupation(run, capsys):
+    results_dir = run()
+    explained = json.loads((results_dir / "gap_explained.json").read_text())
+    assert explained["settings"]["n_boot"] == 20
+    assert explained["settings"]["min_bios"] == 20
+    assert explained["settings"]["top"] == 10
+    assert set(explained["screeners"]) == set(SCREENERS)
+    table = pd.read_csv(results_dir / "gap_decomposition.csv")
+    for screener in SCREENERS:
+        assert set(explained["screeners"][screener]) == set(MALE_DOMINATED + FEMALE_DOMINATED)
+        for occupation, summary in explained["screeners"][screener].items():
+            assert (summary["n_female"], summary["n_male"]) == (2, 2)
+            assert summary["decomposition_error"] < 1e-9
+            rows = table[(table["screener"] == screener) & (table["occupation"] == occupation)]
+            assert summary["top_words"] == list(rows["word"][rows["top"]])
+    worst = max(
+        summary["decomposition_error"]
+        for by_occupation in explained["screeners"].values()
+        for summary in by_occupation.values()
+    )
+    assert explained["max_decomposition_error"] == worst
+    shown = capsys.readouterr().out
+    for screener, by_occupation in explained["screeners"].items():
+        for occupation, summary in by_occupation.items():
+            flagged = f"{screener} {occupation}: the total gap" in shown
+            assert flagged == summary["gap_unstable"]
