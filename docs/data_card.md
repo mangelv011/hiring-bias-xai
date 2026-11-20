@@ -18,9 +18,9 @@ Follows the questions of Gebru et al., "Datasheets for Datasets" (2021), cut to 
 | train | 257,478 | 60,000 (training subsample) |
 | dev | 39,642 | 10,000 (training subsample) |
 | test | 99,069 | 99,069 (full) |
-| XAI subset | | 2,000 bios drawn from test |
+| Showcase subset | | 1,721 bios drawn from test (up to 150 per showcase occupation and gender) |
 
-Subsamples are stratified by occupation x gender with proportional allocation and the global seed (42). Group quotas are rounded down and the leftover bios go to the groups with the largest remainders, so the totals are exact. Groups are visited in sorted (occupation, gender) order, so `female` comes before `male`. Bio IDs are `<split>-<row index in the official split>`, for example `test-1234`; the XAI subset IDs are in `results/xai_subset_ids.csv`.
+Subsamples are stratified by occupation x gender with proportional allocation and the global seed (42). Group quotas are rounded down and the leftover bios go to the groups with the largest remainders, so the totals are exact. Groups are visited in sorted (occupation, gender) order, so `female` comes before `male`. Bio IDs are `<split>-<row index in the official split>`, for example `test-1234`; the showcase subset IDs are in `results/showcase_subset_ids.csv`.
 
 In the dev split a bio has 150 to 961 characters (median 358).
 
@@ -34,7 +34,7 @@ In the dev split a bio has 150 to 961 characters (median 358).
 
 Full counts per split, occupation and gender, and the share of women per occupation in the training subsample, are in `results/data_summary.json`.
 
-- Women are 46.1% in the training subsample (27,661 of 60,000), in dev (4,610 of 10,000) and in test (45,672 of 99,069), and 46.2% in the XAI subset (923 of 2,000).
+- Women are 46.1% in the training subsample (27,661 of 60,000), in dev (4,610 of 10,000) and in test (45,672 of 99,069), and 52.3% in the showcase subset (900 of 1,721).
 - Occupations are skewed. In the test split `professor` has 29,520 bios and `physician` 10,250, while `rapper` has 351, `personal_trainer` 358, `interior_designer` 366 and `dj` 372.
 - The share of women in the training subsample ranges from 9.4% (`rapper`) to 92.8% (`dietitian`).
 - Showcase occupations (rule in `results/showcase_occupations.json`): lowest share of women `surgeon` (14.8%), `software_engineer` (15.8%), `composer` (16.4%); highest `dietitian` (92.8%), `nurse` (90.8%), `model` (82.7%). `rapper` (9.4%) and `dj` (14.2%) are more male-dominated but have fewer than 500 test bios, so they are not eligible.

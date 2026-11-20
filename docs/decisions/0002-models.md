@@ -23,7 +23,7 @@ Three screeners. The first two satisfy the `Classifier` interface; the LLM answe
 ## Consequences
 
 - The subsample caps accuracy below what the full 396k bios would give. The comparison across models still holds because all are scored on the same test split.
-- Expensive explanations run on the XAI subset, not on the whole test set.
+- Expensive explanations run on the showcase subset, not on the whole test set.
 - A new classifier, such as a mitigated variant, only needs `labels` and `predict_proba`; fairness and counterfactual code do not change.
 
 ## Update: how the main model was trained (issue #4)
@@ -43,3 +43,7 @@ Numbers are in `results/metrics_deberta.json` and `results/training_log.csv`.
 **Weights come from the pinned Microsoft repository, which ships pickle weights only.** transformers loads them with `weights_only=True`, and the project writes its own checkpoint as safetensors. Loading the checkpoint takes no path and reads only `artifacts_dir()/models/deberta`. The fp16 weights of the repository are loaded as float32: float16 weights gave NaN at the first optimizer step.
 
 **Bias.** RMS TPR gap is 0.1476 [0.1342, 0.1715] for the main model and 0.1666 [0.1506, 0.1895] for the baseline model. The intervals overlap, so the data do not show that either model is fairer.
+
+## Update: attribution moved to Shapley values (issue #6)
+
+The context and the alternatives above name Integrated Gradients as the explanation that needs gradients. Issue #6 replaced it with word-level Shapley values. The reasons and the alternatives are in [ADR 0003](0003-shapley-attribution.md). The choice of models stands.

@@ -15,16 +15,16 @@ When a screening model favours one gender in an occupation, which parts of the b
 ## Approach
 
 - **Bias metric**: the TPR gap per occupation (TPR women minus TPR men, positive favours women), and its correlation with the share of women in the occupation.
-- **Attribution**: Integrated Gradients at word level, with a reference input such as `[PAD]` or `[MASK]`.
+- **Attribution**: word-level Shapley values of the log-odds of the true occupation, by permutation sampling. A word is absent when it is deleted or replaced by `[UNK]`; a pilot picks which.
 - **Counterfactual swaps**: pronoun swaps, and name headers built from Spanish INE name lists for four origin groups (Spain, Morocco, Romania, Hispanic America = Colombia, Ecuador and Venezuela).
-- **Probing**: gender probes on scrubbed text, with a control task, plus LEACE concept erasure.
+- **Probing**: gender probes on scrubbed text, with a control task, and activation patching.
 - **Sanity checks**: deletion curves and weight randomization.
 
-Expensive explanations run on a fixed, stratified XAI subset of the test bios. Terms are defined in [GLOSSARY.md](GLOSSARY.md); design decisions are in [docs/decisions/](docs/decisions/).
+Expensive explanations run on a fixed showcase subset of the test bios: up to 150 per showcase occupation and gender. Terms are defined in [GLOSSARY.md](GLOSSARY.md); design decisions are in [docs/decisions/](docs/decisions/).
 
 ## Status
 
-Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). The figure style ([docs/figure_guidelines.md](docs/figure_guidelines.md)), the gap statistics (`python scripts/gap_statistics.py`, results in `results/gap_statistics.json`) and figure F1 (`python scripts/figure_f1.py`). No explanation code yet.
+Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). The figure style ([docs/figure_guidelines.md](docs/figure_guidelines.md)), the gap statistics (`python scripts/gap_statistics.py`, results in `results/gap_statistics.json`) and figure F1 (`python scripts/figure_f1.py`). The Shapley code is in `src/hiring_bias_xai/attribution.py`, with two scripts: `scripts/shapley_pilot.py` (removal and cost pilots, writes `results/shapley_pilot.json`) and `scripts/shapley_run.py` (both models on the showcase subset, resumable, writes `results/shapley_summary.json`). Their results are not in yet; see [ADR 0003](docs/decisions/0003-shapley-attribution.md).
 
 ## Results so far
 
@@ -83,7 +83,7 @@ pip install -e . --no-deps
 
 Data and model weights live outside the repository, in the directory named by the `HBX_ARTIFACTS` environment variable (default `~/.cache/hiring-bias-xai`).
 
-Experiment entry points live in `scripts/` and write small JSON/CSV files and figures to `results/`. `uv run python scripts/prepare_data.py` downloads the dataset at a pinned revision into `HBX_ARTIFACTS` and writes `results/data_summary.json`, `results/showcase_occupations.json` and `results/xai_subset_ids.csv`; running it twice gives byte-identical files. `uv run pytest -m "not slow"` skips the tests that need the real dataset.
+Experiment entry points live in `scripts/` and write small JSON/CSV files and figures to `results/`. `uv run python scripts/prepare_data.py` downloads the dataset at a pinned revision into `HBX_ARTIFACTS` and writes `results/data_summary.json`, `results/showcase_occupations.json` and `results/showcase_subset_ids.csv`; running it twice gives byte-identical files. `uv run pytest -m "not slow"` skips the tests that need the real dataset.
 
 ## License
 

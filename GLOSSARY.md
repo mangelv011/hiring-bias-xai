@@ -32,14 +32,14 @@ _Avoid_: row number, index
 The 60,000 train bios (10,000 for dev) drawn at random within each occupation and gender group, in proportion to its size. The test split is never subsampled.
 _Avoid_: sample, subset
 
-**XAI subset**:
-The fixed 2,000 test bios, stratified by occupation and gender, on which all expensive explanations are computed.
-_Avoid_: sample, explanation set
+**Showcase subset**:
+The fixed test bios of the showcase occupations, up to 150 per occupation and gender, on which all expensive explanations are computed. A group with fewer test bios contributes all of them.
+_Avoid_: sample, explanation set, XAI subset
 
 ## Models
 
 **Classifier**:
-Anything that maps bios to occupation probabilities, with `labels` and `predict_proba`; the baseline model, the main model and their mitigated variants satisfy it, the local LLM does not.
+Anything that maps bios to occupation scores: logits, probabilities, the predicted occupation and the log-odds of one occupation. The baseline model, the main model and their mitigated variants satisfy it, the local LLM does not.
 _Avoid_: model (when the interface is meant), predictor
 
 **Baseline model**:
@@ -107,12 +107,24 @@ _Avoid_: sensitivity
 ## Explanation
 
 **Attribution**:
-A score per input word of how much it moved the model's output.
+A score per word of a bio of how much it moved the log-odds score; here, a Shapley value.
 _Avoid_: importance, saliency
 
-**Reference input**:
-The neutral input (such as `[PAD]` or `[MASK]`) that Integrated Gradients compares a bio against.
-_Avoid_: baseline (unqualified)
+**Log-odds score**:
+The score of a bio for one occupation: the log of the odds of that occupation against all the others, computed from the logits. Attributions explain this score.
+_Avoid_: confidence, probability
+
+**Removal**:
+What "absent" means for a word: delete it, or replace it with one `[UNK]`.
+_Avoid_: masking, ablation
+
+**Coalition**:
+The bio with some of its words present and the rest removed.
+_Avoid_: subset, perturbation
+
+**Shapley value**:
+The average marginal effect of a word on the log-odds score over random orders in which the words are added to an empty bio. The values of a bio add up to the score of the full bio minus the score of the empty bio.
+_Avoid_: importance, contribution
 
 **Scrubbing**:
 Removing gender words from a bio so that only indirect signal remains.
@@ -125,10 +137,6 @@ _Avoid_: detector
 **Control task**:
 The same probe trained on random labels, to separate what the representation encodes from what the probe can memorise.
 _Avoid_: random baseline
-
-**Concept erasure**:
-Removing the linear direction that encodes a protected attribute from a representation (LEACE).
-_Avoid_: debiasing
 
 **Deletion curve**:
 Model confidence as words are masked in order of attribution; a faithful attribution makes it fall faster than a random order.
