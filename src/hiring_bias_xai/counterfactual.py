@@ -15,8 +15,11 @@ _SWAPPED = {
 # Only the Capitalised titles: "MS" is a degree and "ms" a unit.
 _TITLES = {"Mr": "Ms", "Ms": "Mr", "Mrs": "Mr"}
 
-# "her" has two readings, possessive and object, so a part-of-speech tagger decides.
-_AMBIGUOUS = ("her",)
+# "her" and "his" have two readings each, so a part-of-speech tagger decides.
+_AMBIGUOUS = ("her", "his")
+
+# Parts of speech that cannot continue a noun phrase: a "his" before one is a pronoun.
+_PHRASE_BREAKS = {"PUNCT", "CCONJ", "SCONJ", "ADP", "AUX", "PART"}
 
 _GENDERED = re.compile(
     r"\b((?i:" + "|".join((*_SWAPPED, *_AMBIGUOUS)) + r")|" + "|".join(_TITLES) + r")(?!\w)"
@@ -29,6 +32,12 @@ def _tagger():
     import spacy
 
     return spacy.load("en_core_web_sm", disable=["parser", "ner", "lemmatizer"])
+
+
+def _stands_alone(token) -> bool:
+    """Whether no noun phrase continues after the token: it ends the text or a break follows."""
+    following = token.doc[token.i + 1 :]
+    return len(following) == 0 or following[0].pos_ in _PHRASE_BREAKS
 
 
 def _with_case_of(model: str, word: str) -> str:
@@ -44,18 +53,21 @@ def swap_gender(text: str) -> str:
     """The bio with its gendered pronouns and titles swapped, he for she and the reverse.
 
     "her" becomes "his" when it is a possessive and "him" when it is an object, as the tagger
-    reads it.
+    reads it. "his" becomes "her" before a noun and "hers" when it stands alone: at the end of
+    the text, or before a word that does not continue a noun phrase.
     """
-    tags = {}
+    tokens = {}
     if any(match.group(1).lower() in _AMBIGUOUS for match in _GENDERED.finditer(text)):
-        tags = {token.idx: token.tag_ for token in _tagger()(text)}
+        tokens = {token.idx: token for token in _tagger()(text)}
 
     def replacement(match: re.Match) -> str:
         word = match.group(1)
         if word in _TITLES:
             return _TITLES[word]
         if word.lower() == "her":
-            return _with_case_of(word, "his" if tags[match.start()] == "PRP$" else "him")
+            return _with_case_of(word, "his" if tokens[match.start()].tag_ == "PRP$" else "him")
+        if word.lower() == "his":
+            return _with_case_of(word, "hers" if _stands_alone(tokens[match.start()]) else "her")
         return _with_case_of(word, _SWAPPED[word.lower()])
 
     return _GENDERED.sub(replacement, text)
