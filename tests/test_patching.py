@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from hiring_bias_xai import models, patching
+from hiring_bias_xai.models import DebertaModel
 
 
 def test_restored_share_is_the_patched_change_over_the_swap_change():
@@ -69,3 +70,74 @@ def test_true_class_log_odds_uses_each_bios_own_occupation():
     got = patching.true_class_log_odds(logits, index)
     for row, column in enumerate(index):
         np.testing.assert_allclose(got[row], models.log_odds(logits[row : row + 1], column)[0])
+
+
+CLEAN = ["alpha beta gamma delta", "zeta eta", "alpha beta gamma delta epsilon theta", "beta gamma"]
+CORRUPTED = ["alpha zeta gamma eta", "eta zeta", "theta beta gamma delta epsilon alpha", "gamma beta"]
+TRUE = np.array([3, 13, 27, 0])  # the true occupation of each pair, as a column of the 28 logits
+
+
+@pytest.fixture
+def model(tiny_network, tiny_tokenizer):
+    return DebertaModel(tiny_network(spread=3.0), tiny_tokenizer(64), batch_size=3)
+
+
+def test_equal_length_marks_the_pairs_with_the_same_number_of_tokens(model):
+    # "alpha beta" and "alpha beta gamma" are 4 and 5 tokens with the two special tokens.
+    clean = ["alpha beta", "alpha beta gamma", "zeta"]
+    corrupted = ["gamma delta", "alpha beta", "eta"]
+    assert list(patching.equal_length(model.tokenizer, clean, corrupted)) == [True, False, True]
+
+
+def test_equal_length_counts_tokens_after_the_cut_to_the_maximum_length(tiny_tokenizer, model):
+    model.tokenizer = tiny_tokenizer(5)  # [CLS], three words, [SEP]
+    same = patching.equal_length(
+        model.tokenizer, ["alpha beta gamma delta"], ["alpha beta gamma delta epsilon zeta"]
+    )
+    assert list(same) == [True]
+
+
+def test_patch_pairs_returns_clean_and_corrupted_log_odds_in_input_order(model):
+    result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
+    for texts, key in ((CLEAN, "clean"), (CORRUPTED, "corrupted")):
+        alone = [
+            patching.true_class_log_odds(model.logits([text]), TRUE[i : i + 1])[0]
+            for i, text in enumerate(texts)
+        ]
+        np.testing.assert_allclose(result[key], alone, atol=1e-4)
+
+
+def test_patch_pairs_has_one_log_odds_per_bio_layer_and_position_set(model):
+    result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
+    assert patching.POSITION_SETS == ("differing", "all")
+    assert result["patched"].shape == (4, 3, 2)  # the tiny network has 2 layers
+
+
+def test_patching_all_positions_at_the_embeddings_restores_the_whole_effect(model):
+    # The sanity check of the method: with every position replaced nothing of the corrupted run
+    # is left, so the share is 100%.
+    result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
+    shares = patching.restored_share(
+        result["clean"], result["corrupted"], result["patched"][:, 0, 1]
+    )
+    np.testing.assert_allclose(shares, 1.0, atol=1e-4)
+
+
+def test_patching_the_differing_positions_at_the_embeddings_also_restores_everything(model):
+    # Before any layer a position's state depends on its own token only.
+    result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
+    np.testing.assert_allclose(result["patched"][:, 0, 0], result["clean"], atol=1e-4)
+
+
+def test_patching_all_positions_at_the_last_layer_restores_everything_but_the_differing_ones_do_not(
+    model,
+):
+    # The classifier reads the [CLS] state of the last layer, and [CLS] never differs.
+    result = patching.patch_pairs(model, CLEAN, CORRUPTED, TRUE)
+    np.testing.assert_allclose(result["patched"][:, -1, 1], result["clean"], atol=1e-4)
+    np.testing.assert_allclose(result["patched"][:, -1, 0], result["corrupted"], atol=1e-4)
+
+
+def test_patch_pairs_refuses_pairs_of_different_token_length(model):
+    with pytest.raises(ValueError, match="length"):
+        patching.patch_pairs(model, ["alpha beta"], ["alpha beta gamma"], TRUE[:1])
