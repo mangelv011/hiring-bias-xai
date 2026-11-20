@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import time
 import urllib.request
 from pathlib import Path
@@ -17,6 +18,8 @@ SETTINGS = {
     "chat_template_kwargs": {"enable_thinking": False},
 }
 TIMEOUT_SECONDS = 300
+DEFAULT_BASE_URL = "http://127.0.0.1:11400/v1"
+DEFAULT_MODEL = "pc-equilibrado"
 
 
 def request_key(model: str, messages: list[dict], settings: dict) -> str:
@@ -47,13 +50,15 @@ def parse_decision(content: str | None) -> dict | None:
 class Client:
     """Asks an OpenAI-compatible chat endpoint and keeps every call in a JSONL log.
 
-    A request already answered in the log is not sent again, so a run can be stopped and resumed.
+    The server and model are `HBX_LLM_BASE_URL` and `HBX_LLM_MODEL`, by default the local
+    llama-swap endpoint and `pc-equilibrado`. A request already answered in the log is not sent
+    again, so a run can be stopped and resumed.
     """
 
-    def __init__(self, log: Path, base_url: str, model: str):
+    def __init__(self, log: Path, base_url: str | None = None, model: str | None = None):
         self.log = log
-        self.base_url = base_url
-        self.model = model
+        self.base_url = base_url or os.environ.get("HBX_LLM_BASE_URL", DEFAULT_BASE_URL)
+        self.model = model or os.environ.get("HBX_LLM_MODEL", DEFAULT_MODEL)
         self._answered = {}
         if log.is_file():
             for line in log.read_text(encoding="utf-8").splitlines():
