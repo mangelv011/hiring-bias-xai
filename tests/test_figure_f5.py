@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import matplotlib
@@ -10,6 +11,7 @@ import matplotlib.collections
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import matplotlib.text
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -79,20 +81,25 @@ def areas():
     }
 
 
-def _check(spearman, overlap, passed):
+def _check(spearman, overlap, passed, thresholds):
     def stat(median):
         return {"median": median, "median_ci": [median - 0.05, median + 0.04]}
 
-    return {"spearman": stat(spearman), "top10_overlap": stat(overlap), "passed": passed}
+    return {
+        "spearman": stat(spearman),
+        "top10_overlap": stat(overlap),
+        "passed": passed,
+        "thresholds": {"median_spearman": thresholds[0], "median_top10_overlap": thresholds[1]},
+    }
 
 
 @pytest.fixture
 def stability():
     return {
         "checks": {
-            "seed": _check(0.89, 0.80, False),
-            "removal": _check(0.70, 0.60, False),
-            "method": _check(0.95, 0.90, True),
+            "seed": _check(0.89, 0.80, False, (0.9, 0.7)),
+            "removal": _check(0.70, 0.60, False, (0.8, 0.5)),
+            "method": _check(0.95, 0.90, True, (0.7, 0.5)),
         }
     }
 
@@ -114,20 +121,48 @@ def _hex(colour):
     return matplotlib.colors.to_hex(colour).upper()
 
 
-def test_the_title_quotes_the_two_areas_and_counts_the_checks_that_passed(f5, areas, stability):
-    assert f5.title(areas, stability) == (
-        "Removing the words Shapley ranks highest costs the main model 4.0 log-odds on average, "
-        "random removal 1.0; its rankings pass 1 of 3 stability checks."
-    )
+def _set_passed(stability, *flags):
+    for check, flag in zip(stability["checks"].values(), flags, strict=True):
+        check["passed"] = flag
 
 
-def test_the_title_says_not_clearly_more_when_the_deletion_check_failed(f5, areas, stability):
-    areas["screeners"]["deberta"]["passed"] = False
-    stability["checks"]["seed"]["passed"] = True
-    assert f5.title(areas, stability) == (
-        "Removing the words Shapley ranks highest costs the main model 4.0 log-odds on average, "
-        "not clearly more than random removal (1.0); its rankings pass 2 of 3 stability checks."
-    )
+PASSED_DELETION = "Shapley finds the words the model relies on"
+FAILED_DELETION = "Shapley's top words matter no more than random ones"
+UNSTABLE = "its single-word rankings are unstable"
+HOLD_UP = "its single-word rankings hold up"
+
+
+@pytest.mark.parametrize(
+    ("deletion", "flags", "expected"),
+    [
+        (True, (False, False, False), f"{PASSED_DELETION}, but {UNSTABLE}."),
+        (True, (False, False, True), f"{PASSED_DELETION}, but {HOLD_UP} in 1 of 3 checks."),
+        (True, (True, True, True), f"{PASSED_DELETION}, and {HOLD_UP}."),
+        (False, (False, False, False), f"{FAILED_DELETION}, and {UNSTABLE}."),
+        (False, (True, True, False), f"{FAILED_DELETION}, and {HOLD_UP} in 2 of 3 checks."),
+    ],
+)
+def test_the_title_states_the_finding_without_numbers_from_the_data(
+    f5, areas, stability, deletion, flags, expected
+):
+    areas["screeners"]["deberta"]["passed"] = deletion
+    _set_passed(stability, *flags)
+    assert f5.title(areas, stability) == expected
+
+
+@pytest.mark.parametrize("deletion", [True, False])
+@pytest.mark.parametrize(
+    "flags", [(False,) * 3, (True, False, False), (True, True, False), (True,) * 3]
+)
+def test_the_title_fits_in_two_lines_in_every_case(f5, curves, areas, stability, deletion, flags):
+    areas["screeners"]["deberta"]["passed"] = deletion
+    _set_passed(stability, *flags)
+    figure = f5.build(curves, areas, stability)
+    figure.canvas.draw()
+    title = figure._suptitle
+    line_px = title.get_fontsize() * figure.dpi / 72 * 1.4
+    assert title.get_window_extent().height <= 2 * line_px
+    plt.close(figure)
 
 
 def test_the_curves_are_the_main_models_with_morf_in_the_highlight_and_random_in_grey(figure):
@@ -139,7 +174,11 @@ def test_the_curves_are_the_main_models_with_morf_in_the_highlight_and_random_in
         assert list(lines[order].get_xdata()) == pytest.approx(FRACTIONS)
     assert _hex(lines["morf"].get_color()) == plotting.HIGHLIGHT
     assert _hex(lines["random"].get_color()) == plotting.NEUTRAL
-    assert _hex(lines["lerf"].get_color()) not in (plotting.HIGHLIGHT, plotting.NEUTRAL)
+    lerf = _hex(lines["lerf"].get_color())
+    assert lerf[1:3] == lerf[3:5] == lerf[5:7]  # a grey
+    assert 0x55 <= int(lerf[1:3], 16) <= 0x88  # a mid grey: darker than random's, not black
+    assert lines["lerf"].get_linestyle() == "--"
+    assert lines["random"].get_linestyle() == "-"
 
 
 def test_each_curve_has_its_interval_band_and_the_zero_reference_is_drawn(figure):
@@ -170,6 +209,8 @@ def test_the_deletion_axes_name_the_quantities_and_stop_at_half_of_the_words(fig
     assert "words removed" in top.get_xlabel().lower()
     assert [t for t in top.get_xticks() if 0 <= t <= 0.5][-1] == 0.5
     assert top.get_xlim()[0] == 0
+    assert top.get_xlim()[1] <= 0.75  # the data end at 0.5; the rest is room for the labels
+    assert top.spines["bottom"].get_bounds() == (0, 0.5)
 
 
 def test_checks_are_rows_sorted_by_the_median_correlation_with_pass_or_fail_in_the_label(figure):
@@ -178,7 +219,7 @@ def test_checks_are_rows_sorted_by_the_median_correlation_with_pass_or_fail_in_t
     assert [label.split("\n")[0] for label in labels] == [
         "leave-one-out vs Shapley",
         "seed 7 vs 42",
-        "unk vs delete",
+        "[UNK] vs delete",
     ]
     assert [label.split("\n")[1] for label in labels] == ["passed", "failed", "failed"]
     assert bottom.yaxis_inverted()
@@ -257,3 +298,99 @@ def test_curve_labels_are_kept_apart_when_two_curves_end_close_together(
     span = 8.0 - 0.0  # the MoRF end is 8, the lowest end is at or above 0
     assert min(b - a for a, b in zip(ys, ys[1:], strict=False)) >= f5.LABEL_GAP * span - 1e-9
     plt.close(fig)
+
+
+def _points_in(box, line):
+    """Whether a point of `line`, sampled finely, falls inside the display box."""
+    xs, ys = np.asarray(line.get_xdata(), float), np.asarray(line.get_ydata(), float)
+    steps = np.linspace(0, len(xs) - 1, 400)
+    points = np.column_stack(
+        [np.interp(steps, range(len(xs)), xs), np.interp(steps, range(len(xs)), ys)]
+    )
+    x, y = line.get_transform().transform(points).T
+    return bool(((x >= box.x0) & (x <= box.x1) & (y >= box.y0) & (y <= box.y1)).any())
+
+
+def test_no_curve_label_sits_on_a_curve_or_on_the_zero_line(f5, curves, areas, stability):
+    realistic = curves.copy()  # LeRF ends just above zero and random well above it, as in the data
+    end = (realistic["fraction"] == 0.5) & (realistic["screener"] == "deberta")
+    for order, value in (("morf", 9.7), ("random", 4.3), ("lerf", 0.2)):
+        realistic.loc[end & (realistic["order"] == order), "mean_logodds_drop"] = value
+    figure = f5.build(realistic, areas, stability)
+    figure.canvas.draw()
+    top, _ = _axes(figure)
+    for text in top.texts:
+        box = text.get_window_extent()
+        for line in top.lines:
+            assert not _points_in(box, line), (text.get_text(), line.get_label())
+
+
+def test_value_labels_clear_their_dots_and_the_threshold_marks_of_their_row(
+    f5, curves, areas, stability
+):
+    measured = {  # the medians and thresholds of the run, with tight intervals
+        "seed": ((0.89, 0.9), (0.80, 0.7)),
+        "removal": ((0.47, 0.8), (0.50, 0.5)),
+        "method": ((0.42, 0.7), (0.50, 0.5)),
+    }
+    for name, (correlation, overlap) in measured.items():
+        check = stability["checks"][name]
+        for metric, (median, threshold) in (("spearman", correlation), ("top10_overlap", overlap)):
+            check[metric]["median"] = median
+            check[metric]["median_ci"] = [median - 0.001, median + 0.001]
+            check["thresholds"][f"median_{metric}"] = threshold
+    figure = f5.build(curves, areas, stability)
+    figure.canvas.draw()
+    _, bottom = _axes(figure)
+    dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
+    radius = (dots[0].get_sizes()[0] ** 0.5) / 2 * figure.dpi / 72
+    marks = [line for line in bottom.lines if line.get_marker() == "|"]
+    mark_points = [
+        bottom.transData.transform((x, y))
+        for line in marks
+        for x, y in zip(line.get_xdata(), line.get_ydata(), strict=True)
+    ]
+    values = [t for t in bottom.texts if re.fullmatch(r"\d\.\d\d", t.get_text().split()[0])]
+    for dot in dots:
+        for x, y in dot.get_offsets():
+            px, py = bottom.transData.transform((x, y))
+            (label,) = [
+                t
+                for t in values
+                if abs(t.get_window_extent().get_points()[:, 1].mean() - py) < 3
+                and t.get_text().split()[0] == f"{x:.2f}"
+            ]
+            box = label.get_window_extent()
+            assert box.x0 >= px + radius + 2 or box.x1 <= px - radius - 2, label.get_text()
+            for mx, my in mark_points:
+                if abs(my - py) < 3:
+                    assert not box.x0 - 1 <= mx <= box.x1 + 1, (label.get_text(), mx)
+
+
+def test_the_series_names_stand_right_of_every_dot_mark_and_value(figure):
+    _, bottom = _axes(figure)
+    names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "top-10 overlap")]
+    assert len(names) == 2
+    right_edge = max(
+        bottom.transData.transform((x, 0))[0]
+        for line in bottom.lines
+        if line.get_marker() == "|"
+        for x in line.get_xdata()
+    )
+    assert all(t.get_window_extent().x0 > right_edge for t in names)
+
+
+def test_each_row_marks_the_pass_threshold_of_both_measures(figure):
+    _, bottom = _axes(figure)
+    marks = [line for line in bottom.lines if line.get_marker() == "|"]
+    positions = sorted(
+        (round(float(x), 2), round(float(y), 2))
+        for line in marks
+        for x, y in zip(line.get_xdata(), line.get_ydata(), strict=True)
+    )
+    # rows sorted by correlation: method (0), seed (1), removal (2); correlation marks sit above
+    # the row centre (-0.18), overlap marks below it (+0.18)
+    assert positions == sorted(
+        [(0.7, -0.18), (0.9, 0.82), (0.8, 1.82), (0.5, 0.18), (0.7, 1.18), (0.5, 2.18)]
+    )
+    assert "threshold" in bottom.get_xlabel()
