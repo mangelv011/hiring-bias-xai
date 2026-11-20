@@ -231,6 +231,56 @@ What it means: the swap's effect is not stored at the pronouns. It is carried aw
 
 Cost on the laptop: encoding the 11,721 bios took 26 s (pretrained) and 25 s (main model) on the GPU. Fitting the probes and their shuffles took 10.4 minutes on the CPU. Patching took 30 s. Not done: removing gender from the representation (LEACE, INLP), which belongs to the mitigation work, a nonlinear probe, and patching in the other direction.
 
+## F7: does removing the cues close the gap?
+
+**In short:** scrubbing the pronouns narrows the gender gap by about a fifth for half a point of macro-F1, and the gap that remains is still more than twice what chance gives. Deleting six proxy words leaves it where it was.
+
+<p align="center"><img src="../results/figures/f7_mitigation.png" width="520" alt="Scrubbing pronouns moves the gender gap from 0.14 to 0.12 and macro-F1 from 0.784 to 0.779; deleting proxy words barely moves either; every condition stays above the band that chance gives."></p>
+
+[F3](#f3-which-words-make-up-the-gap-between-women-and-men) and [F4](#f4-does-changing-only-the-gender-change-the-decision) show that pronouns push the model's decisions towards one gender, and [F6](#f6-gender-inside-the-model) that other words and the model's own states still carry gender. So I try two fixes and measure what each one does to the gap and to accuracy. Design, the rules and the alternatives I did not run (LEACE, INLP) are in [ADR 0007](decisions/0007-mitigation.md).
+
+### What I ran
+
+- **A model trained on scrubbed bios** (the *scrubbed model*). The recipe of the main model: learning rate 3e-5, 5 epochs, seed 42, the weights with the best dev macro-F1 kept. Only the text changes: pronouns and titles are removed from the training and dev bios. Training took 1.9 hours on the laptop GPU; the best dev macro-F1 was 0.7810 at step 8,250 (`results/training_log_scrubbed.csv`). Script: `scripts/train_scrubbed.py`.
+- **Deleting proxy words.** A proxy word is a word that is not a pronoun but that women's and men's bios use at different rates, so the model can read gender from it. The rule, fixed before I looked at the evaluation: the word's contribution to the gap has the sign of the pronouns' contribution and an interval that excludes 0, the gender the gap favours uses it at least 3 times as often as the other gender, and at least 5% of that gender's bios contain it. I keep the top 5 per job. A first rule without the usage condition picked words such as *the*, *and* and *dietitian*; the model weighs them, but both genders use them alike, so I corrected the rule before any evaluation (the note in the ADR quotes that first list). The list is six words: *born*, *currently*, *freeones*, *gallery*, *ranked* and *registered*. Five come from the job *model*, *registered* from dietitian, and the other four jobs add none. 12% of the test bios contain one. Script: `scripts/proxy_words.py`.
+- **Five conditions**, each a pairing of a model and a test text, all scored on the same bios: (a) the original model on the raw bios, (b) the original model on scrubbed bios, (c) the scrubbed model on raw bios, (d) the scrubbed model on scrubbed bios, (e) the original model with the proxy words deleted from the raw bios. Script: `scripts/mitigation.py`.
+
+I score the 97,348 test bios outside the showcase subset, because I chose the proxy words on the showcase subset. Dietitian is the one job where the gap cannot be measured there: the test split holds 71 men dietitians and the subset takes all of them. So the gap below averages the other 27 jobs, while macro-F1 and accuracy use every bio. Intervals are 95% bootstrap intervals over bios. For the change from (a), both conditions are scored on the same resampled bios, which makes the interval of the change much narrower than the two intervals side by side. The gap that chance gives comes from shuffling gender within each job 1,000 times: 0.037 on average and 0.050 at the 95th percentile.
+
+| Condition | Macro-F1 | Gender gap (RMS TPR gap) | Change in the gap from (a) | Change in macro-F1 from (a) |
+|---|---|---|---|---|
+| a. original model, raw bios | 0.784 [0.779, 0.788] | 0.143 [0.130, 0.169] | | |
+| b. original model, scrubbed bios | 0.776 [0.771, 0.780] | 0.119 [0.105, 0.145] | -0.0247 [-0.0355, -0.0118] | -0.0076 [-0.0098, -0.0055] |
+| c. scrubbed model, raw bios | 0.780 [0.776, 0.784] | 0.110 [0.100, 0.137] | -0.0331 [-0.0463, -0.0185] | -0.0038 [-0.0065, -0.0008] |
+| d. scrubbed model, scrubbed bios | 0.779 [0.774, 0.783] | 0.115 [0.103, 0.143] | -0.0282 [-0.0427, -0.0118] | -0.0048 [-0.0076, -0.0017] |
+| e. original model, proxy words deleted | 0.782 [0.777, 0.786] | 0.141 [0.128, 0.167] | -0.0023 [-0.0047, +0.0004] | -0.0016 [-0.0021, -0.0011] |
+
+The share of bios the model gets right changes by -0.02 points in (d), with an interval from -0.16 to +0.12. On the full test split (conditions a to d) the picture is the same: gap 0.147, 0.120, 0.113 and 0.118, macro-F1 0.783, 0.776, 0.779 and 0.778. The saved predictions of the main run agree with condition (a) on 99.94% of the bios; the 60 that differ come from scoring in batches of 4 instead of 64.
+
+### What I found
+
+- **Scrubbing narrows the gap by a fifth and costs half a point.** The scrubbed model on scrubbed bios (d) brings the gap from 0.143 to 0.115. Scrubbing only the bios the original model reads (b) gets 0.119 with no retraining, for 0.8 points of macro-F1. Conditions (c) and (d) differ by less than their intervals.
+- **The gap that is left is more than twice the chance level.** Every condition stays above 0.050, the 95th percentile of what shuffled genders give; the lowest, (c), is 0.110. In every condition the probability that chance explains the gap is at most 1 in 1,001.
+- **The jobs with the largest gaps hardly move.** The table gives women minus men in true positive rate: how many more qualified women than qualified men the model passes on, per 100 of each.
+
+| Job | a | b | c | d | e |
+|---|---|---|---|---|---|
+| model | +43.8 [+36.3, +51.1] | +41.0 [+33.3, +48.2] | +40.7 [+33.2, +48.2] | +40.0 [+32.6, +47.9] | +42.3 [+34.8, +49.8] |
+| nurse | +10.8 [+5.5, +16.3] | +7.5 [+2.6, +12.6] | +6.8 [+2.0, +11.4] | +5.6 [+0.9, +10.5] | +11.1 [+5.8, +16.7] |
+| surgeon | -21.7 [-27.2, -16.1] | -17.3 [-22.8, -11.2] | -17.7 [-23.2, -12.3] | -18.0 [-23.4, -12.5] | -21.7 [-27.2, -16.1] |
+| composer | -0.3 [-8.3, +7.1] | +3.7 [-3.9, +10.5] | +1.9 [-6.2, +9.1] | +3.0 [-4.7, +9.7] | -1.5 [-9.4, +6.1] |
+| software engineer | -0.7 [-9.2, +7.5] | -5.3 [-14.4, +3.0] | -3.1 [-12.1, +5.0] | -5.5 [-14.3, +3.1] | -0.4 [-9.1, +7.8] |
+
+In *model* the model passes on 44 more qualified women than men per 100 of each, and 40 more after scrubbing. The pronouns are a small part of that, and the strongest single word there is the website name in [F3](#f3-which-words-make-up-the-gap-between-women-and-men). Nurse and surgeon move by 3 to 5 points. For composer and software engineer the gap was close to 0 and stays within noise. For dietitian the gap exists on the full test split only: 24 points in (a) and 22 in (d).
+
+- **Deleting the six proxy words leaves the gap where it was.** It changes by -0.0023, an interval that includes 0, and costs 0.16 points of macro-F1. The gap in *model* goes from 43.8 to 42.3 points. The model reads gender from far more than these words.
+
+### What it means for the conclusions
+
+Removing the pronouns is a cheap fix that does part of the work. If I could pick one, I would train on scrubbed bios and score scrubbed bios (d), at half a point of macro-F1. It leaves the screener unequal: in the jobs where the gap is largest, a recruiter's search still passes on far more of the qualified people of one gender than of the other. What is left sits in words and writing habits that the pronoun list misses, and in what the model has built from them ([F6](#f6-gender-inside-the-model)). Methods that act on the model's own representation (LEACE, INLP) are the next step; I did not run them. Whatever the fix, the gap per job should be measured on every new model before it is used.
+
+Limits. Each model has one training run, so the difference between the original and the scrubbed model includes run-to-run variation that I did not measure; the intervals cover the sampling of test bios only. There are six proxy words, chosen on 1,721 bios. The gap is measured on 27 of the 28 jobs. The outcomes I expected before the evaluation, and how they came out, are in the ADR. Under a deuteranopia simulation the highlighted and grey dots stay apart ([check](figure_checks/f7_deuteranopia.png)). Cost on the laptop: about 2.8 minutes per condition to score 99,069 bios and 2 minutes for the report.
+
 ## Reproduce every result
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build.
@@ -290,6 +340,16 @@ uv run python scripts/fetch_first_names.py        # downloads the SSA names (sha
 uv run python scripts/counterfactual_hand_check.py   # prints the changed sentences of the 50 bios of the hand check; the verdicts go into results/counterfactual_hand_check.csv by hand
 uv run python scripts/counterfactual_gender.py    # writes results/counterfactual_gender.csv and .json
 uv run python scripts/figure_f4.py                # reads the csv, writes F4
+```
+
+The mitigation needs the saved main model, then the scrubbed model, which is trained on its own with nothing else running (about 1.9 hours on the laptop GPU). Each scoring step takes about 3 minutes and skips a condition whose predictions are complete:
+
+```bash
+uv run python scripts/proxy_words.py                  # CPU: reads gap_decomposition.csv and gap_explained.json, writes results/proxy_words.json
+uv run python scripts/train_scrubbed.py               # GPU, about 1.9 hours: checkpoint deberta-scrubbed and results/training_log_scrubbed.csv
+for c in a b c d e; do uv run python scripts/mitigation.py predict $c; done   # GPU, about 3 minutes each, resumable
+uv run python scripts/mitigation.py report            # CPU, about 2 minutes: results/mitigation.json
+uv run python scripts/figure_f7.py                    # reads results/mitigation.json, writes F7
 ```
 
 The part-of-speech tags come from spaCy's small English model, installed from a wheel pinned by URL and sha256 in `pyproject.toml`; no separate download step is needed.
