@@ -167,8 +167,24 @@ The same probe trained on random labels, to separate what the representation enc
 _Avoid_: random baseline
 
 **Deletion curve**:
-Model confidence as words are masked in order of attribution; a faithful attribution makes it fall faster than a random order.
-_Avoid_: ablation curve
+For one screener, how its call and its log-odds score change as more words of a bio are removed in a fixed order, from 0% to 50% of the words. It is summarised by its area: the mean over the steps. An attribution is faithful if removing its highest words hurts more than removing random ones.
+_Avoid_: ablation curve, confidence curve
+
+**MoRF**:
+Most relevant first: the deletion order that removes the words with the largest signed Shapley value for the true occupation first.
+_Avoid_: top-first order
+
+**LeRF**:
+Least relevant first: the deletion order that removes the words with the smallest signed Shapley value for the true occupation first. A faithful attribution makes it hurt less than a random order.
+_Avoid_: bottom-first order
+
+**Leave-one-out occlusion**:
+The value of a word is the log-odds score of the full bio minus the score with that word deleted, the others kept. It is the cheap comparison for Shapley values; two words that carry the same information each get a small value, because the other covers for it.
+_Avoid_: occlusion (unqualified), ablation
+
+**Top-10 overlap**:
+For two attributions of the same bio, the share of the ten words with the largest absolute value in one that are also among the ten largest in the other. It is not the top-10 share of the gap decomposition.
+_Avoid_: top-k accuracy
 
 ## Gap decomposition
 
