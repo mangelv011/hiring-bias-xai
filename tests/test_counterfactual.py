@@ -34,3 +34,17 @@ def test_capitalisation_is_kept(text, swapped):
 def test_words_that_contain_pronouns_stay():  # guard: the regex already needs whole words
     text = "There the sheriff in the theme history, Herb, shed, Hershey, other, ashes"
     assert swap_gender(text) == text
+
+
+@pytest.mark.parametrize(
+    ("text", "swapped"),
+    [
+        ("he's here", "she's here"),
+        ("She'd go", "He'd go"),
+        ("he'll go", "she'll go"),
+        ("she’s here", "he’s here"),
+        ("he've gone", "she've gone"),
+    ],
+)
+def test_contractions_swap_the_pronoun_and_keep_the_suffix(text, swapped):
+    assert swap_gender(text) == swapped
