@@ -68,7 +68,9 @@ def test_unflagged_leaves_out_the_flagged_bios_and_pooled_joins_the_occupations(
     assert pooled["n_flips"] == 1
 
 
-def test_only_the_swap_has_a_flip_direction_and_it_follows_the_share_of_women(table):
+def test_the_flip_direction_follows_the_share_of_women_and_the_removal_gets_it_as_a_reference(
+    table,
+):
     nurse = _row(table, "nurse", "all", "swap")
     # Flips: a woman's nurse bio -> surgeon (toward male: yes); a man's surgeon bio -> nurse
     # (toward female: yes).
@@ -77,6 +79,9 @@ def test_only_the_swap_has_a_flip_direction_and_it_follows_the_share_of_women(ta
     # Flips: a woman's nurse call -> surgeon (yes); a man's surgeon bio -> nurse (yes); a
     # woman's surgeon bio -> model (no: it turns more female, not more male).
     assert surgeon["toward_share"] == pytest.approx(2 / 3)
-    assert np.isnan(_row(table, "nurse", "all", "removal")["toward_share"])
-    assert nurse["direction_basis"] == effects.DIRECTION_BASIS
-    assert _row(table, "nurse", "all", "removal")["direction_basis"] == ""
+    # The removal has no new gender; its flips are read as if it were the opposite one. The only
+    # nurse flip is a man's nurse bio -> model (a share of 0.9 -> 0.8 is not toward female).
+    removal = _row(table, "nurse", "all", "removal")
+    assert removal["n_flips"] == 1
+    assert removal["toward_share"] == 0.0
+    assert nurse["direction_basis"] == removal["direction_basis"] == effects.DIRECTION_BASIS
