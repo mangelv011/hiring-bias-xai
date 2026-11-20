@@ -133,6 +133,43 @@ Most flips go to an occupation with the opposite share of women whatever the edi
 
 Limits: 50 hand-checked bios cannot rule out failure types that are rare; the unflagged subset has no detected cue, not no cue; names and origin are out of scope here (the LLM audit, #12); the swap is binary and says nothing about non-binary people.
 
+## F5: can we trust the Shapley values?
+
+**In short:** removing the words Shapley ranks highest hurts the main model far more than removing random words, so the values point at words that matter. But the ranking of all the words in a bio is not stable: it changes with the removal and differs from leave-one-out, so single-word values are indicative, not exact.
+
+<p align="center"><img src="../results/figures/f5_explanation_checks.png" width="520" alt="Removing the top-ranked words costs the main model 7.0 log-odds on average against 1.5 for random removal, but its rankings pass 0 of 3 stability checks."></p>
+
+Panel a is the main model's deletion curves. Panel b is the agreement of the rankings in three checks, with 95% bootstrap intervals over bios. Every number is in `results/deletion_curves.csv`, `results/deletion_areas.json` and `results/stability.json`. Under a deuteranopia simulation the highlight and the greys stay apart ([check](figure_checks/f5_deuteranopia.png)). Each check had an expected outcome written in the code before it ran; a failed check is kept as it came out.
+
+**Deletion curves** (`scripts/deletion_curves.py`, both screeners, the 1,721 showcase bios). Words are replaced by `[UNK]`. The attributions used `delete`, so the check does not reuse the removal that built the values. Words go in three orders: most relevant first (MoRF, by the signed Shapley value for the true occupation), least relevant first (LeRF) and 10 random orders per bio, seeded. The steps are 0%, 5%, ..., 50% of the bio's words, rounded half up to a whole word. At each step the script records whether the call is still the call on the full bio, and how far the log-odds of the true occupation have fallen. The area of a curve is its mean over the 11 steps. A pass is a positive MoRF minus random and a positive random minus LeRF on the log-odds drop, with both 95% intervals above 0.
+
+| Screener | Area, MoRF | Area, random | Area, LeRF | MoRF minus random | Random minus LeRF | Passed |
+|---|---|---|---|---|---|---|
+| Main model | 6.98 [6.80, 7.15] | 1.53 [1.45, 1.61] | -0.68 [-0.76, -0.59] | 5.45 [5.31, 5.59] | 2.21 [2.14, 2.27] | yes |
+| Baseline model | 9.50 [9.29, 9.74] | 0.95 [0.89, 1.02] | -5.29 [-5.42, -5.17] | 8.55 [8.36, 8.76] | 6.24 [6.10, 6.39] | yes |
+
+Both screeners pass, as expected. At 50% of the words removed the main model has lost 9.7 log-odds with MoRF, 4.3 at random and 0.2 with LeRF. It still makes its original call in 12%, 44% and 73% of bios. The areas of agreement give the same order for the main model: 0.32 (MoRF), 0.74 (random), 0.81 (LeRF). For the baseline model they are 0.43, 0.82 and 0.71. MoRF falls fastest, but LeRF loses agreement faster than random, so the baseline model fails the same rule on agreement. I did not look into why. The baseline model's TF-IDF reads `[UNK]` as the unknown word "unk", so for it `unk` is close to `delete` and its curves are partly circular. Its pass says little. The main model's pass is the informative one. As expected, the main model's gap is smaller than the baseline's (5.45 against 8.55).
+
+**Stability and agreement** (`scripts/stability_runs.py`, `scripts/stability.py`, main model). Per bio, the Spearman correlation runs over all words. The top-10 overlap is the share of the ten words with the largest absolute value in one vector that are among the ten largest in the other. The seed and removal checks use a fixed sample of 100 showcase bios: equal shares from each occupation and gender group (8 per group, 9 for the first four groups in sorted order), drawn without replacement with seed 42 (`results/stability_sample_ids.csv`). The method check uses all 1,721 bios. A check passes when the median Spearman and the median top-10 overlap both reach their thresholds.
+
+| Check | Bios | Spearman, median [95% CI] | Top-10 overlap, median [95% CI] | Thresholds | Passed |
+|---|---|---|---|---|---|
+| Seed 7 against seed 42, 40 permutations each | 100 | 0.894 [0.876, 0.910] | 0.80 [0.80, 0.80] | 0.9 and 0.7 | no |
+| `[UNK]` against delete, same orders | 100 | 0.468 [0.414, 0.532] | 0.50 [0.50, 0.60] | 0.8 and 0.5 | no |
+| Shapley against leave-one-out | 1,721 | 0.419 [0.403, 0.434] | 0.50 [0.50, 0.50] | 0.7 and 0.5 | no |
+
+The means are 0.869, 0.485 and 0.383 for the correlation, and 0.79, 0.53 and 0.47 for the overlap; the intervals are in `results/stability.json`. What was expected, and what came out:
+
+- **Seed.** Expected a median near 0.89, a likely miss of the 0.9 rule of ADR 0003. It came out at 0.894, and the interval includes 0.9, so the miss is small. Two seeds mostly agree, but not to 0.9.
+- **Removal.** Expected 0.7 to 0.85. It came out at 0.47, well under. Changing how a missing word is read changes which words look important about as much as changing the method does. Only the overlap threshold (0.5) was met, and only just.
+- **Method.** Expected 0.6 to 0.8. It came out at 0.42. Leave-one-out and Shapley agree on about half of the ten largest words, and much less on the order of the rest.
+
+What this means: the words that matter most are fairly stable (top-10 overlap 0.5 to 0.8), while the order of the many words near zero is not. The values depend on how a word is removed and on the method, so one word's value is not a fixed property of the word. Findings that sum Shapley values over many bios (the gap decomposition, F3) are less exposed to this than F2, which shows single bios.
+
+**One bio where the methods disagree** (`disagreement_example` in `results/stability.json`). The rule was fixed before looking. Among bios with at least 15 word units, no run of six digits and a top Shapley word that occurs at least twice (compared without case or edge punctuation), take the one with the lowest Spearman correlation between Shapley and leave-one-out. It is `test-73398`, a surgeon bio of 92 words, with a correlation of -0.28. The top Shapley word is *practice*, at +2.43 (position 20) and +0.72 (position 88). Its leave-one-out values are -0.07 and +0.04: deleting either unit changes the score by almost nothing. Deleting both together lowers it by 0.07, though their Shapley values add up to 3.16. The bio also has two units of *practices*, with Shapley values +1.83 and +0.80 and leave-one-out values -0.04 and -0.07. The reading that fits is redundancy. *Practice* and *practices* carry the same information, so with one left the other adds little. Leave-one-out gives each a value near zero, and Shapley shares the credit among them. I did not test it by deleting all four units together; that needs a GPU run that was not made.
+
+Not done, and why: weight randomization (Adebayo et al. 2018) tests a model's internals, and a perturbation method reads only the model's outputs, so it passes by construction. Retraining-based evaluation (ROAR, Hooker et al. 2019) needs one fine-tuning run for each fraction of words removed, which is too costly here. Limits: the deletion curves use one removal (`unk`). The stability checks use 100 bios, and the top-10 overlap takes few distinct values, so its intervals are narrow or collapse to a point. The sample has 8 or 9 bios per group. The thresholds are my choice, fixed before the run.
+
 ## Reproduce every result
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build.
@@ -166,6 +203,11 @@ uv run python scripts/word_units.py      # counts glued whitespace units: result
 uv run python scripts/figure_f2.py       # reads the saved attributions and predictions, writes F2 and results/f2_cases.json
 uv run python scripts/gap_decomposition.py   # CPU, 30 s: reads the saved attributions, writes results/gap_decomposition.csv and gap_explained.json
 uv run python scripts/figure_f3.py       # reads those two files, writes F3 and results/f3_panels.json
+uv run python scripts/deletion_curves.py   # GPU, about 6 minutes: results/deletion_curves.csv and deletion_areas.json
+uv run python scripts/stability_runs.py deberta-seed7   # GPU, about 10 minutes, resumable; also writes results/stability_sample_ids.csv
+uv run python scripts/stability_runs.py deberta-unk     # GPU, about 15 minutes, resumable
+uv run python scripts/stability.py       # GPU, leave-one-out on all bios: results/stability.json
+uv run python scripts/figure_f5.py       # reads the three result files, writes F5
 ```
 
 The counterfactual swap needs the pinned name list, then both saved models (the main model on the GPU, with nothing else running; 45 s including the tagger):

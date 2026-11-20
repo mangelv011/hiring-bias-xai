@@ -14,6 +14,7 @@ An explainable-AI audit of a text classifier that screens candidates by occupati
 - **Pronouns carry part of that gap.** Among surgeon bios, the words *she*, *her*, *he* and *his* alone put women's scores 1.12 log-odds [1.02, 1.24] below men's.
 - **Not every word behind the gap is a gender word.** In the "model" occupation the largest single contribution comes from *freeones*, the name of a listing site for adult performers. It appears in 54 of 150 women's bios and in none of the 150 men's.
 - **Pronouns move scores more than decisions.** Turning *she* into *he* (and back) changes 6.9% of the main model's decisions, about as many as simply deleting the pronouns (6.3%). The baseline model reacts more: 13.5% against 8.8%.
+- **Single-word values are indicative, not exact.** Removing the words Shapley ranks highest hurts the main model far more than removing random words (6.98 against 1.53 log-odds, on average over the curve). But the ranking of all the words in a bio agrees only moderately across removals (median Spearman 0.47 between delete and `[UNK]`) and with leave-one-out occlusion (0.42). Trust totals over many bios more than the value of one word.
 - **A better model is not a fairer one.** The transformer beats the TF-IDF baseline on macro-F1 (0.783 vs 0.728), but its bias metric is not lower beyond noise.
 
 ## Why it matters
@@ -28,7 +29,7 @@ A job platform that ranks candidates with a model is a high-risk AI system under
 | Which words drive one decision? | Word-level Shapley values (permutation sampling) | Local | Done |
 | Which words make up the gap between women and men? | Exact decomposition of the score gap into word contributions | Global | Done |
 | Does the decision change if only the gender changes? | Counterfactual pronoun swaps, with a deletion control | Local and global | Done |
-| Can we trust these explanations? | Deletion curves, seed and method stability | Explanation check | Planned |
+| Can we trust these explanations? | Deletion curves, seed and method stability | Explanation check | Done |
 | Where does the model store gender? | Probing and activation patching | Mechanistic | Planned |
 | Does removing the cues close the gap, and at what cost? | Retraining on scrubbed text, masking proxy words | Mitigation | Planned |
 | Does a general-purpose LLM do the same with names? | Black-box audit with names from four origin groups | Audit | Planned |
