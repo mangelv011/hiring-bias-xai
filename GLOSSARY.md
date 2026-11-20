@@ -126,6 +126,10 @@ _Avoid_: subset, perturbation
 The average marginal effect of a word on the log-odds score over random orders in which the words are added to an empty bio. The values of a bio add up to the score of the full bio minus the score of the empty bio.
 _Avoid_: importance, contribution
 
+**Gendered word**:
+A word of a bio that the scrubbing list removes: a gendered pronoun or title, with any punctuation or `'s` attached to it.
+_Avoid_: gender marker, gender term
+
 **Scrubbing**:
 Removing gender words from a bio so that only indirect signal remains.
 _Avoid_: anonymizing, masking
