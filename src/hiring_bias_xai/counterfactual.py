@@ -71,3 +71,29 @@ def swap_gender(text: str) -> str:
         return _with_case_of(word, _SWAPPED[word.lower()])
 
     return _GENDERED.sub(replacement, text)
+
+
+# Residual cues: words that still tell the gender of the person after `swap_gender`. The list is
+# fixed in code before any swapped bio is read, and `swap_gender` does not touch these words.
+RESIDUAL_NOUNS = (
+    # female
+    "mother", "mothers", "mom", "moms", "mum", "mama", "wife", "wives", "actress", "actresses",
+    "businesswoman", "businesswomen", "daughter", "daughters", "sister", "sisters", "girl",
+    "girls", "girlfriend", "woman", "women", "lady", "ladies", "queen", "queens", "chairwoman",
+    "chairwomen", "spokeswoman", "congresswoman", "policewoman", "saleswoman", "waitress",
+    "stewardess", "hostess", "heroine", "grandmother", "grandma", "aunt", "niece", "bride",
+    "widow", "madam", "madame", "princess", "female", "females", "matriarch", "gal",
+    # male
+    "father", "fathers", "dad", "dads", "husband", "husbands", "actor", "actors", "businessman",
+    "businessmen", "son", "sons", "brother", "brothers", "boy", "boys", "boyfriend", "man", "men",
+    "gentleman", "gentlemen", "king", "kings", "chairman", "chairmen", "spokesman", "congressman",
+    "policeman", "salesman", "waiter", "steward", "grandfather", "grandpa", "uncle", "nephew",
+    "groom", "widower", "sir", "prince", "male", "males", "patriarch", "guy", "guys",
+)  # fmt: skip
+
+_RESIDUAL_NOUN = re.compile(r"\b(?:" + "|".join(RESIDUAL_NOUNS) + r")\b", re.IGNORECASE)
+
+
+def residual_cues(text: str) -> list[str]:
+    """The residual cues in the text, lower-cased, each once, in alphabetical order."""
+    return sorted({match.group().lower() for match in _RESIDUAL_NOUN.finditer(text)})
