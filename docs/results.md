@@ -170,6 +170,69 @@ What this means: the words that matter most are fairly stable (top-10 overlap 0.
 
 Not done, and why: weight randomization (Adebayo et al. 2018) tests a model's internals, and a perturbation method reads only the model's outputs, so it passes by construction. Retraining-based evaluation (ROAR, Hooker et al. 2019) needs one fine-tuning run for each fraction of words removed, which is too costly here. Limits: the deletion curves use one removal (`unk`). The stability checks use 100 bios, and the top-10 overlap takes few distinct values, so its intervals are narrow or collapse to a point. The sample has 8 or 9 bios per group. The thresholds are my choice, fixed before the run.
 
+## F6: gender inside the model
+
+**In short:** a linear probe reads gender from scrubbed bios at every layer, though only modestly (58% to 67% against 52% from the occupation alone), and the effect of a pronoun swap stays in the swapped words through the first three layers and has mostly left them by layer 4.
+
+<p align="center"><img src="../results/figures/f6_probing_patching.png" width="520" alt="A probe reads gender from scrubbed bios in all 14 layers, and the effect of the swap leaves the edited words by layer 4."></p>
+
+Two questions about the main model's inside. Can gender still be read from its states when the pronouns are gone? And does the state at the swapped words carry the effect of a swap? The first is descriptive, the second causal. Design, references and limits are in [ADR 0006](decisions/0006-probing-and-patching.md).
+
+**Probing** (`scripts/probing_features.py`, `scripts/probing.py`). The bios are scrubbed (`data.scrub`). For each bio and each of the seven layer outputs (the embeddings and the six transformer layers) the state is averaged over the tokens. A logistic regression on standardised features learns gender from 10,000 scrubbed training bios (sampled in proportion to the occupation and gender groups; ids in `results/probing_train_ids.csv`) and is scored on the 1,721 scrubbed showcase bios. Its regularisation comes from 5-fold cross-validation. It is run for the pretrained DeBERTa-v3-small (no fine-tuning) and for the main model. Intervals are 95% bootstrap intervals over bios. The p-value comes from 100 refits of the probe on genders shuffled within occupation, so the smallest value is 1/101 = 0.0099. The right pair of columns leaves out the 631 bios with a first name (1,090 left), using the rule of [ADR 0005](decisions/0005-counterfactual-gender-swap.md).
+
+| Layer | Pretrained, all bios | Main model, all bios | Pretrained, no first name | Main model, no first name |
+|---|---|---|---|---|
+| embeddings | 62.9% [60.7, 65.3] | 63.1% [60.9, 65.5] | 62.2% [59.4, 65.1] | 62.4% [59.6, 65.4] |
+| 1 | 62.9% [60.7, 65.4] | 62.5% [60.3, 64.9] | 62.7% [60.0, 65.5] | 62.5% [59.8, 65.4] |
+| 2 | 64.0% [61.8, 66.4] | 62.2% [59.8, 64.6] | 63.0% [60.4, 65.8] | 61.6% [58.7, 64.3] |
+| 3 | 63.8% [61.5, 66.1] | 61.2% [58.9, 63.5] | 62.8% [59.9, 65.6] | 61.3% [58.5, 64.1] |
+| 4 | 66.3% [64.1, 68.6] | 60.7% [58.4, 63.0] | 65.0% [62.2, 67.7] | 60.8% [58.0, 63.7] |
+| 5 | 67.3% [65.1, 69.4] | 59.3% [56.9, 61.6] | 63.8% [61.1, 66.5] | 59.0% [56.1, 61.9] |
+| 6 | 64.6% [62.3, 66.9] | 58.0% [55.8, 60.4] | 62.9% [60.2, 65.8] | 57.7% [54.7, 60.6] |
+
+References on the same split: majority class 47.7% [45.3, 50.1] (45.8% without first names), the occupation alone 52.3% [50.0, 54.6] (52.3%), TF-IDF with logistic regression on the same scrubbed text 59.7% [57.2, 62.0] (58.4%). The occupation alone is close to a coin flip because the showcase subset holds up to 150 bios of each gender per occupation.
+
+What it shows:
+
+- **Gender is readable everywhere.** All 28 probes beat all 100 shuffles (p = 0.0099), in both subsets. In all bios, every probe's interval starts above the interval of the occupation alone (the lowest start is 55.8%, the main model's last layer, against an upper end of 54.6%). The accuracy is modest: at most 67.3%.
+- **The embeddings already read it.** The mean of the word vectors scores 62.9% and 63.1%, a little above TF-IDF (59.7%, overlapping intervals). Part of the signal is in the words that scrubbing leaves: names, topics, site names such as the one in [F3](#f3-which-words-make-up-the-score-gap).
+- **Fine-tuning for occupation lowers it.** The pretrained model rises from 62.9% to 67.3% at layer 5. The main model falls from 63.1% to 58.0%. In its last two layers the main model is at the level of TF-IDF or below (the intervals overlap).
+- **First names matter little.** Without them the pretrained probes lose 0.2 to 3.5 points, and the main model's lose 0.7 points or less. Every probe stays above the occupation-only accuracy, but for the main model's last layer the interval (54.7 to 60.6) overlaps the interval of the reference (49.4 to 55.3).
+- **The null is strict.** The shuffled probes score 55.8% to 57.5%, above the occupation alone (52.3%). In an occupation with 90% women, a shuffle within the occupation keeps a bio's own gender 82% of the time, so the shuffled labels still hold part of the real signal. A probe has to beat that.
+
+A probe that reads gender does not show that the model uses it. Patching tests that.
+
+**Activation patching** (`scripts/patching.py`). Clean is the original showcase bio, corrupted is its gender swap. The effect of the swap is the change in the log-odds of the true occupation. A bio is eligible when the swap moves that score by more than the 95th percentile of the move under the removal control over all 1,721 bios, which is 1.44 log-odds. That leaves 169 bios. One has a swapped text of another token length and is dropped, so 168 pairs are patched (11 of the 1,721 pairs have unequal lengths in all). For each layer output, the clean states replace the corrupted run's states at the positions where the tokens differ (the swapped pronouns and titles), and then at all positions. The restored share is (patched − corrupted) / (clean − corrupted) of the true-class log-odds, per bio. 100% means the patch brings the clean score back, 0% that it changes nothing. Intervals are 95% bootstrap intervals over the 168 bios.
+
+| Layer output | Edited words only: mean | Edited words only: median | All positions |
+|---|---|---|---|
+| embeddings | 100.0% [100.0, 100.0] | 100.0% [100.0, 100.0] | 100% |
+| 1 | 96.4% [95.0, 97.8] | 96.5% [94.4, 98.1] | 100% |
+| 2 | 90.8% [88.6, 92.9] | 92.2% [90.1, 94.0] | 100% |
+| 3 | 75.2% [72.4, 77.9] | 78.2% [75.3, 81.3] | 100% |
+| 4 | 41.9% [39.1, 44.7] | 41.9% [36.7, 45.5] | 100% |
+| 5 | 16.7% [15.1, 18.3] | 16.0% [14.2, 16.9] | 100% |
+| 6 | 0.0% [0.0, 0.0] | 0.0% [0.0, 0.0] | 100% |
+
+What it shows:
+
+- **Early layers hold the effect at the swapped words.** Patching only the swapped words restores 96% at layer 1, 91% at layer 2 and 75% at layer 3. At layer 4 it is 42%, at layer 5 17%. Attention moves the effect to the other positions, and by layer 4 less than half is left at the swapped words.
+- **Three results hold by construction.** At the embeddings, a position's state depends only on its token, so both position sets give 100%. Patching all positions replaces everything a later layer reads, so it gives 100% at every layer (largest deviation over all bios and layers: 0.0). It checks the hook, and panel b of the figure shows it as a flat line for that reason. At the last layer the classifier reads the [CLS] state, which is never a swapped position, so the swapped words give 0%. The informative part is the fall between layers 3 and 5.
+- **What this does not show.** Denoising shows that the states at the swapped words are sufficient to restore the effect, early on. It does not show they are necessary. It covers the 168 bios the swap moves most, 9.8% of the showcase subset. The other 90% move by less than the bar that 5% of the removal edits exceed, so no effect above that noise is left to restore, as [F4](#f4-swapping-pronouns-against-deleting-them) found.
+
+**Expected outcomes** (written in the ADR before the runs) and what came out:
+
+1. *Gender is readable above the occupation alone in at least one layer of each model, at the smallest p-value.* Held, in all 14 layers.
+2. *The embeddings read gender at about the TF-IDF level, and later pretrained layers not much more.* Mostly held. The embeddings are 3 points above TF-IDF with overlapping intervals, and the pretrained model gains 4 more points by layer 5.
+3. *The main model's last layers read less than the pretrained model's middle layers.* Held: 58.0% against 67.3%.
+4. *Without first names accuracy is a few points lower and still above the occupation alone.* Held for the pretrained model (up to 3.5 points). For the main model the drop is under 1 point, and its last layer's interval overlaps the reference's.
+5. *The swapped words restore more than 50% at the embeddings and the first two layers, less later, and 0% at the end.* Held: 100%, 96%, 91%, then 75%, 42%, 17% and 0%.
+6. *The all-positions line is at 100% in every layer.* Held, with no deviation.
+
+One statement in the first draft of the ADR was wrong and was corrected after the run: the occupation-only reference is not high (52.3%), because the showcase subset is balanced by gender within occupation.
+
+Cost on the laptop: encoding 11,721 bios with each encoder took 26 s and 25 s on the GPU. Fitting the probes and their shuffles took 249 s (pretrained), 317 s (main model) and 57 s (references) on the CPU, 10.4 minutes in all. Patching took 30 s on the GPU. Not done: LEACE and INLP, which remove gender from the states and belong to the mitigation work, a nonlinear probe, and patching in the other direction.
+
 ## Reproduce every result
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build.
@@ -208,6 +271,18 @@ uv run python scripts/stability_runs.py deberta-seed7   # GPU, about 10 minutes,
 uv run python scripts/stability_runs.py deberta-unk     # GPU, about 15 minutes, resumable
 uv run python scripts/stability.py       # GPU, leave-one-out on all bios: results/stability.json
 uv run python scripts/figure_f5.py       # reads the three result files, writes F5
+```
+
+Probing and activation patching need the saved main model and the pretrained DeBERTa (cached in `HBX_ARTIFACTS/hf`). The GPU steps run one at a time with nothing else running; the probes run on the CPU:
+
+```bash
+uv run python scripts/probing_features.py pretrained   # GPU, about 1 minute: states of 10,000 train and the showcase bios, writes results/probing_train_ids.csv
+uv run python scripts/probing_features.py deberta      # GPU, about 1 minute
+uv run python scripts/probing.py references            # CPU, about 1 minute
+uv run python scripts/probing.py pretrained            # CPU, about 4 minutes
+uv run python scripts/probing.py deberta               # CPU, about 5 minutes; the last part to run writes results/probing.csv and probing.json
+uv run python scripts/patching.py                      # GPU, about 30 seconds: results/patching.csv and patching.json
+uv run python scripts/figure_f6.py                     # reads the two csv files, writes F6
 ```
 
 The counterfactual swap needs the pinned name list, then both saved models (the main model on the GPU, with nothing else running; 45 s including the tagger):

@@ -55,7 +55,7 @@ The saved weights and tokenizer of the main model at its best dev macro-F1, kept
 _Avoid_: snapshot, saved model
 
 **Representation**:
-A vector the main model builds for a bio: the [CLS] state after the embeddings and after each layer, and the final vector its classification head reads. Probes work on these.
+A vector the main model builds for a bio: after the embeddings and after each layer, the [CLS] state or the mean of the token states over the non-padding tokens, and the final vector its classification head reads. Probes work on the mean.
 _Avoid_: embedding, features, hidden states (unqualified)
 
 **Screener**:
@@ -159,12 +159,20 @@ Removing gender words from a bio so that only indirect signal remains.
 _Avoid_: anonymizing, masking
 
 **Probe**:
-A simple classifier trained on a model's internal representations to read off the protected attribute.
+A logistic regression on standardised representations, trained to read gender from one layer of an encoder. Its accuracy on the showcase subset is compared with references (the majority class, the occupation alone, TF-IDF) and with a permutation test that shuffles gender within occupation and refits it. A probe that reads gender does not show that the model uses it.
 _Avoid_: detector
 
 **Control task**:
 The same probe trained on random labels, to separate what the representation encodes from what the probe can memorise.
 _Avoid_: random baseline
+
+**Activation patching**:
+Running the swapped bio (corrupted) while replacing the hidden states of one layer output with those of the original bio (clean), at chosen token positions, to see how much of the clean score returns. This is denoising: it shows that those states are sufficient, not that they are necessary.
+_Avoid_: causal tracing, ablation
+
+**Restored share**:
+For one bio and one layer output, (patched - corrupted) / (clean - corrupted) of the log-odds score of the true occupation. 1 means the patch brings the clean score back, 0 that it changes nothing. It is reported for bios whose swap moves the score by more than the 95th percentile of the move under the removal control.
+_Avoid_: recovery, patching effect
 
 **Deletion curve**:
 For one screener, how its call and its log-odds score change as more words of a bio are removed in a fixed order, from 0% to 50% of the words. It is summarised by its area: the mean over the steps. An attribution is faithful if removing its highest words hurts more than removing random ones.
