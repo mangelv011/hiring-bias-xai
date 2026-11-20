@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 import numpy as np
+from joblib import Parallel, delayed
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.pipeline import Pipeline, make_pipeline
@@ -65,3 +66,50 @@ def select_c(features: np.ndarray, labels: np.ndarray, grid: Sequence[float] = C
     scores = [cross_val_score(new_probe(c), features, labels, cv=folds).mean() for c in grid]
     best = max(scores)
     return min(c for c, score in zip(grid, scores, strict=True) if score == best)
+
+
+def _hits_after_fitting(c, train_x, labels, test_x, test_gender) -> np.ndarray:
+    return new_probe(c).fit(train_x, labels).predict(test_x) == test_gender
+
+
+def probe(
+    train_x: np.ndarray,
+    train_gender: np.ndarray,
+    train_occupation: np.ndarray,
+    test_x: np.ndarray,
+    test_gender: np.ndarray,
+    unflagged: np.ndarray,
+    n_permutations: int,
+    n_boot: int = N_BOOT,
+    seed: int = SEED,
+    n_jobs: int = 1,
+) -> dict:
+    """Fit a probe on one layer, score it on the test bios and test it against a null.
+
+    C comes from `select_c` on the real labels. The null refits the probe at that C on
+    `n_permutations` copies of the training genders shuffled within occupation and scores each on
+    the real test genders, so it shows what the occupation alone gives. The p-value is
+    (1 + shuffles at least as accurate as the probe) / (1 + `n_permutations`).
+
+    Returns `C`, `n_permutations` and, for the subsets `all` and `unflagged` (the test bios where
+    `unflagged` is True), the `accuracy_ci` keys with `p_value` and `null_mean`.
+    """
+    c = select_c(train_x, train_gender)
+    hits = _hits_after_fitting(c, train_x, train_gender, test_x, test_gender)
+    rng = np.random.default_rng(seed)
+    shuffles = [shuffle_within(train_gender, train_occupation, rng) for _ in range(n_permutations)]
+    null_hits = np.array(
+        Parallel(n_jobs=n_jobs)(
+            delayed(_hits_after_fitting)(c, train_x, shuffled, test_x, test_gender)
+            for shuffled in shuffles
+        )
+    )
+    result = {"C": c, "n_permutations": n_permutations}
+    for name, rows in (("all", np.ones(len(hits), dtype=bool)), ("unflagged", unflagged)):
+        null = null_hits[:, rows].mean(axis=1)
+        observed = hits[rows].mean()
+        result[name] = accuracy_ci(hits[rows], n_boot, seed) | {
+            "p_value": float((1 + (null >= observed).sum()) / (1 + n_permutations)),
+            "null_mean": float(null.mean()),
+        }
+    return result
