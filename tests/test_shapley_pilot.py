@@ -250,3 +250,13 @@ def test_the_pilot_file_is_written_like_the_other_result_files(pilot):
     assert raw.endswith(b"}\n")
     assert b"\r" not in raw
     assert json.loads(raw)["runtime_seconds"] >= 0
+
+
+def test_the_model_is_warmed_up_on_the_first_bios_before_any_timed_run(pilot):
+    class Spy(Rule):
+        pass
+
+    spy = Spy(_unk_confuses)
+    pilot(spy)
+    sampled = _subset_frame().sample(6, random_state=42)
+    assert spy.calls[0] == list(sampled["text"])[:8]

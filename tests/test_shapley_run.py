@@ -1,3 +1,4 @@
+import dataclasses
 import importlib.util
 import json
 from pathlib import Path
@@ -191,3 +192,53 @@ def test_the_run_stops_without_a_pilot_file(run, monkeypatch):
     (run.results / "shapley_pilot.json").unlink(missing_ok=True)
     with pytest.raises(SystemExit, match="shapley_pilot.py"):
         run.module.main(run.results)
+
+
+def test_a_file_with_the_same_target_but_other_words_is_scored_again(run):
+    run()
+    other = attribution.load(attribution.path("deberta", "test-2"))  # nurse, 5 other words
+    attribution.save(attribution.path("deberta", "test-0"), other)
+    run.fakes["deberta"].calls.clear()
+    run()
+    assert len(run.fakes["deberta"].calls) == 1
+
+
+def test_a_file_with_the_same_words_but_another_target_is_scored_again(run):
+    run()
+    saved = attribution.load(attribution.path("deberta", "test-0"))
+
+    attribution.save(
+        attribution.path("deberta", "test-0"),
+        dataclasses.replace(saved, target=data.OCCUPATIONS.index("surgeon")),
+    )
+    run.fakes["deberta"].calls.clear()
+    run()
+    assert len(run.fakes["deberta"].calls) == 1
+    assert attribution.load(attribution.path("deberta", "test-0")).target == 13
+
+
+def test_each_bio_is_seeded_with_the_global_seed_and_its_position_in_the_subset(run, monkeypatch):
+    seeds = []
+    real = attribution.shapley
+
+    def spy(*args, **kwargs):
+        seeds.append(kwargs["seed"])
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(attribution, "shapley", spy)
+    run()
+    assert seeds[:4] == [(42, 0), (42, 1), (42, 2), (42, 3)]
+
+
+def test_the_summary_reports_the_largest_efficiency_error_of_the_bios(run):
+
+    run()
+    saved = attribution.load(attribution.path("baseline", "test-2"))
+    index = saved.index.copy()
+    index[0, -1] = index[0, 0]  # one order now ends on the empty bio
+    attribution.save(
+        attribution.path("baseline", "test-2"), dataclasses.replace(saved, index=index)
+    )
+    summary = json.loads((run() / "shapley_summary.json").read_text())
+    assert summary["screeners"]["baseline"]["efficiency_max_error"] > 0.01
+    assert summary["screeners"]["deberta"]["efficiency_max_error"] < 1e-9
