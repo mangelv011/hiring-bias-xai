@@ -78,8 +78,20 @@ def decompose(bios: list[Bio], *, min_bios: int = MIN_BIOS, top: int = TOP) -> D
             "top": is_top,
         }
     )
-    kept = table.iloc[order]
-    return Decomposition(kept[frequent[order] | is_top[order]].reset_index(drop=True), {})
+    kept = table.iloc[order][frequent[order] | is_top[order]].reset_index(drop=True)
+    full = np.array([bio.score for bio in bios])
+    empty = np.array([bio.empty for bio in bios])
+    score_gap = full[female].mean() - full[~female].mean()
+    exact = (full - empty)[female].mean() - (full - empty)[~female].mean()
+    summary = {
+        "n_female": int(female.sum()),
+        "n_male": int((~female).sum()),
+        "score_gap": {"value": float(score_gap)},
+        "decomposed_gap": {"value": float(contribution.sum())},
+        "empty_score_drift": float(score_gap - contribution.sum()),
+        "decomposition_error": float(abs(contribution.sum() - exact)),
+    }
+    return Decomposition(kept, summary)
 
 
 def _key(word: str) -> str:
