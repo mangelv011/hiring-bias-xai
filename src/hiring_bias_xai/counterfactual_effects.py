@@ -86,6 +86,14 @@ def summarise(
     return summary | {"toward_share": value, "toward_share_ci_low": low, "toward_share_ci_high": high}
 
 
+def hand_check_sample(ids: Sequence[str], n: int, seed: int = SEED) -> list[str]:
+    """`n` distinct ids drawn at random from `ids`, in the order they have in `ids`."""
+    if len(ids) < n:
+        raise ValueError(f"cannot draw {n} bios from only {len(ids)}")
+    chosen = np.random.default_rng(seed).choice(len(ids), size=n, replace=False)
+    return [ids[i] for i in sorted(chosen)]
+
+
 def table(
     scored: pd.DataFrame, share_women: Mapping[str, float], screener: str, n_boot: int = N_BOOT
 ) -> pd.DataFrame:
