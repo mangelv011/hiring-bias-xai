@@ -15,6 +15,7 @@ import pandas as pd
 
 from hiring_bias_xai import plotting
 
+DARK = "#333333"
 ROW_INCHES = 0.17
 PANEL_EXTRA_INCHES = 0.9
 
@@ -39,6 +40,8 @@ def build(panels: Sequence[Panel]):
     for ax, panel in zip(axes[:, 0], panels, strict=True):
         words = panel.words.sort_values("contribution", ascending=False, kind="stable")
         rows = range(len(words))
+        ax.axvline(0, color=DARK, lw=0.6)
+        ax.hlines(rows, words["contribution_ci_low"], words["contribution_ci_high"])
         ax.scatter(words["contribution"], rows)
         ax.set_yticks(rows)
         ax.set_yticklabels(words["word"])
