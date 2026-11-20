@@ -24,7 +24,7 @@ def test_pronouns_swap_both_ways(text, swapped):
         ("He runs", "She runs"),
         ("SHE RUNS", "HE RUNS"),
         ("Ask Him. HIMSELF", "Ask Her. HERSELF"),
-        ("sHe", "she"),
+        ("sHe", "he"),
     ],
 )
 def test_capitalisation_is_kept(text, swapped):
