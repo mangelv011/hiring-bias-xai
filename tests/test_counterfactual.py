@@ -61,3 +61,18 @@ def test_contractions_swap_the_pronoun_and_keep_the_suffix(text, swapped):
 )
 def test_titles_swap_but_degrees_and_units_stay(text, swapped):
     assert swap_gender(text) == swapped
+
+
+@pytest.mark.parametrize(
+    ("text", "swapped"),
+    [
+        ("She loves her job.", "He loves his job."),
+        ("I told her the news.", "I told him the news."),
+        ("The patients trust her", "The patients trust him"),
+        ("Her work helped her.", "His work helped him."),
+        ("He taught her students.", "She taught his students."),
+        ("Call her.", "Call him."),
+    ],
+)
+def test_her_is_his_as_a_possessive_and_him_as_an_object(text, swapped):
+    assert swap_gender(text) == swapped
