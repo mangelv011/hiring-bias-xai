@@ -39,6 +39,7 @@ def run(monkeypatch, tmp_path):
     spec = importlib.util.spec_from_file_location("stability_runs", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    default_sample_size = module.SAMPLE_SIZE
     module.SAMPLE_SIZE = 4
     fake = Hashed()
     loads = []
@@ -49,6 +50,7 @@ def run(monkeypatch, tmp_path):
         return results
 
     go.fake = fake
+    go.default_sample_size = default_sample_size
     go.loads = loads
     go.module = module
     go.results = results
@@ -116,3 +118,24 @@ def test_the_variants_use_the_permutation_count_of_the_pilot_and_all_variants_ru
 def test_an_unknown_variant_is_an_error(run):
     with pytest.raises(SystemExit, match="deberta-other"):
         run("deberta-other")
+
+
+def test_the_sample_has_a_hundred_bios_unless_a_test_says_otherwise(run):
+    assert run.default_sample_size == 100
+
+
+@pytest.mark.parametrize(("variant", "seed"), [("deberta-seed7", 7), ("deberta-unk", 42)])
+def test_every_bio_is_seeded_with_its_variant_seed_and_its_position_in_the_whole_subset(
+    run, variant, seed
+):
+    ids = _sample_ids(run(variant))
+    positions = [[bio[0] for bio in BIOS].index(bio_id) for bio_id in ids]
+    assert max(positions) > 0
+    for bio_id, position in zip(ids, positions, strict=True):
+        _, text, occupation = BIOS[position]
+        removal = "unk" if variant == "deberta-unk" else "delete"
+        (expected,) = attribution.shapley(
+            Hashed(), [text], [occupation], 3, removal, seed=(seed, position)
+        )
+        saved = attribution.load(attribution.path(variant, bio_id))
+        np.testing.assert_array_equal(saved.orders, expected.orders)

@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 from fakes import BagOfWords
@@ -77,6 +78,7 @@ def run(monkeypatch, tmp_path):
     go.fake = BagOfWords({"nurse": WEIGHTS})
     go.save = save
     go.loads = loads
+    go.module = module
     go.results = results
     for variant in VARIANTS:
         save(variant, BagOfWords({"nurse": WEIGHTS}))
@@ -179,3 +181,37 @@ def test_a_word_repeated_in_a_bio_gets_credit_in_shapley_but_not_in_leave_one_ou
     assert example["drop_all_occurrences"] == pytest.approx(40.0, abs=1e-3)
     assert len(example["top_words"]) == 8
     assert example["rule"]
+
+
+def _pairs(spearman, overlap):
+    return list(zip(spearman, overlap, strict=True))
+
+
+def test_the_pass_rule_uses_medians_not_means(run):
+    check = run.module._check
+    # median 1, mean 0.2: passes on the median
+    assert check("seed", _pairs([1, 1, 1, -1, -1], [1.0] * 5))["passed"] is True
+    # median 0.79 under the 0.8 threshold, mean 0.87 over it: fails on the median
+    assert check("removal", _pairs([0.79, 0.79, 0.79, 1, 1], [1.0] * 5))["passed"] is False
+    # the same for the overlap: median 0.4 under 0.5, mean 0.64 over
+    assert check("removal", _pairs([1.0] * 5, [0.4, 0.4, 0.4, 1, 1]))["passed"] is False
+    assert check("removal", _pairs([1.0] * 5, [1, 1, 1, 0, 0]))["passed"] is True
+
+
+def test_a_median_equal_to_its_threshold_passes(run):
+    assert run.module._check("seed", _pairs([0.9] * 5, [0.7] * 5))["passed"] is True
+    assert run.module._check("seed", _pairs([0.9] * 5, [0.6] * 5))["passed"] is False
+
+
+def test_an_undefined_correlation_is_counted_and_left_out_not_read_as_zero(run):
+    check = run.module._check("seed", _pairs([1.0, 1.0, np.nan], [1.0] * 3))
+    assert check["spearman"]["n_undefined"] == 1
+    assert check["spearman"]["mean"] == 1.0
+    assert check["n_bios"] == 3
+
+
+def test_a_run_made_on_other_words_than_the_main_run_stops_the_check(run):
+    other = {"test-1": "x " * 16}
+    run.save("deberta-seed7", BagOfWords({"nurse": WEIGHTS}), other)
+    with pytest.raises(ValueError, match="test-1"):
+        run()

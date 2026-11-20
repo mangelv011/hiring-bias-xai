@@ -191,3 +191,61 @@ def test_a_saved_attribution_of_other_words_than_the_bio_stops_the_run(run):
     attribution.save(attribution.path("deberta", "test-0"), other)
     with pytest.raises(ValueError, match="test-0"):
         run()
+
+
+def test_the_random_curve_is_the_mean_over_bios_of_each_bios_ten_random_orders(run):
+    table = _curves(run()).query("screener == 'deberta' and order == 'random'")
+    expected = []
+    for position, (bio_id, _, _) in enumerate(BIOS):
+        saved = attribution.load(attribution.path("deberta", bio_id))
+        curve = checks.deletion_curve(
+            run.fakes["deberta"],
+            saved.words,
+            saved.values,
+            saved.target,
+            range(0, 55, 5),
+            10,
+            np.random.default_rng((42, position)),
+        )
+        expected.append(curve.drop[2:].mean(axis=0))
+    np.testing.assert_allclose(table["mean_logodds_drop"], np.mean(expected, axis=0), atol=1e-9)
+
+
+def _per_bio(morf, random, lerf, n=6, spread=0.0):
+    """Curves of shape (bios, 3 orders, 11 steps) with the given level per order; the sign of
+    `spread` alternates by bio and is added to MoRF."""
+    levels = np.array([morf, lerf, random])[:, None] * np.ones(11)
+    bios = np.stack([levels.copy() for _ in range(n)])
+    bios[::2, 0] += spread
+    bios[1::2, 0] -= spread
+    return bios
+
+
+def test_a_screener_passes_only_when_both_intervals_of_the_drop_are_above_zero(run):
+    record = run.module._record
+    good = record("deberta", _per_bio(0.2, 0.5, 0.8), _per_bio(5.0, 2.0, 0.0))
+    assert good["passed"] is True
+    assert good["passed_agreement"] is True
+
+
+def test_a_difference_of_exactly_zero_is_not_a_pass(run):
+    record = run.module._record("deberta", _per_bio(0.5, 0.5, 0.5), _per_bio(2.0, 2.0, 0.0))
+    assert record["passed"] is False  # MoRF equals random: the interval is [0, 0]
+
+
+def test_one_good_difference_is_not_enough(run):
+    record = run.module._record("deberta", _per_bio(0.5, 0.5, 0.5), _per_bio(5.0, 2.0, 3.0))
+    assert record["logodds_drop"]["morf_minus_random"]["ci_low"] > 0
+    assert record["logodds_drop"]["random_minus_lerf"]["ci_high"] < 0
+    assert record["passed"] is False
+
+
+def test_an_interval_that_straddles_zero_fails_both_rules(run):
+    # MoRF beats random on half of the bios and loses on the other half
+    drop = _per_bio(2.0, 2.0, 0.0, spread=2.0)
+    agreement = _per_bio(0.5, 0.5, 0.9, spread=0.3)
+    record = run.module._record("deberta", agreement, drop)
+    area = record["logodds_drop"]["morf_minus_random"]
+    assert area["ci_low"] < 0 < area["ci_high"]
+    assert record["passed"] is False
+    assert record["passed_agreement"] is False
