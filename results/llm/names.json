@@ -1,0 +1,333 @@
+{
+  "dropped_surnames": [
+    "Rodriguez",
+    "Sanchez",
+    "Garcia",
+    "Gonzalez",
+    "Lopez",
+    "Perez",
+    "Torres",
+    "Hernandez",
+    "Gomez",
+    "Ramirez",
+    "Jimenez",
+    "Martinez",
+    "Diaz",
+    "Romero",
+    "Flores",
+    "Rojas",
+    "Mu\u00f1oz",
+    "Castro",
+    "Castillo",
+    "Mendoza",
+    "Moreno",
+    "Ortiz",
+    "Vargas",
+    "Morales",
+    "Marin",
+    "Marquez",
+    "Gutierrez",
+    "Fernandez"
+  ],
+  "groups": {
+    "Hispanic America": {
+      "first_names": {
+        "female": [
+          "Daniela",
+          "Maria Fernanda",
+          "Maria Alejandra",
+          "Luisa Fernanda",
+          "Maria Jose",
+          "Valentina",
+          "Maria Carmen",
+          "Maria Gabriela",
+          "Sandra Milena",
+          "Ana Lucia",
+          "Paola Andrea",
+          "Maria Isabel",
+          "Maria Eugenia",
+          "Carolina",
+          "Diana Carolina",
+          "Maria Angeles",
+          "Paula Andrea",
+          "Maria Elena",
+          "Ana Maria",
+          "Diana Marcela",
+          "Maria Belen",
+          "Maria Camila",
+          "Maria Teresa",
+          "Maria Mercedes",
+          "Maria Victoria"
+        ],
+        "male": [
+          "Andres Felipe",
+          "Juan Carlos",
+          "Santiago",
+          "Jose Luis",
+          "Jose Gregorio",
+          "Juan David",
+          "Luis Alberto",
+          "Miguel Angel",
+          "Carlos Eduardo",
+          "Juan Camilo",
+          "Carlos Alberto",
+          "Sebastian",
+          "Luis Fernando",
+          "Julio Cesar",
+          "Jose Antonio",
+          "Carlos Andres",
+          "Jorge Luis",
+          "Juan Pablo",
+          "Victor Hugo",
+          "Juan Sebastian"
+        ]
+      },
+      "surnames": [
+        "Zambrano",
+        "Vera",
+        "Valencia",
+        "Cede\u00f1o",
+        "Guaman",
+        "Giraldo",
+        "Contreras",
+        "Espinoza",
+        "Salazar",
+        "Macias"
+      ]
+    },
+    "Morocco": {
+      "first_names": {
+        "female": [
+          "Fatima",
+          "Khadija",
+          "Aicha",
+          "Naima",
+          "Fatiha",
+          "Nadia",
+          "Hanane",
+          "Aya",
+          "Malika",
+          "Sara"
+        ],
+        "male": [
+          "Mohamed",
+          "Mohammed",
+          "Ahmed",
+          "Youssef",
+          "Said",
+          "Rachid",
+          "Mustapha",
+          "Adam",
+          "Omar",
+          "Ayoub"
+        ]
+      },
+      "surnames": [
+        "Salhi",
+        "Saidi",
+        "El Moussaoui",
+        "El Idrissi",
+        "Tahiri",
+        "El Amrani",
+        "Dahmani",
+        "Daoudi",
+        "Hajji",
+        "Ziani",
+        "Kaddouri",
+        "Benali",
+        "Aarab",
+        "Hamdaoui",
+        "El Mansouri",
+        "Lakhal",
+        "El Asri",
+        "El Bakkali",
+        "Moussaoui",
+        "El Ouahabi"
+      ]
+    },
+    "Romania": {
+      "first_names": {
+        "female": [
+          "Maria",
+          "Elena",
+          "Mariana",
+          "Mihaela",
+          "Ana Maria",
+          "Daniela",
+          "Nicoleta",
+          "Ana",
+          "Ioana",
+          "Cristina"
+        ],
+        "male": [
+          "Gheorghe",
+          "Vasile",
+          "Ioan",
+          "Ion",
+          "Constantin",
+          "Marian",
+          "Florin",
+          "Nicolae",
+          "Daniel",
+          "Adrian"
+        ]
+      },
+      "surnames": [
+        "Popa",
+        "Pop",
+        "Radu",
+        "Dumitru",
+        "Moldovan",
+        "Stan",
+        "Popescu",
+        "Mihai",
+        "Stoica",
+        "Constantin",
+        "Vasile",
+        "Gheorghe",
+        "Matei",
+        "Ilie",
+        "Serban",
+        "Marin",
+        "Rusu",
+        "Stefan",
+        "Ciobanu",
+        "Oprea"
+      ]
+    },
+    "Spain": {
+      "first_names": {
+        "female": [
+          "Maria Carmen",
+          "Maria",
+          "Carmen",
+          "Ana Maria",
+          "Laura",
+          "Maria Pilar",
+          "Maria Dolores",
+          "Isabel",
+          "Josefa",
+          "Maria Teresa"
+        ],
+        "male": [
+          "Antonio",
+          "Manuel",
+          "Jose",
+          "Francisco",
+          "David",
+          "Juan",
+          "Javier",
+          "Daniel",
+          "Jose Antonio",
+          "Francisco Javier"
+        ]
+      },
+      "surnames": [
+        "Garcia",
+        "Rodriguez",
+        "Gonzalez",
+        "Fernandez",
+        "Lopez",
+        "Martinez",
+        "Sanchez",
+        "Perez",
+        "Gomez",
+        "Martin",
+        "Jimenez",
+        "Hernandez",
+        "Ruiz",
+        "Diaz",
+        "Moreno",
+        "Mu\u00f1oz",
+        "Alvarez",
+        "Romero",
+        "Gutierrez",
+        "Alonso"
+      ]
+    },
+    "United Kingdom": {
+      "first_names": {
+        "female": [
+          "Susan",
+          "Christine",
+          "Jacqueline",
+          "Margaret",
+          "Linda",
+          "Patricia",
+          "Carol Ann",
+          "Ann",
+          "Julie",
+          "Karen"
+        ],
+        "male": [
+          "David",
+          "John",
+          "Paul",
+          "Michael",
+          "Peter",
+          "David John",
+          "Michael John",
+          "Stephen",
+          "James",
+          "Robert"
+        ]
+      },
+      "surnames": [
+        "Smith",
+        "Jones",
+        "Taylor",
+        "Williams",
+        "Brown",
+        "Davies",
+        "Wilson",
+        "Evans",
+        "Roberts",
+        "Robinson",
+        "Wright",
+        "Johnson",
+        "Walker",
+        "Thompson",
+        "Thomas",
+        "Hall",
+        "Martin",
+        "Edwards",
+        "White",
+        "Green"
+      ]
+    }
+  },
+  "n_dropped_surnames": 28,
+  "shared_surnames": {
+    "Martin": [
+      "Spain",
+      "United Kingdom"
+    ]
+  },
+  "source": {
+    "attribution": "Elaboraci\u00f3n propia con datos extra\u00eddos del sitio web del INE: www.ine.es",
+    "files": {
+      "first_names": {
+        "date": "01/01/2022",
+        "sha256": "39e39766f28f2aae9be8371119ef954758e0778d5a09712be497dfb076ed2698",
+        "url": "https://www.ine.es/daco/daco42/nombyapel/nombres_por_nacionalidades.xls"
+      },
+      "spain_first_names": {
+        "date": "01/01/2022",
+        "sha256": "c8b4d7d867f3b0e12630c6a9603bbb164d1917f4c0adfee577ff901f3ea5fb0d",
+        "url": "https://www.ine.es/daco/daco42/nombyapel/nombres_mas_frecuentes.xls"
+      },
+      "spain_surnames": {
+        "date": "01/01/2025",
+        "sha256": "5f7cfa24abd6e013e0277422c4536229918c0d837184c6cd6790b25be848fa3c",
+        "url": "https://www.ine.es/daco/daco42/nombyapel/apellidos_mas_frecuentes.xls"
+      },
+      "surnames": {
+        "date": "01/01/2025",
+        "sha256": "c8281170819b3cff9acb355ba1b4919f2d4aeda585e34c1d79e1385d74248c1b",
+        "url": "https://www.ine.es/daco/daco42/nombyapel/apellidos_por_nacionalidad.xls"
+      }
+    },
+    "licence": "CC BY 4.0",
+    "publisher": "Instituto Nacional de Estad\u00edstica (INE)"
+  }
+}

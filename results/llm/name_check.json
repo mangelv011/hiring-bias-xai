@@ -1,0 +1,62 @@
+{
+  "gender_confusion": {
+    "female": {
+      "female": 195
+    },
+    "male": {
+      "female": 3,
+      "male": 177
+    }
+  },
+  "merge": {
+    "dropped": [],
+    "groups": [
+      [
+        "Spain",
+        "Hispanic America"
+      ],
+      [
+        "Morocco"
+      ],
+      [
+        "Romania"
+      ],
+      [
+        "United Kingdom"
+      ]
+    ]
+  },
+  "model": "pc-equilibrado",
+  "n_calls": 375,
+  "n_invalid": 0,
+  "origin_confusion": {
+    "Hispanic America": {
+      "Hispanic America": 129,
+      "Spain": 6
+    },
+    "Morocco": {
+      "Morocco": 60
+    },
+    "Romania": {
+      "Hispanic America": 1,
+      "Romania": 55,
+      "Spain": 3,
+      "United Kingdom": 1
+    },
+    "Spain": {
+      "Hispanic America": 48,
+      "Spain": 10,
+      "United Kingdom": 2
+    },
+    "United Kingdom": {
+      "United Kingdom": 60
+    }
+  },
+  "seconds": {
+    "mean": 0.49333310133304137,
+    "total": 184.9999129998905
+  },
+  "seed": 42,
+  "surnames_per_first_name": 3,
+  "thinking_leaks": 0
+}
