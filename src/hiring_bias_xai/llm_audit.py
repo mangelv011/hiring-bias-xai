@@ -9,10 +9,12 @@ from pathlib import Path
 
 from hiring_bias_xai.config import REPO_ROOT, SEED
 
-# Greedy decoding with a fixed seed. The model reasons by default, which is switched off per
-# request through the chat template.
+# Greedy decoding with a fixed seed and no presence penalty (the server's default of 1.0 would
+# penalise repeated tokens even at temperature 0). The model reasons by default, which is switched
+# off per request through the chat template.
 SETTINGS = {
     "temperature": 0,
+    "presence_penalty": 0,
     "seed": SEED,
     "max_tokens": 400,
     "chat_template_kwargs": {"enable_thinking": False},
