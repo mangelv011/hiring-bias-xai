@@ -1,6 +1,6 @@
 # 0007. Mitigation: scrubbed retraining and proxy-word masking
 
-Status: proposed. The first rule and the expected outcomes were written before any list was produced and before any condition was evaluated. The proxy rule was corrected once, after seeing the first list and before any evaluation (see the note of 2026-11-20). Implemented in `scripts/train_scrubbed.py`, `src/hiring_bias_xai/proxy_words.py` and `scripts/proxy_words.py`; the evaluation and F7 are added when the evaluation has run.
+Status: accepted. The first rule and the expected outcomes were written before any list was produced and before any condition was evaluated. The proxy rule was corrected once, after seeing the first list and before any evaluation (see the note of 2026-11-20). Implemented in `scripts/train_scrubbed.py`, `src/hiring_bias_xai/proxy_words.py`, `scripts/proxy_words.py`, `scripts/mitigation.py` and `scripts/figure_f7.py`; `fairness.paired_difference` gives the paired changes.
 
 ## Context
 
@@ -52,6 +52,10 @@ Five conditions, one per row of F7:
 
 Every condition is scored on the same bios: the test split minus the showcase subset, so the five are comparable. (a) to (d) are also reported on the full test split, for continuity with the earlier tables. Per condition: macro-F1, accuracy, RMS TPR gap with the permutation null (gender shuffled within occupation, 1,000 shuffles, as in `scripts/gap_statistics.py`), and the TPR gap of each showcase occupation, all with 95% bootstrap intervals (`fairness.evaluate`).
 
+Each condition also gets its change from (a) with a 95% interval from `fairness.paired_difference`: both conditions are scored on the same resampled bios, so the interval is that of the difference and is much narrower than the two intervals of the conditions side by side.
+
+**Dietitian has no gap outside the showcase subset.** The test split holds 71 men dietitians and the showcase subset takes every one of them. Outside it, dietitian has no male bio, so its TPR gap, and with it the RMS TPR gap over 28 occupations, is undefined. Macro-F1 and accuracy use all 97,348 bios outside the subset. The RMS TPR gap, its null and the paired change of the gap use the 27 occupations that have both genders there. The dietitian gap is reported on the full test split only. This was found when the first report returned no number; it changes where the gap is measured and nothing in the rules above.
+
 One training seed per model. A difference between the original and the scrubbed model mixes the effect of the text with the run-to-run variation of training, which was not measured. The intervals cover the sampling of test bios only.
 
 ## Expected outcomes
@@ -70,9 +74,24 @@ Re-read for the corrected rule, before any evaluation. The corrected rule is str
 - The RMS TPR gap changes by less than the width of its interval. The words belong to few occupations, and the RMS gap sums over 28. The TPR gap of *model*, the occupation that carries most of the list, is the one place I expect a visible fall. [low]
 - The first-rule expectation that masking "falls by less than 0.5 point" and "gap falls less than scrubbing" still stands as written.
 
+## Outcomes against the expectations
+
+Numbers are on the 97,348 test bios outside the showcase subset (`results/mitigation.json`); the original model has macro-F1 0.7835 and an RMS TPR gap of 0.1435, and the gap of shuffled genders is 0.037 on average, 0.050 at the 95th percentile.
+
+- **(b) and (d), scrubbing.** Held. Macro-F1 fell by 0.76 points (b) and 0.48 points (d), under 1. The RMS gap fell by 0.025 (17%) and 0.028 (20%), inside the 10% to 40% range.
+- **(c).** Held. Macro-F1 fell by 0.38 points and the gap by 0.033 (23%); the intervals of (c) and (d) overlap.
+- **(e), first-rule expectation.** Held. Macro-F1 fell by 0.16 points, under 0.5. The gap fell by 0.0023 (interval from -0.0047 to +0.0004), less than scrubbing, and its interval overlaps that of (a).
+- **No condition reaches the null.** Held. The lowest gap, 0.110 for (c), is more than twice the 95th percentile of the null; every permutation p-value is 1 in 1,001.
+- **No condition loses more than 2 points.** Held. The largest loss is 0.76 points.
+- **(e), corrected-rule expectations.** Two of three did not hold. Macro-F1 fell by 0.16 points [0.11, 0.21], not under 0.1. 12% of the bios contain one of the six words. The TPR gap of *model* did not show a visible fall: 0.438 before and 0.423 after, inside the interval of either. The RMS gap changed by less than the width of its interval, as expected.
+
 ## Recommendation
 
-Added after the evaluation, with the numbers.
+For a stakeholder: scrub the pronouns and titles from the bios, and train and score on scrubbed text (condition d). It takes the RMS TPR gap from 0.1435 to 0.1152, a fall of 0.028 [0.012, 0.043], for 0.48 points of macro-F1 [0.17, 0.76]. Accuracy does not change (-0.02 points, interval -0.16 to +0.12). If retraining is not possible, scrubbing the bios the original model reads (condition b) gives most of the gap fall, 0.025 [0.012, 0.036], for 0.76 points of macro-F1. Conditions c and d are within noise of each other, and d leaves no pronoun for the model to meet.
+
+Do not present this as making the screener fair. The gap after scrubbing is more than twice the upper edge of what shuffled genders give, in every condition. The gaps in the two jobs with the largest gap hardly moved: *model* from +0.44 to +0.40 and surgeon from -0.22 to -0.18 (women minus men, so positive favours women). What is left is not in the pronouns. In *model* the strongest single word was the name of a website (ADR 0004). Masking the six proxy words does not help: it leaves the gap where it was and costs 0.16 points of macro-F1, so I would not use it. The next step is a method that works on what the model has learned, not on the text. Beyond that, the gap per occupation should be measured on every new model before it is used.
+
+Limits of this advice: one training seed per model, so the effect of retraining is not separated from run-to-run variation; the gap is measured on 27 of 28 occupations outside the showcase subset; the proxy words were chosen on the showcase subset and tested outside it, but there are only six.
 
 ## Alternatives not run
 
