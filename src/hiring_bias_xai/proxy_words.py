@@ -3,6 +3,8 @@
 import numpy as np
 import pandas as pd
 
+from hiring_bias_xai import data
+
 TOP = 5
 RATIO = 3
 SMOOTHING = 0.01
@@ -42,3 +44,12 @@ def proxy_rows(table: pd.DataFrame, gendered_sum: float, top: int = TOP) -> pd.D
         .head(top)
         .drop(columns="size")
     )
+
+
+def mask_words(text: str, words: set[str]) -> str:
+    """`text` without the whitespace units whose `data.word_core` is in `words`.
+
+    What is left is joined with single spaces. A word glued to others by punctuation inside the
+    unit, as in `shoot...born`, is not matched, as for the gendered words.
+    """
+    return " ".join(unit for unit in text.split() if data.word_core(unit) not in words)
