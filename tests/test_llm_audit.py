@@ -59,6 +59,7 @@ def test_asking_sends_the_fixed_settings_and_stores_the_request_and_the_response
     assert request["payload"]["messages"] == MESSAGES
     assert request["payload"]["temperature"] == 0
     assert request["payload"]["seed"] == SEED
+    assert request["payload"]["presence_penalty"] == 0
     assert request["payload"]["chat_template_kwargs"] == {"enable_thinking": False}
     assert record["content"] == '{"reason": "r", "decision": "yes"}'
     assert record["key"] == llm_audit.request_key("m", MESSAGES, llm_audit.SETTINGS)
