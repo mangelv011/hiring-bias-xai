@@ -1,0 +1,39 @@
+{
+  "arm_types": {
+    "name": {
+      "n_calls": 30,
+      "n_invalid": 0,
+      "seconds_max": 1.5715267000196036,
+      "seconds_mean": 1.1366076700020737,
+      "seconds_median": 1.11309964999964,
+      "thinking_leaks": 0
+    },
+    "neutral": {
+      "n_calls": 30,
+      "n_invalid": 0,
+      "seconds_max": 2.039243200008059,
+      "seconds_mean": 1.1310117233311758,
+      "seconds_median": 1.1190813499997603,
+      "thinking_leaks": 0
+    },
+    "none": {
+      "n_calls": 30,
+      "n_invalid": 0,
+      "seconds_max": 2.7667901999957394,
+      "seconds_mean": 1.242669890001222,
+      "seconds_median": 1.1172518999956083,
+      "thinking_leaks": 0
+    },
+    "swap": {
+      "n_calls": 30,
+      "n_invalid": 0,
+      "seconds_max": 1.6847193000139669,
+      "seconds_mean": 1.1648252666714447,
+      "seconds_median": 1.138340050019906,
+      "thinking_leaks": 0
+    }
+  },
+  "model": "pc-equilibrado",
+  "n_calls": 120,
+  "seconds_total": 140.2534365001775
+}
