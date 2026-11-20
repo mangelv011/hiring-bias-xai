@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from hiring_bias_xai import llm_metrics
 
@@ -108,3 +109,67 @@ def test_the_range_of_yes_shares_across_first_names_is_read_against_shuffled_nam
     cell = ranges["A|female"]
     assert cell["range"] == 1.0 and cell["n_names"] == 2
     assert cell["shuffled_mean"] < 0.5 and cell["shuffled_p95"] < 1.0
+
+
+def _noise_frames(n=100):
+    """A sample of `n` profiles, half matches, all `yes` in `none`. The edit flips the first 5
+    profiles, the rerun none, the woman's-name arm the first 30 and the swap arm the same 5."""
+    pids = [f"p{i}" for i in range(n)]
+    arms = {
+        "none": set(),
+        "rerun": set(),
+        "edit": set(pids[:5]),
+        "swap": set(pids[:5]),
+        "name|A|female": set(pids[:30]),
+    }
+    rows = [
+        (
+            pid,
+            i < n // 2,
+            arm,
+            "A" if arm.startswith("name") else None,
+            None,
+            None,
+            0.0 if pid in flipped else 1.0,
+            "r",
+        )
+        for arm, flipped in arms.items()
+        for i, pid in enumerate(pids)
+    ]
+    frame = _calls(rows)
+    noise = frame[frame["arm"].isin(["rerun", "edit"])].rename(columns={"arm": "part"})
+    return frame[~frame["arm"].isin(["rerun", "edit"])], noise
+
+
+def test_flips_are_the_valid_answers_that_differ_from_the_none_arm_of_the_same_profile():
+    rows = [
+        ("p1", True, "none", None, None, None, 1.0, "r0"),
+        ("p1", True, "swap", None, None, None, 0.0, "r1"),
+        ("p2", True, "none", None, None, None, 1.0, "r2"),
+        ("p2", True, "swap", None, None, None, 1.0, "r3"),
+        ("p3", True, "none", None, None, None, np.nan, "r4"),
+        ("p3", True, "swap", None, None, None, 0.0, "r5"),
+    ]
+    flips = llm_metrics.flips(_calls(rows))
+    assert flips[["pid", "arm", "flip", "reason"]].to_dict("records") == [
+        {"pid": "p1", "arm": "swap", "flip": True, "reason": "r1"},
+        {"pid": "p2", "arm": "swap", "flip": False, "reason": "r3"},
+    ]
+
+
+def test_the_noise_floor_is_the_change_between_identical_and_edited_asks_and_arms_are_read_against_it():
+    calls, noise = _noise_frames()
+    floor = llm_metrics.noise_floor(calls, noise, n_boot=300)
+    assert floor["n_profiles"] == 100
+    assert floor["rerun"]["flip_rate"]["value"] == 0.0
+    assert floor["edit"]["flip_rate"]["value"] == pytest.approx(0.05)
+    assert floor["edit"]["tpr_diff"]["value"] == pytest.approx(
+        -0.1
+    )  # 5 of 50 matches flip from yes to no
+    name = floor["arms"]["name|A|female"]
+    assert name["flip_rate"]["value"] == pytest.approx(0.3)
+    assert name["minus_edit"]["value"] == pytest.approx(0.25)
+    assert name["minus_edit"]["ci_low"] > 0 and name["above_noise"] is True
+    swap = floor["arms"]["swap"]
+    assert swap["minus_edit"] == {"value": 0.0, "ci_low": 0.0, "ci_high": 0.0}
+    assert swap["above_noise"] is False
