@@ -1,5 +1,6 @@
 """Models and the Classifier interface that every screener satisfies."""
 
+import re
 from collections.abc import Sequence
 from typing import NamedTuple, Protocol
 
@@ -118,8 +119,12 @@ def autocast(network):
     return torch.autocast(device_type=network.device.type, dtype=torch.bfloat16, enabled=on_gpu)
 
 
-def _deberta_folder():
-    return artifacts_dir() / "models" / "deberta"
+def _deberta_folder(name: str):
+    if not re.fullmatch(r"[a-z0-9-]+", name):
+        raise ValueError(
+            f"checkpoint name must be lowercase letters, digits, hyphens; got {name!r}"
+        )
+    return artifacts_dir() / "models" / name
 
 
 class Representations(NamedTuple):
@@ -165,20 +170,23 @@ class DebertaModel(_Screener):
         )
         return cls(network, tokenizer, batch_size)
 
-    def save(self) -> None:
-        """Write the network (safetensors) and the tokenizer to `artifacts_dir()/models/deberta`."""
-        self.network.save_pretrained(_deberta_folder())
-        self.tokenizer.save_pretrained(_deberta_folder())
+    def save(self, name: str = "deberta") -> None:
+        """Write the network (safetensors) and the tokenizer to `artifacts_dir()/models/<name>`.
+
+        `name` is a plain word (lowercase letters, digits, hyphens), so it cannot leave that folder.
+        """
+        folder = _deberta_folder(name)
+        self.network.save_pretrained(folder)
+        self.tokenizer.save_pretrained(folder)
 
     @classmethod
-    def load(cls, batch_size: int = 32) -> "DebertaModel":
-        """Read the model that `save` wrote."""
+    def load(cls, batch_size: int = 32, name: str = "deberta") -> "DebertaModel":
+        """Read the model that `save` wrote under `name`."""
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-        network = AutoModelForSequenceClassification.from_pretrained(
-            _deberta_folder(), use_safetensors=True
-        )
-        return cls(network, AutoTokenizer.from_pretrained(_deberta_folder()), batch_size)
+        folder = _deberta_folder(name)
+        network = AutoModelForSequenceClassification.from_pretrained(folder, use_safetensors=True)
+        return cls(network, AutoTokenizer.from_pretrained(folder), batch_size)
 
     def batches(self, texts: Sequence[str]):
         """Tokenized batches on the network's device; puts the network in eval mode.

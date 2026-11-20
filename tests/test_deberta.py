@@ -136,7 +136,7 @@ def test_a_checkpoint_name_that_is_not_a_plain_lowercase_word_is_refused(
 
 
 def test_load_takes_no_path_so_only_the_project_folder_in_the_artifacts_directory_is_read():
-    assert list(inspect.signature(DebertaModel.load).parameters) == ["batch_size"]
+    assert list(inspect.signature(DebertaModel.load).parameters) == ["batch_size", "name"]
 
 
 def test_the_checkpoint_is_safetensors_and_pickle_weights_are_refused(
