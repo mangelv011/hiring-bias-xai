@@ -167,7 +167,7 @@ def test_the_title_gives_the_summed_gendered_contribution_in_each_panel(figure):
     # bios. Both intervals exclude 0, so both are stated, whatever the total gap does.
     text, lines = _title_lines(figure)
     assert text == (
-        "Gendered words put women's bios 1.1 below men's in surgeon and 0.8 above men's in model."
+        "Gendered words put women's bios 1.1 below men's in surgeon and 0.8 above in model."
     )
     assert lines <= 2
 
@@ -180,7 +180,7 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
     ]
     text, lines = _title_lines(f3.build(both_above))
     assert text == (
-        "Gendered words put women's bios 2.0 above men's in nurse and 0.8 above men's in model."
+        "Gendered words put women's bios 2.0 above men's in nurse and 0.8 above in model."
     )
     assert lines <= 2
     engineer = {**_SURGEON_SUMMARY, "gendered_sum": _shares(0.05, -0.06, 0.16)}
