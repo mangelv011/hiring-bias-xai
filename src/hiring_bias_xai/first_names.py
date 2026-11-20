@@ -13,6 +13,8 @@ from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
+from hiring_bias_xai.config import artifacts_dir
+
 # The SSA site refuses automated clients, so the pin is an Internet Archive capture of
 # https://www.ssa.gov/oact/babynames/names.zip (`id_` serves the original bytes).
 URL = "https://web.archive.org/web/20261102233045id_/https://www.ssa.gov/oact/babynames/names.zip"
@@ -69,3 +71,18 @@ def download(
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content)
     return content
+
+
+def names_file() -> Path:
+    """Where `scripts/fetch_first_names.py` writes the list, one name per line."""
+    return artifacts_dir() / "names" / "first_names.txt"
+
+
+def load() -> frozenset:
+    """The names that `scripts/fetch_first_names.py` wrote, Capitalised."""
+    try:
+        return frozenset(names_file().read_text(encoding="utf-8").split())
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"{names_file()} is missing: run scripts/fetch_first_names.py first"
+        ) from None
