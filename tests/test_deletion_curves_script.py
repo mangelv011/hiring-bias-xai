@@ -1,0 +1,136 @@
+import importlib.util
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+from fakes import BagOfWords
+
+from hiring_bias_xai import attribution, data
+from hiring_bias_xai import explanation_checks as checks
+
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "deletion_curves.py"
+SCREENERS = ("deberta", "baseline")
+WEIGHTS = {f"w{i}": float(i - 10) for i in range(20)}  # w19 helps nurse most, w0 hurts most
+
+
+def _bio_text(start):
+    return " ".join(f"w{(start + i) % 20}" for i in range(20))
+
+
+BIOS = [(f"test-{i}", _bio_text(3 * i), "nurse") for i in range(4)]
+
+
+@pytest.fixture
+def run(monkeypatch, tmp_path):
+    """Return go(): the script's main() on four synthetic bios of 20 words.
+
+    The saved attributions of both screeners come from a linear fake, so the Shapley value of a
+    word is its weight. `go.attribution_weights` can be replaced before saving to make them lie.
+    `go.fakes` are the classifiers that score the deletion steps.
+    """
+    results = tmp_path / "results"
+    results.mkdir()
+    ids = "".join(f"{bio_id}\n" for bio_id, _, _ in BIOS)
+    (results / "showcase_subset_ids.csv").write_bytes(f"id\n{ids}".encode())
+    (results / "shapley_pilot.json").write_text(json.dumps({"inference_batch_size": 16}))
+    test = pd.DataFrame(BIOS, columns=["id", "text", "occupation"]).assign(gender="female")
+    monkeypatch.setattr(data, "load_split", lambda split, variant="original": test)
+    monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path / "artifacts"))
+    spec = importlib.util.spec_from_file_location("deletion_curves", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fakes = {name: BagOfWords({"nurse": WEIGHTS}) for name in SCREENERS}
+    loads = []
+    monkeypatch.setattr(
+        module, "_load", lambda name, batch_size: (loads.append((name, batch_size)), fakes[name])[1]
+    )
+
+    def save_attributions(weights):
+        explainer = BagOfWords({"nurse": weights})
+        for name in SCREENERS:
+            for bio_id, text, occupation in BIOS:
+                (result,) = attribution.shapley(explainer, [text], [occupation], 4, "delete", 0)
+                attribution.save(attribution.path(name, bio_id), result)
+
+    def go():
+        module.main(results)
+        return results
+
+    save_attributions(WEIGHTS)
+    go.save_attributions = save_attributions
+    go.fakes = fakes
+    go.loads = loads
+    go.results = results
+    go.module = module
+    return go
+
+
+def _curves(results):
+    return pd.read_csv(results / "deletion_curves.csv")
+
+
+def test_the_csv_has_a_row_per_screener_order_and_fraction_with_the_documented_columns(run):
+    table = _curves(run())
+    assert list(table.columns) == [
+        "screener",
+        "order",
+        "fraction",
+        "mean_agreement",
+        "agreement_ci_low",
+        "agreement_ci_high",
+        "mean_logodds_drop",
+        "drop_ci_low",
+        "drop_ci_high",
+    ]
+    assert len(table) == 2 * 3 * 11
+    assert set(table["order"]) == {"morf", "lerf", "random"}
+    assert sorted(table["fraction"].unique()) == pytest.approx([i / 20 for i in range(11)])
+
+
+def test_nothing_is_removed_at_fraction_zero(run):
+    start = _curves(run()).query("fraction == 0")
+    assert (start["mean_agreement"] == 1).all()
+    assert start["mean_logodds_drop"].abs().max() < 1e-6
+    assert (start["drop_ci_low"] == start["drop_ci_high"]).all()
+
+
+def test_removing_the_top_words_hurts_more_than_random_and_random_more_than_the_bottom(run):
+    end = _curves(run()).query("fraction == 0.5").set_index(["screener", "order"])
+    for name in SCREENERS:
+        drop = end["mean_logodds_drop"]
+        assert drop[name, "morf"] > drop[name, "random"] > drop[name, "lerf"]
+        agreement = end["mean_agreement"]
+        assert agreement[name, "morf"] < agreement[name, "random"] <= agreement[name, "lerf"]
+
+
+def test_each_bio_gets_ten_random_orders_the_eleven_steps_and_its_own_seed(run, monkeypatch):
+    calls = []
+    real = checks.deletion_curve
+
+    def spy(classifier, words, values, target, percents, n_random, rng):
+        calls.append((list(percents), n_random, rng.bit_generator.state["state"]["state"]))
+        return real(classifier, words, values, target, percents, n_random, rng)
+
+    monkeypatch.setattr(checks, "deletion_curve", spy)
+    run()
+    assert len(calls) == 2 * len(BIOS)
+    assert all(percents == list(range(0, 55, 5)) for percents, _, _ in calls)
+    assert all(n_random == 10 for _, n_random, _ in calls)
+    expected = [
+        np.random.default_rng((42, i)).bit_generator.state["state"]["state"] for i in range(4)
+    ]
+    assert [state for _, _, state in calls[:4]] == expected
+
+
+def test_the_models_are_loaded_with_the_inference_batch_size_of_the_pilot(run):
+    run()
+    assert run.loads == [("deberta", 16), ("baseline", 16)]
+
+
+def test_words_are_removed_with_unk_not_deleted(run):
+    run()
+    texts = [text for call in run.fakes["deberta"].calls for text in call]
+    assert any("[UNK]" in text for text in texts)
+    assert all(len(text.split()) == 20 for text in texts)
