@@ -1,74 +1,86 @@
 # Results
 
-Every number here comes from a file in [`results/`](../results/) written by a script in [`scripts/`](../scripts/). Each section opens with the finding in one sentence, then the figure, then the details. Terms are defined in the [glossary](../GLOSSARY.md) and design choices in the [decision records](decisions/).
+This page explains every result of the audit: what I asked, what I found and what it means. Each section opens with the finding in one sentence, then the figure, then the details. Every number comes from a file in [`results/`](../results/), written by a script in [`scripts/`](../scripts/). Terms are defined in the [glossary](../GLOSSARY.md) and design choices in the [decision records](decisions/).
 
-## Model performance
+**The setting, in one paragraph.** A recruiter searches for a job, say surgeon. An AI model reads each candidate's short professional bio and decides which of 28 jobs it describes. Bios it labels "surgeon" go on to the recruiter; the rest are set aside. A candidate is qualified for a search when the bio belongs to someone who really does that job, and a fair screener passes on the same share of qualified women and qualified men.
 
-Test split, 99,069 bios, 95% bootstrap intervals from `src/hiring_bias_xai/fairness.py`.
+**Two words used throughout.** The *main model* is the screener I audit: DeBERTa-v3-small, a transformer fine-tuned on 60,000 bios. The *baseline model* is a simpler screener for comparison: it counts words (TF-IDF) and weighs them (logistic regression). The *score* of a bio for a job is how strongly the model leans towards that job. It is measured in log-odds: 0 means even odds between that job and all the others together, and each point up multiplies those odds by about 2.7.
 
-| Model | Accuracy | Macro-F1 | RMS TPR gap | Gap-share correlation |
-|---|---|---|---|---|
-| Baseline model | 0.7954 [0.7929, 0.7979] | 0.7282 [0.7235, 0.7332] | 0.1666 [0.1506, 0.1895] | 0.892 [0.823, 0.909] |
-| Main model | 0.8370 [0.8346, 0.8391] | 0.7832 [0.7787, 0.7879] | 0.1476 [0.1342, 0.1715] | 0.855 [0.777, 0.873] |
+## How good are the screeners?
 
-The main model is more accurate: the macro-F1 intervals do not overlap. Its RMS TPR gap is lower, but the intervals overlap, so this data does not show that it is fairer. Details and training history are in [docs/decisions/0002-models.md](decisions/0002-models.md).
+**In short:** the main model is right more often than the baseline model, but it is not clearly fairer.
+
+Both models were tested on 99,069 bios they never saw during training. Intervals are 95% bootstrap intervals (`src/hiring_bias_xai/fairness.py`).
+
+| Model | Right job, out of 100 bios | Macro-F1 | Gender gap (RMS TPR gap) |
+|---|---|---|---|
+| Baseline model | 79.5 [79.3, 79.8] | 0.728 [0.724, 0.733] | 0.167 [0.151, 0.190] |
+| Main model | 83.7 [83.5, 83.9] | 0.783 [0.779, 0.788] | 0.148 [0.134, 0.172] |
+
+Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones; the main model is clearly better on it (the intervals do not overlap). The gender gap sums up, over all 28 jobs, how far the share of qualified women passed on is from the share of qualified men (0 would be equal treatment). It is lower for the main model, but the intervals overlap, so the data does not show that the main model is fairer. Training details are in [ADR 0002](decisions/0002-models.md).
 
 ## F1: the gap follows the share of women
 
-**In short:** the more an occupation is dominated by one gender, the more the main model misses people of the other gender.
+**In short:** the more a job is held by one gender, the more the model favours that gender when it decides who goes on to the recruiter.
 
-<p align="center"><img src="../results/figures/f1_gap_vs_share.png" width="520" alt="The main model's errors follow each occupation's gender imbalance (r = 0.85)."></p>
+<p align="center"><img src="../results/figures/f1_gap_vs_share.png" width="520" alt="Each dot is a job. The more women hold a job, the more the model favours women in it; surgeon: 56 of 100 qualified women passed on against 76 of 100 men; nurse: 84 of 100 women against 73 of 100 men."></p>
 
-Each dot is one occupation: its share of women in the training subsample against the main model's TPR gap, with the 95% bootstrap CI of the gap. The six showcase occupations are labelled. A positive gap favours women, so the main model misses more women in male-dominated occupations and more men in female-dominated ones. Under a deuteranopia simulation the highlight and grey dots stay apart ([check](figure_checks/f1_deuteranopia.png)).
+The question behind the figure: among people who really do a job, does the model pass on women and men at the same rate? For each job I take the test bios of people in it, and count how many of every 100 women and of every 100 men the model passes on. The vertical axis is the difference: above 0 the model favours women, below 0 it favours men. Comparing shares within each gender, not head counts, is what makes the comparison fair: a job with few women should still pass on the same share of them.
 
-## Gap statistics
+Each dot is one of the 28 jobs, placed by its share of women in the training data, with the 95% interval of the difference. Surgeon and nurse carry their numbers; the other jobs I study in detail later are named. The line rises steadily: the model favours the majority gender of each job, and favours it more the larger that majority is (correlation r = 0.85, 95% interval 0.71 to 0.93). In technical terms the vertical axis is the TPR gap, the difference in true positive rate, and equal TPRs are called equal opportunity. Under a simulation of red-green colour blindness the highlighted and grey dots stay apart ([check](figure_checks/f1_deuteranopia.png)).
 
-**In short:** the bias is not chance, and the correlation holds whichever occupation is left out.
+## Is the gap real?
 
-Computed on the same test split by `scripts/gap_statistics.py`; point values match the tables above to 1e-9. The 28 occupations are the units, so these intervals are wider than the bio-level ones above. The permutation null shuffles gender within each occupation 1,000 times.
+**In short:** yes. Chance alone does not produce gaps this large, and the link with the share of women does not depend on any single job.
+
+To check that the gaps are not luck, I shuffled the gender labels within each job 1,000 times and recomputed the overall gap each time. A shuffled gap was never as large as the real one, so the probability that chance explains it is at most 1 in 1,001, the smallest this test can show. The correlation between the gap and the share of women stays between 0.84 and 0.87 for the main model whichever job I leave out. Script: `scripts/gap_statistics.py`.
 
 | Statistic | Baseline model | Main model |
 |---|---|---|
-| Pearson r, Fisher-z 95% CI | 0.892 [0.778, 0.949] | 0.855 [0.707, 0.931] |
-| Pearson r, occupation bootstrap 95% CI | [0.835, 0.951] | [0.762, 0.933] |
-| Spearman rho, occupation bootstrap 95% CI | 0.933 [0.826, 0.969] | 0.830 [0.582, 0.926] |
-| Pearson r with one occupation left out | 0.877 (without dietitian) to 0.912 (without model) | 0.838 (without dietitian) to 0.874 (without nurse) |
-| RMS TPR gap, observed | 0.1666 | 0.1476 |
-| RMS TPR gap, permutation null mean (95th percentile) | 0.0391 (0.0539) | 0.0359 (0.0488) |
-| Permutation p-value | 0.001 | 0.001 |
-| Occupations with a Holm-adjusted p below 0.05 | 11 of 28 | 10 of 28 |
+| Correlation r between gap and share of women (95% interval) | 0.892 [0.778, 0.949] | 0.855 [0.707, 0.931] |
+| Same, interval from resampling the 28 jobs | [0.835, 0.951] | [0.762, 0.933] |
+| Rank correlation (Spearman), resampling the jobs | 0.933 [0.826, 0.969] | 0.830 [0.582, 0.926] |
+| Correlation with one job left out | 0.877 (without dietitian) to 0.912 (without model) | 0.838 (without dietitian) to 0.874 (without nurse) |
+| Overall gender gap, real | 0.1666 | 0.1476 |
+| Overall gender gap with shuffled genders: mean (95th percentile) | 0.0391 (0.0539) | 0.0359 (0.0488) |
+| Chance of a gap this large by luck (permutation p-value) | 0.001 | 0.001 |
+| Jobs whose own gap is clearly not zero (Holm-corrected p below 0.05) | 11 of 28 | 10 of 28 |
 
-No shuffle reached the observed RMS TPR gap, so the p-value is the smallest this test can give, 1/1,001. Both models treat women and men unequally in a way chance does not produce, and the correlation with the share of women stays above 0.83 whichever occupation is left out. The main model's lower RMS TPR gap still does not show that it is fairer: the intervals above overlap.
+The intervals here are wider than in the first table because the units are the 28 jobs, not the 99,069 bios. Looking at jobs one by one needs a stricter bar, because testing 28 jobs at once makes some false alarms likely (the Holm correction accounts for that). With that bar, the main model clearly favours women in dietitian, model, nurse, paralegal, physician and teacher, and men in attorney, chiropractor, pastor and surgeon. In the other 18 jobs the gap is too small to tell from zero with this data, which does not mean it is zero.
 
-The per-occupation gaps are descriptive. Only the Holm-adjusted ones support a claim that a gap is not zero. For the main model they are: women favoured in dietitian, model, nurse, paralegal, physician and teacher; men favoured in attorney, chiropractor, pastor and surgeon. The other 18 occupations show no gap at that level; that does not show their gaps are zero.
+## F2: a woman and a man, and the words that moved the decision
 
-## F2: a woman and a man, and the words that moved the score
+**In short:** in two wrong decisions, gender words pushed the model towards the wrong job, though words about the work itself weighed more.
 
-**In short:** in two wrong decisions, pronouns pushed the model toward the wrong occupation, though topic words weighed more.
+<p align="center"><img src="../results/figures/f2_shapley_cases.png" width="520" alt="Gendered words added 3.2 log-odds to a wrong decision for a woman and 2.0 for a man."></p>
 
-<p align="center"><img src="../results/figures/f2_shapley_cases.png" width="520" alt="Gendered words added 3.2 log-odds to a wrong call for a woman and 2.0 for a man."></p>
+To see which words drive a decision, I use Shapley values. A bio's score is split among its words: each word gets the amount it adds to or takes from the score, averaged over many orders in which the words could be revealed. The parts add up exactly to the score. Here a word "absent" means deleted from the text, and each bio uses 40 random orders, each also read backwards.
 
-Two showcase-subset bios, main model, `delete` removal, 40 random word orders (each with its reverse) per bio, both misclassified. The cases mirror F1: a woman whose true occupation is one of the three male-dominated showcase occupations, and a man in one of the three female-dominated ones. Each panel shows the bio with its eight largest units underlined, and a bar per unit: its Shapley value for the predicted occupation, in log-odds, positive towards it. Gendered words, the ones `data.scrub` removes (a unit whose core, without punctuation at its ends, is one of them), are in the highlight colour. The panel header gives the sum over all gendered units of the bio, which is the number in the title. Under a deuteranopia simulation they stay apart from the grey ([check](figure_checks/f2_deuteranopia.png)).
+The figure shows two bios the main model got wrong, picked by a rule fixed before looking. The first is a woman in a job held mostly by men; the second is a man in a job held mostly by women, mirroring F1. Within each group, I took the wrong decision where gender words (she, he, her, his, Mr, Ms and the like) add the most to the wrong job's score, among bios of at least 15 words without long numbers. Each panel shows the bio with its eight strongest words underlined and a bar per word: how much it moves the score towards the wrong job. Gender words are in the highlight colour, and the header gives their total, which is the number in the title. The colours stay apart under simulated colour blindness ([check](figure_checks/f2_deuteranopia.png)).
 
-The bios come from rules fixed beforehand: in each group, the misclassified bio whose gendered units add the most to the log-odds of the predicted occupation (`test-30717`, a composer predicted as rapper, +3.2 over 11 units; `test-9467`, a model predicted as poet, +2.0 over 2 units). Bios under 15 units, and bios with six or more digits in a row, are excluded. Both are the largest of their group (114 and 154 errors), not typical cases. In both, the largest single units are topic words (songs, career, play), and one gendered unit alone is worth +0.6 and +1.0. If a group had no qualifying bio the figure would say so.
+- **The woman** (`test-30717`) is a composer whom the model labelled a rapper. Her 11 gender words add +3.2 to "rapper", with one *her* alone worth +0.6.
+- **The man** (`test-9467`) is a model whom the model labelled a poet. His 2 gender words add +2.0 to "poet", with one *his* worth +1.0.
 
-The values carry sampling noise and the figure shows no interval per word: the run stored one seed. In the pilot two seeds agreed on the main model with a median Spearman correlation of 0.89 over all words at 40 orders, below the 0.9 the pilot asked for. On the baseline model the other words agreed less than the ten largest, and 7 of the 8 largest were shared on average. Whitespace units glue some words, as in `shoot...she`: 1.2% of units, and 0.28% of gendered units (`results/word_units.json`). See [ADR 0003](decisions/0003-shapley-attribution.md). Read single-word values in one bio as indications; the next section aggregates over bios.
+In both, the strongest single words are about the work (songs, career, play), not gender. These are the most extreme of 114 and 154 wrong decisions, chosen to illustrate, not typical cases.
 
-## F3: which words make up the score gap
+How far to trust single words: the values come from random orders, so a rerun gives slightly different numbers. Two runs agree well (a rank correlation of 0.89 over all the words of a bio), but not perfectly, and [F5](#f5-can-the-explanations-be-trusted) shows that other reasonable ways of computing them change the order more. Read the value of one word in one bio as an indication; the next section adds them up over hundreds of bios. A few words are glued to punctuation by the whitespace split, as in `shoot...she` (1.2% of all words, 0.28% of gender words; `results/word_units.json`). Details are in [ADR 0003](decisions/0003-shapley-attribution.md).
 
-**In short:** in surgeon, pronouns alone put women's bios clearly below men's; in model, the largest single word is not a gender word but the name of a site, `freeones`, found only in women's bios.
+## F3: which words make up the gap between women and men
 
-<p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gendered words put women's bios 1.1 below men's in surgeon and 0.8 above in model."></p>
+**In short:** in surgeon bios, gender words alone put women's scores clearly below men's. In model bios, the strongest single word is not a gender word but the name of a website, `freeones`, that appears only in women's bios.
 
-In each showcase occupation the score gap is the mean log-odds score of the true occupation in women's bios minus that in men's bios (positive favours women), on the 1,721 showcase bios. Because Shapley values are efficient and the empty-bio score is the same for everyone, that gap is the sum, over words, of each word's mean value in women's bios minus its mean value in men's bios (a missing word counts 0). The sum matches the gap computed from the scores: the largest error over the 12 screener and occupation pairs is 3.1e-15. Definitions are in [ADR 0004](decisions/0004-gap-decomposition.md). This says how the score splits, not what would happen if a word were edited; that is for the counterfactual swaps.
+<p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gender words put women's bios 1.1 below men's in surgeon and 0.8 above in model."></p>
 
-F3 shows the main model in two occupations picked by a rule fixed beforehand: the male-dominated and the female-dominated showcase occupation with the largest absolute score gap (`results/f3_panels.json`). That is surgeon (-0.77) and model (+5.40). Each panel has the ten words with the largest absolute contribution, a dot for the value and a bar for the 95% bootstrap interval over bios, gendered words in the highlight colour. Under a deuteranopia simulation the highlight and grey stay apart ([check](figure_checks/f3_deuteranopia.png)).
+For each of the six jobs I study in detail, I take the main model's average score for that job in women's bios and subtract the average in men's bios: the score gap (positive favours women). Because Shapley values add up exactly to the score, this gap splits exactly into one part per word: how much more (or less) that word adds in women's bios than in men's, counting 0 where the word is missing. The parts add up to the gap to within 3 in 10^15. This tells how the gap is made up, not what would happen if a word were edited; F4 tests that. Definitions are in [ADR 0004](decisions/0004-gap-decomposition.md). This uses 1,721 test bios: up to 150 women and 150 men per job.
 
-The title is the sum of the gap contributions of the gendered words (the gendered sum), which needs no division and so exists even where the total gap may be 0. In surgeon bios the main model's total gap (-0.77) has an interval that includes 0. The gendered words alone move it by -1.12 (95% CI -1.24 to -1.02): `she`, `he`, `her` and `his` all have negative contributions, and the occupation words (`surgery`, `surgeon`) have positive ones, which offset part of it. In model bios the gendered sum is +0.80 (+0.68 to +0.91) of a +5.40 gap. There the ten largest words are 61% of the gap (95% CI 51% to 77%) and the gendered words 15% (12% to 19%). Shares are not given for surgeon: a share divides by the gap, and a gap that may be 0 makes it meaningless.
+F3 shows the main model in two jobs picked by a rule fixed beforehand: in each group, the one with the largest gap. That is surgeon (-0.77) and model (+5.40). Each panel lists the ten words with the largest part of the gap, with the 95% interval from resampling bios. Gender words are in the highlight colour.
 
-The largest single word in the model panel is `freeones`, the name of a listing site for adult performers. It is in 54 of the 150 women's model bios of the showcase subset and in none of the 150 men's, and it contributes +0.96 (+0.76 to +1.17) of the main model's +5.40 gap (+3.65 of +11.72 for the baseline model). Part of the model gap therefore follows where the bios were scraped from, not gender words. The counts show that the word is only in women's bios; they do not show where the bios came from. `ranked`, `gallery` and `listed` are in a similar share of women's bios and in at most 2% of men's.
+- **Surgeon.** The overall gap (-0.77) is too small to tell from zero (its interval runs from -1.54 to +0.08). But the gender words alone put women 1.12 points below men (95% interval 1.02 to 1.24): *she*, *he*, *her* and *his* all push the same way. Words about the job (*surgery*, *surgeon*) push the other way and cancel part of it.
+- **Model.** Women's bios score 5.40 points higher. Gender words account for +0.80 of that (15%). The single strongest word is `freeones`, the name of a website listing adult performers. It appears in 54 of the 150 women's bios and in none of the 150 men's, and it adds +0.96 of the gap. So part of this gap comes from where some women's bios were published, not from gender words. The counts show that the word appears only in women's bios; they do not show where the bios came from. `ranked`, `gallery` and `listed` follow the same pattern.
 
-| Occupation | Main model: score gap | Gendered sum | Top-10 share | Gendered share | Baseline model: score gap | Gendered sum | Top-10 share | Gendered share |
+The table gives all six jobs and both models. "Gender words" is the total part of the gender words; "top 10" and "gender share" give what share of the gap the ten strongest words and the gender words make up. Shares are left out (n/a) when the gap itself may be zero, because a share of zero means nothing. Shares can pass 100% when other words pull the opposite way.
+
+| Job | Main model: gap | Gender words | Top 10 | Gender share | Baseline: gap | Gender words | Top 10 | Gender share |
 |---|---|---|---|---|---|---|---|---|
 | surgeon | -0.77 [-1.54, +0.08] | -1.12 [-1.24, -1.02] | n/a | n/a | -1.84 [-3.32, -0.33] | -3.00 [-3.24, -2.75] | 134% [70, 444] | 163% [84, 639] |
 | software engineer | -0.21 [-0.92, +0.51] | +0.05 [-0.06, +0.16] | n/a | n/a | -0.39 [-1.35, +0.54] | -1.84 [-2.00, -1.68] | n/a | n/a |
@@ -77,73 +89,52 @@ The largest single word in the model panel is `freeones`, the name of a listing 
 | nurse | +1.31 [+0.32, +2.34] | +1.97 [+1.80, +2.14] | 83% [25, 157] | 150% [83, 598] | +2.98 [+1.49, +4.50] | +3.99 [+3.66, +4.31] | 196% [149, 312] | 134% [89, 266] |
 | model | +5.40 [+4.44, +6.40] | +0.80 [+0.68, +0.91] | 61% [51, 77] | 15% [12, 19] | +11.72 [+10.02, +13.51] | +2.46 [+2.27, +2.64] | 76% [68, 92] | 21% [18, 25] |
 
-Gendered sum: the summed gap contribution of the gendered words, positive when they put women's bios above men's. n/a: the interval of the score gap includes 0. Score gaps and sums are in log-odds, which are on a different scale in the two models, so compare the signs and the shares, not the sizes. Both models give gendered words a negative sum in the male-dominated occupations and a positive one in the female-dominated ones, except the main model in software engineer (the interval includes 0). Shares can pass 100% because the other words pull the opposite way. Intervals come from resampling bios within each gender, with the top ten re-selected in each resample (`results/gap_explained.json` also has the interval with the ten words fixed). Dietitian has 71 men's bios instead of 150. The bootstrap does not include the sampling noise of the Shapley values (seed agreement 0.889 on the main model, above), which the average over bios reduces but does not remove.
+The pattern is the same in both models: gender words work against women in the jobs held mostly by men and for them in the jobs held mostly by women. The one exception is the main model in software engineer, where the gender words' total is too small to tell from zero. Compare signs and shares between the two models, not sizes: their scores are on different scales.
 
-Comparing the two models: in every occupation the top ten words of both include pronouns (`she`, `he`, `her`, `his`) and in nurse the titles `mr` (both) and `ms` (main model) or `dr` (baseline model). The two top-ten lists share 5 to 8 words. The baseline model's lists also hold function words (`and`, `of`, `in`, `the`) and generic words (`passionate`, `research`, `links`), and the main model's hold topic words (`computer`, `engineering`, `acoustic`, `piano`, `crna`, `npi`). These are the words of the largest contributions, not a test that either model relies on them.
+Both models list the pronouns among the ten strongest words in every job, and titles (*Mr*, *Ms*, *Dr*) in nurse. Their top-ten lists share 5 to 8 words. The baseline model's lists also hold small common words (*and*, *of*, *the*), and the main model's hold words about the work (*computer*, *piano*, *crna*). Dietitian has only 71 men's bios. The intervals do not include the run-to-run noise of the Shapley values, which averaging over bios reduces but does not remove.
 
-## F4: swapping pronouns against deleting them
+## F4: does changing only the gender change the decision?
 
-**In short:** swapping *he* and *she* changes the main model's decisions about as often as deleting them. When a swap does change a decision, it usually moves it toward an occupation typical of the new gender. The baseline model reacts more strongly.
+**In short:** swapping *he* and *she* changes the main model's decisions about as often as simply deleting them. When a swap does change a decision, it usually moves it towards a job typical of the new gender. The baseline model reacts more.
 
 <p align="center"><img src="../results/figures/f4_flip_rates.png" width="520" alt="Swapping pronouns changes the main model's decisions no more often than deleting them."></p>
 
-On the 1,721 showcase bios, `counterfactual.swap_gender` swaps he and she, him and her, his and hers and the titles Mr, Ms and Mrs, and each screener scores the original and the swapped bio. The removal control deletes the same words (`data.scrub`) instead. F4 shows the main model: per showcase occupation and pooled, the share of bios whose predicted occupation changes (the flip rate), swap in the highlight colour and removal in grey, with 95% bootstrap intervals over bios (1,000 resamples). Occupations are sorted by the swap flip rate, and the pooled row is labelled with its two rates (6.9% and 6.3%). The title says "no more often" because the pooled intervals overlap; the script words it "more often" or "less often" when they do not. Under a deuteranopia simulation the two colours stay apart ([check](figure_checks/f4_deuteranopia.png)). Design and alternatives are in [ADR 0005](decisions/0005-counterfactual-gender-swap.md); every number below is in `results/counterfactual_gender.csv` and `results/counterfactual_gender.json`.
+F3 shows how the scores split; this tests what happens when the gender in a bio changes. For each of the 1,721 bios I make a copy with the gender swapped (he and she, him and her, his and hers, Mr and Ms) and ask both models again. A changed decision is a flip. But any edit can flip a borderline decision, so I also make a second copy with the same words deleted instead of swapped. If the swap flips more decisions than the deletion, the model reacts to the gender itself, not just to the edit. F4 shows the main model: the share of flips per job, swap in the highlight colour, deletion in grey, with 95% intervals. Design and alternatives are in [ADR 0005](decisions/0005-counterfactual-gender-swap.md); every number is in `results/counterfactual_gender.csv` and `.json`.
 
-A swap changes several tokens at once, so a flip does not prove that a model uses gender. The removal control and the residual-cue flags address that:
+Two checks on the swapped text itself:
 
-- **Residual cues.** The list of 92 gendered nouns (mother, husband, actress, businessman and so on, with plurals, in `counterfactual.RESIDUAL_NOUNS`) was fixed in code before any swapped bio was read. A bio is also flagged when it contains a first name from the public SSA name list (2,808 names, data card) that the entity recogniser reads as a person. 752 of the 1,721 bios are flagged: 225 by a noun, 631 by a first name, 104 by both. The name count is a lower bound, because the recogniser misses some lone names. The swap changes 1,689 bios and the removal 1,706; the others have no pronoun or title.
-- **Hand check.** 50 swapped bios drawn at random (seed 42), original and swapped sentences read one by one (`results/counterfactual_hand_check.csv`). 3 are incoherent: 6% (Wilson 95% interval 2.1% to 16.2%). The three failures are a "his" before an opening quotation mark that became "hers", an object pronoun that referred to "the total man" and was swapped with the rest, and a swapped "her" that could now mean another person named in the text. Of the 47 coherent bios, 6 keep a gender cue (five first names and "husband"). Fifty bios give a wide interval, and the check was done once, on the code as delivered.
+- **Leftover gender clues.** A swap does not touch words like *husband* or a first name. I flagged bios that keep such a clue: a list of 92 gender nouns fixed before reading any swapped bio, plus first names from the public US Social Security name list. 752 of the 1,721 bios are flagged (225 by a noun, 631 by a name; the name count misses some names). Leaving them out changes no conclusion below.
+- **Reading by hand.** I read 50 swapped bios drawn at random. 3 of them read wrongly (6%, 95% interval 2% to 16%): a *his* before a quotation mark became *hers*, a pronoun about "the total man" was swapped, and a swapped *her* became ambiguous with another person in the text.
 
-Flip rate, all bios and unflagged bios, with 95% intervals:
-
-| Occupation | Bios (all / unflagged) | Main model, swap | Main model, removal | Main model, swap, unflagged | Main model, removal, unflagged |
-|---|---|---|---|---|---|
-| surgeon | 300 / 225 | 6.3% [3.7, 9.3] | 5.7% [3.0, 8.7] | 6.2% [3.1, 9.3] | 4.4% [2.2, 7.1] |
-| software engineer | 300 / 203 | 4.7% [2.7, 7.3] | 6.7% [4.0, 9.3] | 5.4% [2.5, 8.9] | 7.4% [3.9, 10.8] |
-| composer | 300 / 149 | 4.0% [2.0, 6.3] | 4.0% [2.0, 6.3] | 2.0% [0.0, 4.7] | 3.4% [0.7, 6.7] |
-| dietitian | 221 / 115 | 9.0% [5.4, 13.1] | 7.7% [4.5, 10.9] | 10.4% [5.2, 15.7] | 6.1% [1.7, 10.4] |
-| nurse | 300 / 110 | 9.3% [6.0, 12.7] | 6.3% [3.7, 9.0] | 11.8% [6.4, 18.2] | 9.1% [4.5, 14.5] |
-| model | 300 / 167 | 8.7% [5.7, 12.0] | 8.0% [5.0, 11.3] | 9.0% [4.8, 13.2] | 8.4% [4.2, 12.6] |
-| pooled | 1,721 / 969 | 6.9% [5.7, 8.1] | 6.3% [5.2, 7.5] | 7.0% [5.5, 8.6] | 6.3% [4.9, 7.8] |
-
-| Occupation | Baseline model, swap | Baseline model, removal | Baseline model, swap, unflagged | Baseline model, removal, unflagged |
+| Job | Main model: swap | Main model: deletion | Baseline: swap | Baseline: deletion |
 |---|---|---|---|---|
-| surgeon | 12.7% [9.0, 16.3] | 8.7% [5.7, 12.0] | 12.4% [8.4, 16.9] | 8.9% [5.3, 12.9] |
-| software engineer | 13.3% [10.0, 17.0] | 10.3% [7.3, 13.7] | 11.8% [7.4, 16.7] | 8.9% [5.4, 13.3] |
-| composer | 9.7% [6.3, 13.0] | 6.7% [4.0, 9.7] | 8.7% [4.7, 13.4] | 5.4% [2.0, 8.7] |
-| dietitian | 12.2% [8.1, 16.7] | 7.2% [4.1, 10.9] | 13.9% [7.8, 20.0] | 7.8% [3.5, 13.0] |
-| nurse | 15.7% [11.7, 20.0] | 11.7% [8.3, 15.3] | 16.4% [10.0, 23.6] | 11.8% [6.4, 18.2] |
-| model | 17.3% [13.0, 21.7] | 8.0% [5.0, 11.0] | 15.6% [9.6, 21.6] | 6.0% [3.0, 9.6] |
-| pooled | 13.5% [12.0, 15.1] | 8.8% [7.6, 10.1] | 12.9% [10.8, 14.9] | 8.0% [6.4, 9.7] |
+| surgeon | 6.3% [3.7, 9.3] | 5.7% [3.0, 8.7] | 12.7% [9.0, 16.3] | 8.7% [5.7, 12.0] |
+| software engineer | 4.7% [2.7, 7.3] | 6.7% [4.0, 9.3] | 13.3% [10.0, 17.0] | 10.3% [7.3, 13.7] |
+| composer | 4.0% [2.0, 6.3] | 4.0% [2.0, 6.3] | 9.7% [6.3, 13.0] | 6.7% [4.0, 9.7] |
+| dietitian | 9.0% [5.4, 13.1] | 7.7% [4.5, 10.9] | 12.2% [8.1, 16.7] | 7.2% [4.1, 10.9] |
+| nurse | 9.3% [6.0, 12.7] | 6.3% [3.7, 9.0] | 15.7% [11.7, 20.0] | 11.7% [8.3, 15.3] |
+| model | 8.7% [5.7, 12.0] | 8.0% [5.0, 11.3] | 17.3% [13.0, 21.7] | 8.0% [5.0, 11.0] |
+| all six | 6.9% [5.7, 8.1] | 6.3% [5.2, 7.5] | 13.5% [12.0, 15.1] | 8.8% [7.6, 10.1] |
 
-What the control shows:
+Share of bios whose decision changes. The csv also has the same rates without the flagged bios.
 
-- **Main model.** Pooled, the swap flips 6.9% of bios and the removal 6.3%, and the intervals overlap in every occupation and in both subsets. Deleting the pronouns moves the decision about as often as swapping them, so most flips come from the edit, and this data does not show a gender-specific sensitivity beyond it. The change in the log-odds of the true occupation is +0.03 (95% CI -0.01 to +0.08) for the swap and -0.01 (-0.04 to +0.02) for the removal.
-- **Baseline model.** The swap flips 13.5% and the removal 8.8%, with separate pooled intervals; by occupation only model separates clearly (17.3% against 8.0%). The swap lowers the log-odds of the true occupation by 0.19 (-0.27 to -0.11) where the removal raises it by 0.13 (+0.08 to +0.18). The drop is largest in dietitian (-0.55, -0.77 to -0.34) and model (-0.56, -0.79 to -0.30), two of the three female-dominated occupations (nurse shows none, -0.01): giving those bios male pronouns costs the baseline model score that deleting the pronouns does not. That fits a model that reads female pronouns as evidence for these occupations; it does not show which words did it.
-- **Flagged bios.** Leaving out the 752 flagged bios changes no conclusion: the pooled rates move by at most 0.8 points, and for every screener, occupation and condition the unflagged interval overlaps the one for all bios. In the unflagged subset the baseline model's pooled swap and removal intervals are still separate (12.9% [10.8, 14.9] against 8.0% [6.4, 9.7]).
+- **Main model.** The swap changes 6.9% of decisions and the deletion 6.3%, and the intervals overlap in every job. So for the main model most flips come from editing the text, and this data shows no extra reaction to the gender itself. The swap does not move its score for the true job either (+0.03, 95% interval -0.01 to +0.08).
+- **Baseline model.** The swap changes more decisions than the deletion (13.5% against 8.8%), most clearly in model (17.3% against 8.0%). Giving male pronouns to women's dietitian and model bios lowers its score for those jobs by about 0.55, far more than deleting the pronouns does. It reads female pronouns as evidence for these jobs.
+- **Which way the flips go.** When the main model flips after a swap, 88% of the time the new job is one held more by the new gender (95% interval 82% to 94%). That partly reflects where these six jobs sit, at the extremes, so I compare it with the deletion copies read the same way: 72% (63% to 80%). The swap's flips lean further towards the new gender than an edit alone explains. The baseline model shows the same (95% against 84%).
 
-Flip direction, swap only. Among flipped bios, the share whose new prediction has a training share of women that moves toward the new gender (a woman's bio turned male is toward when the share falls). This uses the same `share_women` as F1, so the two results are not independent. The six showcase occupations sit at the extremes of that share, so a flip out of nurse in a woman's bio can only lower it. The removal flips, read as if the new gender were the opposite one, give the reference:
+Limits: 50 bios read by hand cannot rule out rare errors in the swap; the bios without flags have no clue I detected, not necessarily no clue; names and origin are left to the LLM audit; and a swap between two genders says nothing about non-binary people.
 
-| Screener | Toward, swap | Toward, swap, unflagged | Toward, removal (reference) |
-|---|---|---|---|
-| Main model | 88.2% [82.4, 93.7] of 119 flips | 85.3% [75.4, 93.0] of 68 | 71.6% [62.8, 80.0] of 109 |
-| Baseline model | 94.8% [91.8, 97.4] of 233 | 95.2% [90.9, 98.4] of 125 | 83.6% [77.4, 89.3] of 152 |
-
-Most flips go to an occupation with the opposite share of women whatever the edit; the swap sits above the reference for both screeners (about 17 and 11 points) with separate intervals. Per-occupation rows are in the csv; with 12 to 52 flips each they are wide, and the main model's software engineer rows (50.0% of 14 flips) show no direction.
-
-Limits: 50 hand-checked bios cannot rule out failure types that are rare; the unflagged subset has no detected cue, not no cue; names and origin are out of scope here (the LLM audit, #12); the swap is binary and says nothing about non-binary people.
-
-## F5: can we trust the Shapley values?
+## F5: can the explanations be trusted?
 
 **In short:** the words Shapley ranks highest really drive the main model's decisions. The exact order of the words in one bio, though, changes with how the values are computed. Trust totals over many bios; read the value of one word in one bio as an indication.
 
 <p align="center"><img src="../results/figures/f5_explanation_checks.png" width="520" alt="Shapley finds the words the model relies on, but their order depends on how it is computed."></p>
 
-The earlier sections rest on Shapley values, so before relying on them we ask two questions. Do the words with high values matter to the model (panel a)? And does the ranking stay the same if we compute it again, or in another reasonable way (panel b)? Every number is in `results/deletion_curves.csv`, `results/deletion_areas.json` and `results/stability.json`. Under a deuteranopia simulation the colours stay apart ([check](figure_checks/f5_deuteranopia.png)).
+The earlier sections rest on Shapley values, so before relying on them I ask two questions. Do the words with high values matter to the model (panel a)? And does the ranking stay the same if I compute it again, or in another reasonable way (panel b)? Every number is in `results/deletion_curves.csv`, `results/deletion_areas.json` and `results/stability.json`. Under a deuteranopia simulation the colours stay apart ([check](figure_checks/f5_deuteranopia.png)).
 
 ### Do the top words matter?
 
-We remove a bio's words step by step, up to half of them, in three orders: highest Shapley value first (MoRF), lowest first (LeRF), and at random (10 orders per bio). A removed word is replaced by `[UNK]`, not deleted as in the Shapley run, so the check does not simply repeat how the values were made. At each step we measure how far the score of the true occupation falls (in log-odds). If the values are right, removing the top words first should hurt the most. Script: `scripts/deletion_curves.py`, on the 1,721 showcase bios.
+I remove a bio's words step by step, up to half of them, in three orders: highest Shapley value first (MoRF), lowest first (LeRF), and at random (10 orders per bio). A removed word is replaced by `[UNK]`, not deleted as in the Shapley run, so the check does not simply repeat how the values were made. At each step I measure how far the score of the true occupation falls (in log-odds). If the values are right, removing the top words first should hurt the most. Script: `scripts/deletion_curves.py`, on the 1,721 showcase bios.
 
 It does. Averaged over the steps, the main model's score falls by 7.0 log-odds when the top words go first, 1.5 when words go at random, and rises by 0.7 when the least useful words go first (95% intervals within ±0.2). With half of the words gone, the main model keeps its original decision in 12% of bios when the top words go first, 44% at random and 73% when the least useful go first.
 
@@ -154,11 +145,11 @@ It does. Averaged over the steps, the main model's score falls by 7.0 log-odds w
 
 Mean fall in the true occupation's log-odds over the 11 steps, with 95% bootstrap intervals over bios.
 
-The baseline model gives the same order, but its check is weaker: its TF-IDF reads `[UNK]` as an unknown word, which is almost the same as deleting it, so for the baseline model the check partly repeats the Shapley run. One oddity we did not explain: for the baseline model, removing the least useful words first changes its decision more often than removing words at random.
+The baseline model gives the same order, but its check is weaker: its TF-IDF reads `[UNK]` as an unknown word, which is almost the same as deleting it, so for the baseline model the check partly repeats the Shapley run. One oddity I did not explain: for the baseline model, removing the least useful words first changes its decision more often than removing words at random.
 
 ### Does the ranking stay the same?
 
-We compare the ranking of the main run (Shapley, words deleted, seed 42) with three alternatives, bio by bio. Two measures: the rank correlation over all the words of a bio (1 = same order), and the share of the ten strongest words that both rankings have in common. Panel b shows the median over bios with its 95% interval. Scripts: `scripts/stability_runs.py` and `scripts/stability.py`.
+I compare the ranking of the main run (Shapley, words deleted, seed 42) with three alternatives, bio by bio. Two measures: the rank correlation over all the words of a bio (1 = same order), and the share of the ten strongest words that both rankings have in common. Panel b shows the median over bios with its 95% interval. Scripts: `scripts/stability_runs.py` and `scripts/stability.py`.
 
 | Compared with the main run | Bios | Rank correlation | Shared top-10 words |
 |---|---|---|---|
@@ -174,9 +165,9 @@ So the strongest words are fairly stable, but their exact order, and the order o
 
 ### One bio where the methods disagree
 
-The rule was fixed before looking: among bios of at least 15 words whose top Shapley word appears at least twice, the one where Shapley and leave-one-out disagree most. It is `test-73398`, a surgeon bio of 92 words (rank correlation -0.28). Shapley's top word is *practice*, which appears twice (+2.43 and +0.72); *practices* also appears twice (+1.83 and +0.80). Leave-one-out gives all four almost nothing (between -0.07 and +0.04). Removing both *practice* together lowers the score by only 0.07. The likely reading: the words carry the same information, so while one remains the others add little. Leave-one-out then sees each as useless, and Shapley shares the credit among them. We did not confirm this by removing all four together.
+The rule was fixed before looking: among bios of at least 15 words whose top Shapley word appears at least twice, the one where Shapley and leave-one-out disagree most. It is `test-73398`, a surgeon bio of 92 words (rank correlation -0.28). Shapley's top word is *practice*, which appears twice (+2.43 and +0.72); *practices* also appears twice (+1.83 and +0.80). Leave-one-out gives all four almost nothing (between -0.07 and +0.04). Removing both *practice* together lowers the score by only 0.07. The likely reading: the words carry the same information, so while one remains the others add little. Leave-one-out then sees each as useless, and Shapley shares the credit among them. I did not confirm this by removing all four together.
 
-### What we did not check
+### What I did not check
 
 Weight randomization (Adebayo et al., 2018) would pass by construction here, because Shapley reads only the model's outputs. Retraining-based evaluation (ROAR, Hooker et al., 2019) needs one fine-tuning run per share of words removed, which is too costly on this hardware. The stability comparisons use 100 bios, 8 or 9 per occupation and gender. The expected outcomes, written before the runs, are in `results/stability.json` and [ADR 0003](decisions/0003-shapley-attribution.md).
 
@@ -204,10 +195,10 @@ A probe is a simple classifier (logistic regression) that tries to guess gender 
 
 Three guesses to compare with, on the same bios: always the commoner gender, 47.7% [45.3, 50.1]; gender from the occupation alone (the commoner gender of that occupation in training), 52.3% [50.0, 54.6]; and TF-IDF with logistic regression on the same text, 59.7% [57.2, 62.0]. The occupation alone is close to a coin flip because the showcase subset has up to 150 bios of each gender in every occupation. "No first name" leaves out the 631 bios where a first name is still in the text (1,090 remain).
 
-What we found:
+What I found:
 
 - **Gender is still readable.** Every probe, in both models and at every layer, scores above the occupation alone, and its interval does not overlap the occupation's. None of 100 probes trained on shuffled genders did as well as the real one (the smallest p-value that 100 shuffles can give, 0.0099). So this is not chance. The signal is modest: at most 67%.
-- **A good part of it sits in the words themselves.** The embeddings are plain word vectors, and they already give 63%. TF-IDF on the same text gives 60%. Names, topics and site names such as the one in [F3](#f3-which-words-make-up-the-score-gap) remain after the pronouns are gone.
+- **A good part of it sits in the words themselves.** The embeddings are plain word vectors, and they already give 63%. TF-IDF on the same text gives 60%. Names, topics and site names such as the one in [F3](#f3-which-words-make-up-the-gap-between-women-and-men) remain after the pronouns are gone.
 - **Fine-tuning makes gender a little harder to read in the last layers.** The main model falls from 63% at the embeddings to 58% at the last layer (the intervals miss each other by half a point: 60.9 and 60.4). From layer 4 on it is 6 to 8 points below the pretrained model, with no overlap. The pretrained model rises to 67% at layer 5.
 - **First names matter little.** Without them, the main model's probes lose less than one point. The pretrained ones lose up to three and a half.
 - **The shuffled probes score above chance.** They score 56% to 57%, above the occupation alone. A shuffle within an occupation keeps a bio's own gender 82% of the time when the occupation is 90% women, so the shuffled labels still hold part of the real signal. The real probes beat this stricter comparison.
@@ -216,9 +207,9 @@ What it means: scrubbing pronouns does not make the representation free of gende
 
 ### Does the swap's effect sit in the swapped words? Patching
 
-We take a bio and its gender swap (he for she and so on). The swap changes the log-odds score of the true occupation. Patching copies the model's internal state for the original bio into the run on the swapped bio, at one layer, and asks how much of the original score comes back (the restored share). 100% means all of it, 0% none. We copy the state at the swapped words only, and then at all the other words. This tells where the effect sits at each layer. Script: `scripts/patching.py`.
+I take a bio and its gender swap (he for she and so on). The swap changes the log-odds score of the true occupation. Patching copies the model's internal state for the original bio into the run on the swapped bio, at one layer, and asks how much of the original score comes back (the restored share). 100% means all of it, 0% none. I copy the state at the swapped words only, and then at all the other words. This shows where the effect sits at each layer. Script: `scripts/patching.py`.
 
-We use only bios the swap moves by a large amount: those where the swap changes the score by more than the removal control changes it in 95% of bios (1.44 log-odds). That is 169 bios, 9.8% of the showcase subset. One has a swapped text of a different token length, so 168 pairs are patched. Intervals are 95% bootstrap intervals over these bios.
+I use only bios the swap moves by a large amount: those where the swap changes the score by more than the removal control changes it in 95% of bios (1.44 log-odds). That is 169 bios, 9.8% of the showcase subset. One has a swapped text of a different token length, so 168 pairs are patched. Intervals are 95% bootstrap intervals over these bios.
 
 | Layer | Restored by the swapped words only | Restored by all the other words |
 |---|---|---|
@@ -230,13 +221,13 @@ We use only bios the swap moves by a large amount: those where the swap changes 
 | 5 | 16.7% [15.1, 18.3] | 82.1% [80.3, 83.9] |
 | 6 | 0.0% [0.0, 0.0] | 100.0% [100.0, 100.0] |
 
-What we found:
+What I found:
 
 - **The effect starts in the swapped words and moves out.** Up to layer 3 the swapped words alone bring back at least 75%. At layer 4 the effect is split (42% and 56%). By layer 5 most of it is in the other words (17% and 82%). The model's attention copies the information from the swapped words into the rest of the bio.
-- **The model's design fixes the two ends.** At the embeddings every word is still only itself, so the other words carry nothing new (0%). At the last layer the classifier reads only the [CLS] state, which is not a swapped word, so the swapped words give 0%. The part that tells us something is in between.
-- **Check of the method.** Patching all positions at once gives 100% at every layer, with no deviation, as it must. It tests the code and is not a result, so we do not draw it.
+- **The model's design fixes the two ends.** At the embeddings every word is still only itself, so the other words carry nothing new (0%). At the last layer the classifier reads only the [CLS] state, which is not a swapped word, so the swapped words give 0%. The layers in between are the informative part.
+- **Check of the method.** Patching all positions at once gives 100% at every layer, with no deviation, as it must. It tests the code and is not a result, so I do not draw it.
 
-What it means: the swap's effect is not stored at the pronouns. It is carried away from them within a few layers. A fix that edits only the pronoun tokens has to act in the first layers. Later the effect spreads over the whole bio. This covers the 168 bios the swap moves most. The test shows that the states at these words are enough to bring the effect back, not that they are needed. For the other 90% of bios the swap moves the score by less than 1.44 log-odds, in line with [F4](#f4-swapping-pronouns-against-deleting-them).
+What it means: the swap's effect is not stored at the pronouns. It is carried away from them within a few layers. A fix that edits only the pronoun tokens has to act in the first layers. Later the effect spreads over the whole bio. This covers the 168 bios the swap moves most. The test shows that the states at these words are enough to bring the effect back, not that they are needed. For the other 90% of bios the swap moves the score by less than 1.44 log-odds, in line with [F4](#f4-does-changing-only-the-gender-change-the-decision).
 
 Cost on the laptop: encoding the 11,721 bios took 26 s (pretrained) and 25 s (main model) on the GPU. Fitting the probes and their shuffles took 10.4 minutes on the CPU. Patching took 30 s. Not done: removing gender from the representation (LEACE, INLP), which belongs to the mitigation work, a nonlinear probe, and patching in the other direction.
 

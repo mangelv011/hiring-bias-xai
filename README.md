@@ -1,21 +1,24 @@
 # hiring-bias-xai
 
-**Does a CV-screening model treat women and men differently, and which words make it do so?**
+**Does an AI that screens CVs treat women and men differently, and why?**
 
-An explainable-AI audit of a text classifier that screens candidates by occupation, on 99,069 real biographies.
+A hospital needs a surgeon and receives thousands of applications. An AI model reads each candidate's short professional bio first and decides which of 28 jobs it describes (surgeon, nurse, lawyer and so on). Bios it labels "surgeon" go on to the recruiter; the rest are set aside and never seen by a person. A fair screener passes on the same share of real surgeons whether they are women or men.
+
+I built such a model from real professional bios (about 400,000 of them) and checked who it passes on. Among people who really are surgeons, it passes on 76 of every 100 men but only 56 of every 100 women. Nurses show the opposite: 84 of every 100 women, 73 of every 100 men. Looking at all 28 jobs together, the more a job is held by one gender, the more the model favours that gender.
 
 <p align="center">
-  <img src="results/figures/f1_gap_vs_share.png" width="520" alt="Scatter plot of 28 occupations: the main model's TPR gap rises with the share of women in the occupation, r = 0.85.">
+  <img src="results/figures/f1_gap_vs_share.png" width="520" alt="Each dot is a job. The more women hold a job, the more the model favours women in it; surgeon: 56 of 100 qualified women passed on against 76 of 100 men; nurse: 84 of 100 women against 73 of 100 men.">
 </p>
+
+This project uses explainable-AI methods to find out why: which words drive these decisions, whether those explanations can be trusted, and what reduces the gap.
 
 ## Key findings so far
 
-- **The model mirrors the imbalance in its training data.** In occupations where most people are men, it misses more women; where most are women, it misses more men. The gap tracks the share of women with r = 0.85 [0.71, 0.93], and 10 of 28 occupations have a gap that survives a Holm correction.
-- **Pronouns carry part of that gap.** Among surgeon bios, the words *she*, *her*, *he* and *his* alone put women's scores 1.12 log-odds [1.02, 1.24] below men's.
-- **Not every word behind the gap is a gender word.** In the "model" occupation the largest single contribution comes from *freeones*, the name of a listing site for adult performers. It appears in 54 of 150 women's bios and in none of the 150 men's.
-- **Pronouns move scores more than decisions.** Turning *she* into *he* (and back) changes 6.9% of the main model's decisions, about as many as simply deleting the pronouns (6.3%). The baseline model reacts more: 13.5% against 8.8%.
-- **The explanations are reliable in aggregate, not word by word.** Removing the words Shapley ranks highest hurts the main model far more than removing random words, so the values point at what matters. But the exact order of the words in one bio changes with how the values are computed. The conclusions above rest on totals over hundreds of bios.
-- **A better model is not a fairer one.** The transformer beats the TF-IDF baseline on macro-F1 (0.783 vs 0.728), but its bias metric is not lower beyond noise.
+- **Gender words push the decisions.** In surgeon bios, *she* and *her* lower the model's score for "surgeon" and *he* and *his* raise it, so together they put women below men. In nurse bios they do the opposite ([details](docs/results.md#f3-which-words-make-up-the-gap-between-women-and-men)).
+- **Some words stand in for gender.** For the job "model", the single strongest word is *freeones*, the name of a website listing adult performers. It appears in 54 of 150 women's bios and in none of the 150 men's. The model learned it as a sign of the job, and it only ever shows up for women.
+- **Swapping *she* for *he* rarely flips a decision.** It changes the decision for 7 of every 100 bios, about as often as simply deleting the pronouns does (6 of 100). The simpler baseline model reacts more: 14 against 9 of every 100.
+- **The explanations hold in aggregate, not word by word.** Removing the words the explanation ranks highest hurts the model far more than removing random words, so the explanations point at what matters. But the exact order of the words in one bio changes with how the explanation is computed, so the conclusions rest on totals over hundreds of bios.
+- **A more accurate model is not a fairer one.** The transformer is right more often than a simple word-count baseline (84 against 80 of every 100 bios), but its gap between women and men is not clearly smaller.
 
 ## Why it matters
 
@@ -25,11 +28,11 @@ A job platform that ranks candidates with a model is a high-risk AI system under
 
 | Question | Method | Kind | Status |
 |---|---|---|---|
-| Who is treated differently, and how much? | TPR gap per occupation, bootstrap CIs, permutation test | Bias metric | Done |
+| Who is passed on less often, and by how much? | Gap in the share of qualified women and men passed on (TPR gap), bootstrap intervals, permutation test | Bias metric | Done |
 | Which words drive one decision? | Word-level Shapley values (permutation sampling) | Local | Done |
 | Which words make up the gap between women and men? | Exact decomposition of the score gap into word contributions | Global | Done |
 | Does the decision change if only the gender changes? | Counterfactual pronoun swaps, with a deletion control | Local and global | Done |
-| Can we trust these explanations? | Deletion curves, seed and method stability | Explanation check | Done |
+| Can the explanations be trusted? | Deletion curves, seed and method stability | Explanation check | Done |
 | Where does the model store gender? | Probing and activation patching | Mechanistic | Done |
 | Does removing the cues close the gap, and at what cost? | Retraining on scrubbed text, masking proxy words | Mitigation | Planned |
 | Does a general-purpose LLM do the same with names? | Black-box audit with names from four origin groups | Audit | Planned |
@@ -38,14 +41,14 @@ Full results, every figure and the reasoning behind each number are in **[docs/r
 
 ## Results
 
-Test split (99,069 bios), 95% bootstrap intervals.
+Tested on 99,069 bios the models never saw, with 95% bootstrap intervals.
 
-| Model | Macro-F1 | Accuracy | RMS TPR gap |
+| Model | Right job, out of 100 bios | Macro-F1 | Gender gap (RMS TPR gap) |
 |---|---|---|---|
-| TF-IDF + logistic regression | 0.728 [0.724, 0.733] | 0.795 [0.793, 0.798] | 0.167 [0.151, 0.190] |
-| DeBERTa-v3-small, fine-tuned | **0.783** [0.779, 0.788] | **0.837** [0.835, 0.839] | 0.148 [0.134, 0.172] |
+| Word counts + logistic regression (baseline) | 79.5 [79.3, 79.8] | 0.728 [0.724, 0.733] | 0.167 [0.151, 0.190] |
+| DeBERTa-v3-small, fine-tuned (main model) | **83.7** [83.5, 83.9] | **0.783** [0.779, 0.788] | 0.148 [0.134, 0.172] |
 
-The RMS TPR gap summarises the gaps of all 28 occupations in one number; 0 would mean equal opportunity. A random reassignment of gender gives about 0.04.
+Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones. The gender gap sums up, over all 28 jobs, how far the share of qualified women passed on is from the share of qualified men: 0 would be equal treatment, and shuffling the genders at random gives about 0.04.
 
 ## Data and models
 
