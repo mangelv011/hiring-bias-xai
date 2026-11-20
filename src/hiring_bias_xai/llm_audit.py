@@ -47,6 +47,11 @@ def parse_decision(content: str | None) -> dict | None:
     return None
 
 
+def thinking_leaked(record: dict) -> bool:
+    """Whether a stored call carries reasoning text, so thinking was not switched off."""
+    return bool(record["reasoning"]) or "<think>" in record["content"]
+
+
 class Client:
     """Asks an OpenAI-compatible chat endpoint and keeps every call in a JSONL log.
 
@@ -66,8 +71,9 @@ class Client:
                 self._answered[record["key"]] = record
 
     def ask(self, messages: list[dict]) -> dict:
-        """The stored record of `messages`: key, model, messages, settings, the reply `content`
-        and the `seconds` the call took. Sends the request only if the log has no answer yet."""
+        """The stored record of `messages`: key, model, messages, settings, the reply `content`,
+        the `reasoning` text if any and the `seconds` the call took. The request is sent only if
+        the log has no answer for it yet."""
         key = request_key(self.model, messages, SETTINGS)
         if key in self._answered:
             return self._answered[key]
@@ -84,6 +90,7 @@ class Client:
             "messages": messages,
             "settings": SETTINGS,
             "content": reply["content"],
+            "reasoning": reply.get("reasoning_content") or "",
             "seconds": time.perf_counter() - start,
         }
         self.log.parent.mkdir(parents=True, exist_ok=True)
