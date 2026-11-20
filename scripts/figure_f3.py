@@ -72,12 +72,16 @@ def header(panel: Panel) -> str:
         f"{_name(panel.occupation).capitalize()} ({panel.kind.replace('_', '-')}), "
         f"gap {gap['value']:+.1f} [{gap['ci_low']:+.1f}, {gap['ci_high']:+.1f}]"
     )
+    total = panel.summary["gendered_sum"]
+    first += (
+        f"\ngendered words: {total['value']:+.2f} [{total['ci_low']:+.2f}, {total['ci_high']:+.2f}]"
+    )
     if panel.summary["gap_unstable"]:
-        return first + "\ninterval includes 0: no shares given"
+        return first + "\ngap interval includes 0: no shares given"
     return (
         f"{first}\ntop {len(panel.summary['top_words'])} words: "
         f"{_interval(panel.summary['top_share'])}\n"
-        f"gendered words: {_interval(panel.summary['gendered_share'])}"
+        f"gendered share: {_interval(panel.summary['gendered_share'])}"
     )
 
 
