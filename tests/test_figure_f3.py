@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 
 import matplotlib
@@ -225,6 +226,49 @@ def test_nothing_is_drawn_outside_the_figure(figure):
             extent = t.get_window_extent()
             assert extent.x0 >= box.x0 - 1 and extent.x1 <= box.x1 + 1, t.get_text()
             assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
+
+
+@pytest.fixture
+def results_dir(tmp_path):
+    """A results directory as `scripts/gap_decomposition.py` leaves it: the main model's
+    summaries for six occupations, and rows for the baseline model that the figure must ignore."""
+    showcase = {
+        "male_dominated": [{"occupation": o} for o in ("surgeon", "composer", "engineer")],
+        "female_dominated": [{"occupation": o} for o in ("nurse", "model", "dietitian")],
+    }
+    (tmp_path / "showcase_occupations.json").write_text(json.dumps(showcase))
+    summaries = {
+        o: {**_MODEL_SUMMARY, "score_gap": _shares(gap, gap - 1, gap + 1)}
+        for o, gap in {
+            "surgeon": -0.8,
+            "composer": 0.5,
+            "engineer": -0.2,
+            "nurse": 1.3,
+            "model": 5.4,
+            "dietitian": 2.3,
+        }.items()
+    }
+    (tmp_path / "gap_explained.json").write_text(
+        json.dumps({"screeners": {"deberta": summaries, "baseline": summaries}})
+    )
+    rows = []
+    for screener in ("deberta", "baseline"):
+        for occupation in summaries:
+            words = SURGEON_WORDS.assign(screener=screener, occupation=occupation, top=True)
+            rows.append(words.assign(n_bios=5))
+    pd.concat(rows).to_csv(tmp_path / "gap_decomposition.csv", index=False)
+    return tmp_path
+
+
+def test_main_saves_the_figure_and_records_which_occupations_it_picked(f3, results_dir):
+    fig = f3.main(results_dir)
+    saved = sorted(p.name for p in (results_dir / "figures").iterdir())
+    assert saved == ["f3_gap_words.pdf", "f3_gap_words.png"]
+    panels = json.loads((results_dir / "f3_panels.json").read_text())
+    assert panels["picked"] == {"male_dominated": "surgeon", "female_dominated": "model"}
+    assert "largest absolute score gap" in panels["rule"]
+    assert panels["title"] == fig._suptitle.get_text()
+    plt.close(fig)
 
 
 def _summary(gap):
