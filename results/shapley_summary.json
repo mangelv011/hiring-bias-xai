@@ -1,0 +1,24 @@
+{
+  "screeners": {
+    "baseline": {
+      "efficiency_max_error": 1.4210854715202004e-14,
+      "mean_evaluations": 4489.284137129576,
+      "mean_words": 58.248692620569436,
+      "n_bios": 1721,
+      "total_seconds": 272.3
+    },
+    "deberta": {
+      "efficiency_max_error": 8.881784197001252e-15,
+      "mean_evaluations": 4489.284137129576,
+      "mean_words": 58.248692620569436,
+      "n_bios": 1721,
+      "total_seconds": 7075.9
+    }
+  },
+  "settings": {
+    "n_permutations": 40,
+    "removal": "delete",
+    "seed": 42,
+    "target": "true occupation"
+  }
+}

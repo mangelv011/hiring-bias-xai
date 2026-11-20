@@ -1,0 +1,89 @@
+{
+  "chosen": {
+    "method": "shapley",
+    "n_permutations": 40,
+    "removal": "delete"
+  },
+  "cost_pilot": {
+    "by_permutations": {
+      "5": {
+        "mean_evaluations": 534.02,
+        "mean_words": 54.4,
+        "median_spearman": 0.607223609858384,
+        "n_bios_with_spearman": 50,
+        "seconds_per_bio": 0.453382557000441
+      },
+      "10": {
+        "mean_evaluations": 1061.03,
+        "mean_words": 54.4,
+        "median_spearman": 0.7171410304533965,
+        "n_bios_with_spearman": 50,
+        "seconds_per_bio": 0.882382063998375
+      },
+      "20": {
+        "mean_evaluations": 2107.79,
+        "mean_words": 54.4,
+        "median_spearman": 0.8337703177325819,
+        "n_bios_with_spearman": 50,
+        "seconds_per_bio": 1.7343338529980974
+      },
+      "40": {
+        "mean_evaluations": 4177.62,
+        "mean_words": 54.4,
+        "median_spearman": 0.8886554965116833,
+        "n_bios_with_spearman": 50,
+        "seconds_per_bio": 3.420402604000119
+      }
+    },
+    "chosen_permutations": 40,
+    "full_run": {
+      "limit_hours": 3.0,
+      "method": "shapley",
+      "n_bios": 1721,
+      "projected_hours": 1.6351424670789458,
+      "projected_seconds": 5886.512881484205,
+      "rule": "Projected time = seconds per bio of the chosen count x the number of showcase-subset bios, main model. If it exceeds 3 hours, fall back to leave-one-out occlusion."
+    },
+    "n_bios": 50,
+    "removal": "delete",
+    "rule": "50 random showcase-subset bios, the primary removal, the permutation counts 5, 10, 20 and 40 with seeds 0 and 1 each. Seed agreement of a bio is the Spearman correlation between the values of its two seeds (bios with fewer than 2 words or constant values are left out). The permutation count is the smallest whose median Spearman is at least 0.9; if none reaches it, the largest is used and `threshold_met` is false.",
+    "seeds": [
+      0,
+      1
+    ],
+    "threshold": 0.9,
+    "threshold_met": false
+  },
+  "inference_batch_size": 64,
+  "peak_gpu_memory_mb": 1142.3,
+  "removal_pilot": {
+    "dropped_share": 0.3,
+    "macro_f1_drop_mean": {
+      "delete": 0.08847904966927152,
+      "unk": 0.13230633462482058
+    },
+    "macro_f1_drops": {
+      "delete": [
+        0.053371900238197045,
+        0.11376918428970395,
+        0.07787919796115605,
+        0.13231268350760683,
+        0.06506228234969369
+      ],
+      "unk": [
+        0.09424789558271396,
+        0.16397975018226096,
+        0.17250890950738007,
+        0.17947493258636604,
+        0.051320185265381846
+      ]
+    },
+    "macro_f1_unperturbed": 0.7049324955407693,
+    "n_bios": 200,
+    "n_draws": 5,
+    "primary_removal": "delete",
+    "rule": "Drop 30% of the words of each of 200 random dev bios, the same words for both removals, 5 times. The removal with the smaller mean macro-F1 drop (macro-F1 on the unchanged bios minus macro-F1 on the changed ones) is the primary removal; the other is used in #9. A tie goes to delete.",
+    "secondary_removal": "unk"
+  },
+  "runtime_seconds": 662.1
+}
