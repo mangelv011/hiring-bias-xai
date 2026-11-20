@@ -155,9 +155,7 @@ def _texts(n, seed):
     gender = rng.choice(["f", "m"], size=n)
     own = {"f": "knitting yarn", "m": "welding steel"}
     other = {"f": "welding steel", "m": "knitting yarn"}
-    texts = [
-        f"works with {(own if rng.random() < 0.9 else other)[g]} every day" for g in gender
-    ]
+    texts = [f"works with {(own if rng.random() < 0.9 else other)[g]} every day" for g in gender]
     return texts, gender
 
 
