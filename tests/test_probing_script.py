@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -206,3 +207,69 @@ def test_the_text_that_goes_to_the_tfidf_reference_is_scrubbed(run, monkeypatch)
     monkeypatch.setattr(run.module.probing, "tfidf_predictions", spy)
     run("references")
     assert seen and not any("She" in text for text in seen[0])
+
+
+def test_each_layer_is_probed_on_its_own_slice_of_the_train_and_showcase_features(
+    run, monkeypatch, tmp_path
+):
+    calls = []
+    real = run.module.probing.probe
+
+    def spy(*args):
+        calls.append((args[0], args[3]))
+        return real(*args)
+
+    monkeypatch.setattr(run.module.probing, "probe", spy)
+    run("deberta")
+    folder = tmp_path / "artifacts" / "probing"
+    train = np.load(folder / "deberta_train.npy").astype(np.float32)
+    showcase = np.load(folder / "deberta_showcase.npy").astype(np.float32)
+    assert len(calls) == N_LAYERS
+    for layer, (train_x, test_x) in enumerate(calls):
+        np.testing.assert_array_equal(train_x, train[:, layer])
+        np.testing.assert_array_equal(test_x, showcase[:, layer])
+
+
+def test_rows_go_by_part_in_the_order_pretrained_deberta_references_layer_then_subset(run):
+    table = _table(run("references", "deberta", "pretrained"))
+    keys = list(zip(table["model"], table["layer"], table["subset"], strict=True))
+    layered = [(layer, subset) for layer in (0, 1, 2) for subset in ("all", "unflagged")]
+    assert keys[:6] == [("pretrained", float(layer), subset) for layer, subset in layered]
+    assert keys[6:12] == [("deberta", float(layer), subset) for layer, subset in layered]
+    assert [(m, s) for m, _, s in keys[12:]] == [
+        (model, subset)
+        for model in ("majority", "occupation_only", "tfidf")
+        for subset in ("all", "unflagged")
+    ]
+
+
+def test_the_references_learn_from_the_training_bios_and_are_scored_on_the_showcase_bios(run):
+    train = pd.DataFrame(  # 20 nurses (16 women), 10 surgeons (8 men): enough for 5 folds
+        {
+            "text": ["aa bb"] * 20 + ["cc dd"] * 10,
+            "occupation": ["nurse"] * 20 + ["surgeon"] * 10,
+            "gender": ["female"] * 16 + ["male"] * 4 + ["male"] * 8 + ["female"] * 2,
+        }
+    )
+    showcase = pd.DataFrame(
+        {
+            "text": ["cc dd", "cc dd", "aa bb", "aa bb"],
+            "occupation": ["surgeon", "surgeon", "nurse", "nurse"],
+            "gender": ["male", "male", "male", "female"],
+        }
+    )
+    rows = run.module._reference_rows(train, showcase, np.array([True, True, False, True]))
+    accuracy = {(row["model"], row["subset"]): row["accuracy"] for row in rows}
+    # Trained on the majority "female", scored on 1 woman in 4; the occupation gets 3 of 4.
+    assert accuracy["majority", "all"] == 0.25
+    assert accuracy["occupation_only", "all"] == 0.75
+    assert accuracy["occupation_only", "unflagged"] == 1.0
+    assert accuracy["majority", "unflagged"] == pytest.approx(1 / 3)
+
+
+def test_a_part_records_the_seconds_it_took_rounded_to_a_tenth(run, monkeypatch, tmp_path):
+    clock = iter([100.0, 112.34])
+    monkeypatch.setattr(run.module, "time", SimpleNamespace(perf_counter=lambda: next(clock)))
+    run("pretrained")
+    part = json.loads((tmp_path / "artifacts" / "probing" / "part_pretrained.json").read_text())
+    assert part["seconds"] == 12.3

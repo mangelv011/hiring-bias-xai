@@ -140,3 +140,26 @@ def test_the_pretrained_encoder_gets_the_maximum_length_and_batch_size_of_the_ma
     )
     module._load("pretrained")
     assert calls == [(77, module.BATCH_SIZE)]
+
+
+def test_the_ids_file_holds_one_id_column_and_nothing_else(run):
+    run("deberta")
+    assert list(pd.read_csv(run.results / "probing_train_ids.csv").columns) == ["id"]
+
+
+def test_the_main_model_is_loaded_with_the_script_batch_size(
+    monkeypatch, tiny_network, tiny_tokenizer
+):
+    spec = importlib.util.spec_from_file_location("probing_features", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    loaded = []
+    model = DebertaModel(tiny_network(), tiny_tokenizer(64))
+    monkeypatch.setattr(
+        DebertaModel,
+        "load",
+        classmethod(lambda cls, batch_size: loaded.append(batch_size) or model),
+    )
+    module.DEVICE = "cpu"
+    assert module._load("deberta") is model
+    assert loaded == [module.BATCH_SIZE] == [32]

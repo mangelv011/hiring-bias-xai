@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 import pytest
 from sklearn.linear_model import LogisticRegression
@@ -226,3 +228,101 @@ def test_the_tfidf_reference_reads_word_pairs_and_chooses_c_from_its_own_grid(mo
 def test_the_c_grids_are_the_ones_the_adr_names():
     assert probing.C_GRID == (1e-4, 1e-3, 1e-2, 1e-1, 1.0)
     assert probing.TFIDF_C_GRID == (0.1, 1.0, 10.0, 100.0)
+
+
+def test_accuracy_ci_interval_runs_from_the_2_5th_to_the_97_5th_percentile_of_the_resamples():
+    # 3,000 bios give accuracies in steps of 1/3000, fine enough to tell 97 from 97.5.
+    correct = np.random.default_rng(0).random(3000) < 0.6
+    got = probing.accuracy_ci(correct, n_boot=1000, seed=11)
+    drawn = np.random.default_rng(11).integers(0, 3000, size=(1000, 3000))
+    means = np.sort(correct[drawn].mean(axis=1))
+    assert got["ci_low"] == pytest.approx(np.percentile(means, 2.5))
+    assert got["ci_high"] == pytest.approx(np.percentile(means, 97.5))
+
+
+def test_the_bootstrap_default_is_1000_resamples():
+    assert probing.N_BOOT == 1000
+    assert inspect.signature(probing.accuracy_ci).parameters["n_boot"].default == 1000
+
+
+def test_select_c_uses_5_stratified_shuffled_folds_with_the_project_seed(monkeypatch):
+    folds = []
+    real = probing.cross_val_score
+
+    def spy(model, features, labels, cv):
+        folds.append(cv)
+        return real(model, features, labels, cv=cv)
+
+    monkeypatch.setattr(probing, "cross_val_score", spy)
+    x, y = _noisy()
+    probing.select_c(x, y)
+    assert len(folds) == len(probing.C_GRID)
+    assert all(
+        isinstance(cv, StratifiedKFold)
+        and (cv.n_splits, cv.shuffle, cv.random_state) == (5, True, 42)
+        for cv in folds
+    )
+
+
+def test_the_models_are_logistic_regressions_at_the_given_c_with_1000_iterations():
+    for model in (probing.new_probe(0.25), probing.new_tfidf(0.25)):
+        assert isinstance(model[-1], LogisticRegression)
+        assert (model[-1].C, model[-1].max_iter) == (0.25, 1000)
+
+
+def test_the_tfidf_vocabulary_holds_the_words_and_word_pairs_found_in_two_bios_or_more():
+    texts = ["alpha beta", "alpha beta", "alpha gamma"]
+    vocabulary = probing.new_tfidf(1.0)[0].fit(texts).vocabulary_
+    # "gamma" and "alpha gamma" occur once; "alpha beta" is a pair, so it needs 2-grams.
+    assert set(vocabulary) == {"alpha", "beta", "alpha beta"}
+
+
+def _fake_hits(monkeypatch, *hits):
+    """Make the probe's fits return the given hit arrays in order; collect (C, labels)."""
+    seen, queue = [], iter(hits)
+
+    def fake(c, train_x, labels, test_x, test_gender):
+        seen.append((c, np.array(labels)))
+        return np.array(next(queue), dtype=bool)
+
+    monkeypatch.setattr(probing, "_hits_after_fitting", fake)
+    return seen
+
+
+def test_probe_picks_c_on_the_real_training_genders_and_fits_the_probe_and_every_shuffle_at_it(
+    monkeypatch,
+):
+    asked = []
+    monkeypatch.setattr(
+        probing, "select_c", lambda features, labels, *a: asked.append((features, labels)) or 0.001
+    )
+    seen = _fake_hits(monkeypatch, [1, 0], [1, 0], [0, 0])
+    train_x = np.arange(40.0).reshape(20, 2)
+    train_gender = np.array(["f", "m"] * 10)
+    probing.probe(
+        train_x, train_gender, np.repeat(["a", "b"], 10), train_x[:2], np.array(["f", "m"]),
+        np.ones(2, bool), n_permutations=2, n_boot=10,
+    )  # fmt: skip
+    assert len(asked) == 1
+    assert asked[0][0] is train_x and (asked[0][1] == train_gender).all()
+    assert [c for c, _ in seen] == [0.001] * 3
+    assert (seen[0][1] == train_gender).all()
+
+
+def test_the_unflagged_row_takes_its_p_value_and_null_mean_from_the_unflagged_bios_only(
+    monkeypatch,
+):
+    # 20 test bios, the last 10 unflagged. The probe is right on those 10 and wrong on the other 10.
+    probe_hits = [0] * 10 + [1] * 10
+    first = [1] * 10 + [1] * 7 + [0] * 3  # 85% of all bios, 70% of the unflagged
+    second = [0] * 10 + [1] * 10  # 50% of all bios, 100% of the unflagged
+    _fake_hits(monkeypatch, probe_hits, first, second)
+    result = probing.probe(
+        np.zeros((40, 2)), np.array(["f", "m"] * 20), np.repeat(["a", "b"], 20),
+        np.zeros((20, 2)), np.array(["f"] * 20), np.arange(20) >= 10,
+        n_permutations=2, n_boot=10,
+    )  # fmt: skip
+    assert result["unflagged"]["p_value"] == pytest.approx((1 + 1) / 3)  # only the second ties
+    assert result["unflagged"]["null_mean"] == pytest.approx((0.7 + 1.0) / 2)
+    assert result["all"]["p_value"] == pytest.approx(1.0)  # both reach the probe's 50%
+    assert result["all"]["null_mean"] == pytest.approx((0.85 + 0.5) / 2)
