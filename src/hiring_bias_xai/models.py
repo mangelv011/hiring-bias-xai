@@ -180,7 +180,7 @@ class DebertaModel(_Screener):
         )
         return cls(network, AutoTokenizer.from_pretrained(_deberta_folder()), batch_size)
 
-    def _batches(self, texts: Sequence[str]):
+    def batches(self, texts: Sequence[str]):
         """Tokenized batches on the network's device; puts the network in eval mode.
 
         Texts are batched by token length, so short ones are not padded to long ones. Yields
@@ -205,7 +205,7 @@ class DebertaModel(_Screener):
         """Float32 logits of shape (n, n_labels), in eval mode without gradients."""
         batches, positions = [], []
         with torch.inference_mode(), autocast(self.network):
-            for chosen, inputs in self._batches(texts):
+            for chosen, inputs in self.batches(texts):
                 batches.append(self.network(**inputs).logits)
                 positions.append(chosen)
         return self._in_input_order(batches, positions)
@@ -223,7 +223,7 @@ class DebertaModel(_Screener):
         """
         layers, final, positions = [], [], []
         with torch.inference_mode(), autocast(self.network):
-            for chosen, inputs in self._batches(texts):
+            for chosen, inputs in self.batches(texts):
                 states = self.network.deberta(**inputs, output_hidden_states=True)
                 layers.append(torch.stack([state[:, 0] for state in states.hidden_states], dim=1))
                 final.append(self.network.pooler(states.last_hidden_state))
