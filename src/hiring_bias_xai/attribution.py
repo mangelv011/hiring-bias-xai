@@ -145,13 +145,15 @@ def shapley(
 # Files are written by `save` under the artifacts directory and read back to resume a run. The
 # bio ID and the screener name become part of a path, so both must match a fixed pattern.
 _BIO_ID = re.compile(r"(?:train|dev|test)-[0-9]+")
-_SCREENER = re.compile(r"[a-z]+")
+_SCREENER = re.compile(r"[a-z]+(?:-[a-z0-9]+)?")
 
 
 def path(screener: str, bio_id: str) -> Path:
     """Where the attribution of one bio by one screener is stored."""
     if not _SCREENER.fullmatch(screener):
-        raise ValueError(f"screener must be lowercase letters; got {screener!r}")
+        raise ValueError(
+            f"screener must be lowercase letters, with an optional -variant; got {screener!r}"
+        )
     if not _BIO_ID.fullmatch(bio_id):
         raise ValueError(f"bio ID must be <split>-<number>; got {bio_id!r}")
     return artifacts_dir() / "attributions" / screener / f"{bio_id}.npz"
