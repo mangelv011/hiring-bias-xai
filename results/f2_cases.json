@@ -1,0 +1,22 @@
+{
+  "correct": {
+    "bio_id": "test-94741",
+    "gendered_share": 0.20633754942597915,
+    "predicted": "nurse",
+    "true": "nurse",
+    "words": 31
+  },
+  "error": {
+    "bio_id": "test-70337",
+    "gendered_push": 4.346789739832823,
+    "predicted": "photographer",
+    "true": "model",
+    "words": 58
+  },
+  "n_bios": 1721,
+  "n_correct": 1292,
+  "n_errors": 428,
+  "n_skipped": 1,
+  "rule_correct": "Among the bios it gets right, the one where gendered words carry the largest share of the total absolute Shapley value.",
+  "rule_error": "Among the showcase-subset bios the main model gets wrong, the one where the gendered words add the most to the log-odds of the predicted occupation (largest sum of their Shapley values, above zero)."
+}
