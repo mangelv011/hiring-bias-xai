@@ -5,6 +5,7 @@ import pytest
 from fakes import BagOfWords
 
 from hiring_bias_xai import attribution, gap_decomposition
+from hiring_bias_xai.config import SEED
 
 
 def _attribution(text, weights, occupation="surgeon"):
@@ -220,6 +221,17 @@ def test_shares_are_flagged_unstable_when_the_interval_of_the_total_gap_includes
     assert unstable["decomposed_gap"]["value"] == 0
     assert unstable["top_share"]["value"] is None
     assert unstable["gendered_share"]["value"] is None
+
+
+def test_the_resampling_is_reproducible_with_the_seed_and_defaults_to_the_project_seed():
+    # guard: the oracle tests already pin the draws for a given seed; this pins the default
+    first = gap_decomposition.decompose(BIOS, min_bios=1, n_boot=30, seed=1).summary
+    again = gap_decomposition.decompose(BIOS, min_bios=1, n_boot=30, seed=1).summary
+    other = gap_decomposition.decompose(BIOS, min_bios=1, n_boot=30, seed=2).summary
+    assert first == again
+    assert first["score_gap"] != other["score_gap"]
+    default = gap_decomposition.decompose(BIOS, min_bios=1, n_boot=30).summary
+    assert default == gap_decomposition.decompose(BIOS, min_bios=1, n_boot=30, seed=SEED).summary
 
 
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
