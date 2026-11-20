@@ -159,8 +159,7 @@ def test_the_title_gives_the_gendered_share_of_a_stable_gap_and_says_when_a_gap_
     # Model: gendered words 0.15 of a +5.4 gap. Surgeon: the gap -0.77 has an interval with 0.
     text, lines = _title_lines(figure)
     assert text == (
-        "Gendered words carry 15% of the main model's +5.4 score gap in model bios; "
-        "the surgeon gap (-0.8) is too close to 0 to split."
+        "Gendered words are 15% of the +5.4 model-bio gap; the surgeon gap is too small to split."
     )
     assert lines <= 2
 

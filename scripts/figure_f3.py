@@ -30,6 +30,27 @@ class Panel(NamedTuple):
 KINDS = ("male_dominated", "female_dominated")
 
 
+def _name(occupation: str) -> str:
+    return occupation.replace("_", " ")
+
+
+def title(panels: Sequence[Panel]) -> str:
+    """The finding as one sentence, with every number from the panels' summaries.
+
+    A panel whose total gap has an interval that includes 0 has no stable share, so the title
+    says its gap is too close to 0 to split instead of quoting one.
+    """
+    stable = [p for p in panels if not p.summary["gap_unstable"]]
+    unstable = [p for p in panels if p.summary["gap_unstable"]]
+    clauses = [
+        f"{p.summary['gendered_share']['value']:.0%} of the {p.summary['score_gap']['value']:+.1f} "
+        f"{_name(p.occupation)}-bio gap"
+        for p in stable
+    ]
+    small = " and ".join(_name(p.occupation) for p in unstable)
+    return f"Gendered words are {' and '.join(clauses)}; the {small} gap is too small to split."
+
+
 def build(panels: Sequence[Panel]):
     """One panel per occupation: its top words as dots, sorted by contribution, largest on top."""
     plt.rcParams.update(plotting.STYLE)
@@ -37,6 +58,7 @@ def build(panels: Sequence[Panel]):
     fig, axes = plt.subplots(
         len(panels), 1, figsize=(plotting.WIDTH_INCHES, height), layout="constrained", squeeze=False
     )
+    fig.suptitle(title(panels), fontweight="bold", wrap=True, x=0, ha="left")
     for ax, panel in zip(axes[:, 0], panels, strict=True):
         words = panel.words.sort_values("contribution", ascending=False, kind="stable")
         rows = range(len(words))
