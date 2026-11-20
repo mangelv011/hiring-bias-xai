@@ -470,3 +470,13 @@ def test_a_missing_or_damaged_file_is_not_current(artifacts):
     target.parent.mkdir(parents=True)
     target.write_bytes(b"not an npz")
     assert not attribution.is_current(target, ["alpha"], 0, "delete", 3)
+
+
+def test_a_screener_name_must_start_with_a_letter(artifacts):
+    with pytest.raises(ValueError, match="screener"):
+        attribution.path("1deberta", "test-1")
+
+
+def test_a_file_with_more_orders_than_the_run_would_compute_is_not_current(artifacts):
+    target, result = _saved_one(artifacts)  # 3 permutations: 6 orders
+    assert not attribution.is_current(target, result.words, result.target, "delete", 2)

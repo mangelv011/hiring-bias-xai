@@ -139,3 +139,20 @@ def test_every_bio_is_seeded_with_its_variant_seed_and_its_position_in_the_whole
         )
         saved = attribution.load(attribution.path(variant, bio_id))
         np.testing.assert_array_equal(saved.orders, expected.orders)
+
+
+def test_the_sample_is_the_seed_42_stratified_sample_saved_in_subset_order(run):
+    ids = _sample_ids(run("deberta-seed7"))
+    table = pd.DataFrame(BIOS, columns=["id", "text", "occupation"]).assign(gender=GENDERS)
+    from hiring_bias_xai import explanation_checks as checks
+
+    expected = table["id"].iloc[checks.stratified_sample(table, 4, 42)].tolist()
+    assert ids == expected
+    assert ids == sorted(ids, key=lambda bio_id: int(bio_id.split("-")[1]))
+
+
+def test_progress_lines_count_the_bios_scored(run, capsys):
+    run("deberta-seed7")
+    assert "deberta-seed7: 4/4 bios, 4 scored" in capsys.readouterr().out
+    run("deberta-seed7")
+    assert "deberta-seed7: 4/4 bios, 0 scored" in capsys.readouterr().out

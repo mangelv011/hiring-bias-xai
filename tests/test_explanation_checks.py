@@ -345,3 +345,36 @@ def test_five_digits_in_a_row_are_fine_and_six_are_a_possible_identifier(digits,
     shapley = [3.0, *_ramp(n - 1)]
     case = _case("test-1", words, shapley, [3.0, *_ramp(n - 1)[::-1]])
     assert (checks.disagreement_example([case]) is not None) is eligible
+
+
+def test_the_default_bootstrap_seed_is_the_project_seed():
+    values = np.arange(30.0)
+
+    def statistic(rows):
+        return values[rows].mean()
+
+    assert checks.bootstrap_ci(statistic, 30, 100) == checks.bootstrap_ci(
+        statistic, 30, 100, seed=42
+    )
+    assert checks.bootstrap_ci(statistic, 30, 100) != checks.bootstrap_ci(
+        statistic, 30, 100, seed=7
+    )
+
+
+def test_ties_in_the_second_vector_go_to_the_words_that_come_first_in_a_long_bio():
+    n = 200
+    other = np.tile([1.0, 0.0], n // 2)  # the ones tie: the ten shown must be words 0, 2, ..., 18
+    one = np.zeros(n)
+    one[0:20:2] = np.arange(10.0, 0.0, -1.0)  # the same ten words, in the first vector
+    assert checks.rank_agreement(one, other)[1] == 1.0
+    assert checks.rank_agreement(other, one)[1] == 1.0
+
+
+def test_a_punctuation_only_unit_is_its_own_word_so_two_different_dashes_are_not_a_repeat():
+    n = 16
+    words = ["-", "--", *[f"w{i}" for i in range(n - 2)]]
+    case = _case("test-1", words, [3.0, *_ramp(n - 1)], [3.0, *_ramp(n - 1)[::-1]])
+    assert checks.disagreement_example([case]) is None
+    words[1] = "-"
+    again = _case("test-1", words, [3.0, *_ramp(n - 1)], [3.0, *_ramp(n - 1)[::-1]])
+    assert checks.disagreement_example([again]) is not None

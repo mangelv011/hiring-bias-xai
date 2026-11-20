@@ -249,3 +249,40 @@ def test_an_interval_that_straddles_zero_fails_both_rules(run):
     assert area["ci_low"] < 0 < area["ci_high"]
     assert record["passed"] is False
     assert record["passed_agreement"] is False
+
+
+def test_an_agreement_difference_of_exactly_zero_is_not_below_zero(run):
+    record = run.module._record("deberta", _per_bio(0.5, 0.5, 0.9), _per_bio(5.0, 2.0, 0.0))
+    assert record["passed"] is True
+    assert record["passed_agreement"] is False  # MoRF equals random: the interval is [0, 0]
+
+
+def test_each_curve_row_has_its_lower_bound_under_its_mean_under_its_upper_bound(run):
+    rng = np.random.default_rng(0)
+    agreement, drop = rng.uniform(size=(2, 8, 3, 11))
+    table = run.module._curve_table("deberta", agreement, drop)
+    for metric, low, high in (
+        ("mean_agreement", "agreement_ci_low", "agreement_ci_high"),
+        ("mean_logodds_drop", "drop_ci_low", "drop_ci_high"),
+    ):
+        assert (table[low] < table[metric]).all()
+        assert (table[metric] < table[high]).all()
+
+
+def test_the_json_records_the_ten_random_orders_and_the_eleven_steps(run):
+    record = _areas(run())
+    assert record["n_random_orders"] == 10
+    assert record["percents"] == list(range(0, 55, 5))
+
+
+def test_the_curve_intervals_use_the_default_number_of_resamples(run, monkeypatch):
+    sizes = []
+    real = checks.bootstrap_ci
+
+    def spy(statistic, n, *args, **kwargs):
+        sizes.append(kwargs.get("n_boot", args[0] if args else checks.N_BOOT))
+        return real(statistic, n, *args, **kwargs)
+
+    monkeypatch.setattr(checks, "bootstrap_ci", spy)
+    run()
+    assert set(sizes) == {1000}
