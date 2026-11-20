@@ -101,8 +101,32 @@ An edit of a bio that changes only the protected attribute signal (pronouns or a
 _Avoid_: perturbation, augmentation
 
 **Flip rate**:
-Share of bios whose screening decision changes under a counterfactual swap.
+Share of bios whose screening decision changes under a counterfactual swap or under the removal control.
 _Avoid_: sensitivity
+
+**Gender swap**:
+The counterfactual swap of gendered pronouns and titles in a bio (he for she, his for her, Mr for Ms), keeping capitalisation. The words listed as residual cues are not swapped.
+_Avoid_: pronoun flip, gender flip
+
+**Removal control**:
+The same bios with the gendered pronouns and titles deleted (`data.scrub`) instead of swapped. It separates the effect of gender from the effect of editing the text.
+_Avoid_: ablation, scrubbed swap
+
+**Residual cue**:
+A word that still shows the gender of the person after a gender swap: a gendered noun from the list fixed in `counterfactual.RESIDUAL_NOUNS` (mother, husband, actress...) or a first name from the SSA list used as a person's name in the bio.
+_Avoid_: leak, gendered word (that term is the scrubbing list)
+
+**Flagged bio**:
+A bio with at least one residual cue. Results are reported for all bios and for the unflagged ones.
+_Avoid_: contaminated bio
+
+**Flip direction**:
+For a flipped bio under the gender swap, whether the new prediction has a training share of women that moves toward the new gender: lower for a woman's bio turned male, higher for a man's bio turned female. It uses the same share as the gap-share correlation, so the two results are not independent.
+_Avoid_: bias direction
+
+**Hand check**:
+The 50 swapped bios drawn at random and read one by one for grammar and meaning; the share judged incoherent is reported with its Wilson interval.
+_Avoid_: manual validation
 
 ## Explanation
 

@@ -24,7 +24,7 @@ Expensive explanations run on a fixed showcase subset of the test bios: up to 15
 
 ## Status
 
-Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). The figure style ([docs/figure_guidelines.md](docs/figure_guidelines.md)), the gap statistics (`python scripts/gap_statistics.py`, results in `results/gap_statistics.json`) and figure F1 (`python scripts/figure_f1.py`). Word-level Shapley values (`src/hiring_bias_xai/attribution.py`) for both models on the showcase subset: pilots in `scripts/shapley_pilot.py` (`results/shapley_pilot.json`), the resumable run in `scripts/shapley_run.py` (`results/shapley_summary.json`, attributions in `HBX_ARTIFACTS`), a seed-agreement check in `scripts/shapley_stability.py`, and figure F2 (`python scripts/figure_f2.py`). The pilot chose `delete` removal and 40 random orders per bio; seed agreement stayed below the 0.9 rule (0.889). See [ADR 0003](docs/decisions/0003-shapley-attribution.md). The gap decomposition (`python scripts/gap_decomposition.py`, results in `results/gap_decomposition.csv` and `results/gap_explained.json`) and figure F3 (`python scripts/figure_f3.py`) split the score gap by word; see [ADR 0004](docs/decisions/0004-gap-decomposition.md).
+Package layout, environment, CI, glossary, the first two decision records and the data pipeline (`python scripts/prepare_data.py`, described in [docs/data_card.md](docs/data_card.md)). The fairness metrics with bootstrap CIs and the baseline model (`python scripts/train_baseline.py`, results in `results/metrics_baseline.json`). The main model (`python scripts/train_deberta.py`, results in `results/metrics_deberta.json` and `results/training_log.csv`). The figure style ([docs/figure_guidelines.md](docs/figure_guidelines.md)), the gap statistics (`python scripts/gap_statistics.py`, results in `results/gap_statistics.json`) and figure F1 (`python scripts/figure_f1.py`). Word-level Shapley values (`src/hiring_bias_xai/attribution.py`) for both models on the showcase subset: pilots in `scripts/shapley_pilot.py` (`results/shapley_pilot.json`), the resumable run in `scripts/shapley_run.py` (`results/shapley_summary.json`, attributions in `HBX_ARTIFACTS`), a seed-agreement check in `scripts/shapley_stability.py`, and figure F2 (`python scripts/figure_f2.py`). The pilot chose `delete` removal and 40 random orders per bio; seed agreement stayed below the 0.9 rule (0.889). See [ADR 0003](docs/decisions/0003-shapley-attribution.md). The gap decomposition (`python scripts/gap_decomposition.py`, results in `results/gap_decomposition.csv` and `results/gap_explained.json`) and figure F3 (`python scripts/figure_f3.py`) split the score gap by word; see [ADR 0004](docs/decisions/0004-gap-decomposition.md). The counterfactual gender swap with residual-cue flags, the removal control and the hand check (`python scripts/counterfactual_gender.py`, results in `results/counterfactual_gender.csv` and `results/counterfactual_gender.json`) and figure F4 (`python scripts/figure_f4.py`); see [ADR 0005](docs/decisions/0005-counterfactual-gender-swap.md).
 
 ## Results so far
 
@@ -97,6 +97,56 @@ Gendered sum: the summed gap contribution of the gendered words, positive when t
 
 Comparing the two models: in every occupation the top ten words of both include pronouns (`she`, `he`, `her`, `his`) and in nurse the titles `mr` (both) and `ms` (main model) or `dr` (baseline model). The two top-ten lists share 5 to 8 words. The baseline model's lists also hold function words (`and`, `of`, `in`, `the`) and generic words (`passionate`, `research`, `links`), and the main model's hold topic words (`computer`, `engineering`, `acoustic`, `piano`, `crna`, `npi`). These are the words of the largest contributions, not a test that either model relies on them.
 
+### F4: swapping pronouns against deleting them
+
+![Swapping pronouns flips 6.9% of the main model's decisions; removing them flips 6.3%.](results/figures/f4_flip_rates.png)
+
+On the 1,721 showcase bios, `counterfactual.swap_gender` swaps he and she, him and her, his and hers and the titles Mr, Ms and Mrs, and each screener scores the original and the swapped bio. The removal control deletes the same words (`data.scrub`) instead. F4 shows the main model: per showcase occupation and pooled, the share of bios whose predicted occupation changes (the flip rate), swap in the highlight colour and removal in grey, with 95% bootstrap intervals over bios (1,000 resamples). Occupations are sorted by the swap flip rate. Under a deuteranopia simulation the two colours stay apart ([check](docs/figure_checks/f4_deuteranopia.png)). Design and alternatives are in [ADR 0005](docs/decisions/0005-counterfactual-gender-swap.md); every number below is in `results/counterfactual_gender.csv` and `results/counterfactual_gender.json`.
+
+A swap changes several tokens at once, so a flip does not prove that a model uses gender. The removal control and the residual-cue flags address that:
+
+- **Residual cues.** The list of 92 gendered nouns (mother, husband, actress, businessman and so on, with plurals, in `counterfactual.RESIDUAL_NOUNS`) was fixed in code before any swapped bio was read. A bio is also flagged when it contains a first name from the public SSA name list (2,808 names, data card) that the entity recogniser reads as a person. 752 of the 1,721 bios are flagged: 225 by a noun, 631 by a first name, 104 by both. The name count is a lower bound, because the recogniser misses some lone names. The swap changes 1,689 bios and the removal 1,706; the others have no pronoun or title.
+- **Hand check.** 50 swapped bios drawn at random (seed 42), original and swapped sentences read one by one (`results/counterfactual_hand_check.csv`). 3 are incoherent: 6% (Wilson 95% interval 2.1% to 16.2%). The three failures are a "his" before an opening quotation mark that became "hers", an object pronoun that referred to "the total man" and was swapped with the rest, and a swapped "her" that could now mean another person named in the text. Of the 47 coherent bios, 6 keep a gender cue (five first names and "husband"). Fifty bios give a wide interval, and the check was done once, on the code as delivered.
+
+Flip rate, all bios and unflagged bios, with 95% intervals:
+
+| Occupation | Bios (all / unflagged) | Main model, swap | Main model, removal | Main model, swap, unflagged | Main model, removal, unflagged |
+|---|---|---|---|---|---|
+| surgeon | 300 / 225 | 6.3% [3.7, 9.3] | 5.7% [3.0, 8.7] | 6.2% [3.1, 9.3] | 4.4% [2.2, 7.1] |
+| software engineer | 300 / 203 | 4.7% [2.7, 7.3] | 6.7% [4.0, 9.3] | 5.4% [2.5, 8.9] | 7.4% [3.9, 10.8] |
+| composer | 300 / 149 | 4.0% [2.0, 6.3] | 4.0% [2.0, 6.3] | 2.0% [0.0, 4.7] | 3.4% [0.7, 6.7] |
+| dietitian | 221 / 115 | 9.0% [5.4, 13.1] | 7.7% [4.5, 10.9] | 10.4% [5.2, 15.7] | 6.1% [1.7, 10.4] |
+| nurse | 300 / 110 | 9.3% [6.0, 12.7] | 6.3% [3.7, 9.0] | 11.8% [6.4, 18.2] | 9.1% [4.5, 14.5] |
+| model | 300 / 167 | 8.7% [5.7, 12.0] | 8.0% [5.0, 11.3] | 9.0% [4.8, 13.2] | 8.4% [4.2, 12.6] |
+| pooled | 1,721 / 969 | 6.9% [5.7, 8.1] | 6.3% [5.2, 7.5] | 7.0% [5.5, 8.6] | 6.3% [4.9, 7.8] |
+
+| Occupation | Baseline model, swap | Baseline model, removal | Baseline model, swap, unflagged | Baseline model, removal, unflagged |
+|---|---|---|---|---|
+| surgeon | 12.7% [9.0, 16.3] | 8.7% [5.7, 12.0] | 12.4% [8.4, 16.9] | 8.9% [5.3, 12.9] |
+| software engineer | 13.3% [10.0, 17.0] | 10.3% [7.3, 13.7] | 11.8% [7.4, 16.7] | 8.9% [5.4, 13.3] |
+| composer | 9.7% [6.3, 13.0] | 6.7% [4.0, 9.7] | 8.7% [4.7, 13.4] | 5.4% [2.0, 8.7] |
+| dietitian | 12.2% [8.1, 16.7] | 7.2% [4.1, 10.9] | 13.9% [7.8, 20.0] | 7.8% [3.5, 13.0] |
+| nurse | 15.7% [11.7, 20.0] | 11.7% [8.3, 15.3] | 16.4% [10.0, 23.6] | 11.8% [6.4, 18.2] |
+| model | 17.3% [13.0, 21.7] | 8.0% [5.0, 11.0] | 15.6% [9.6, 21.6] | 6.0% [3.0, 9.6] |
+| pooled | 13.5% [12.0, 15.1] | 8.8% [7.6, 10.1] | 12.9% [10.8, 14.9] | 8.0% [6.4, 9.7] |
+
+What the control shows:
+
+- **Main model.** Pooled, the swap flips 6.9% of bios and the removal 6.3%, and the intervals overlap in every occupation and in both subsets. Deleting the pronouns moves the decision about as often as swapping them, so most flips come from the edit, and this data does not show a gender-specific sensitivity beyond it. The change in the log-odds of the true occupation is +0.03 (95% CI -0.01 to +0.08) for the swap and -0.01 (-0.04 to +0.02) for the removal.
+- **Baseline model.** The swap flips 13.5% and the removal 8.8%, with separate pooled intervals; by occupation only model separates clearly (17.3% against 8.0%). The swap lowers the log-odds of the true occupation by 0.19 (-0.27 to -0.11) where the removal raises it by 0.13 (+0.08 to +0.18). The drop is largest in dietitian (-0.55, -0.77 to -0.34) and model (-0.56, -0.79 to -0.30), two of the three female-dominated occupations (nurse shows none, -0.01): giving those bios male pronouns costs the baseline model score that deleting the pronouns does not. That fits a model that reads female pronouns as evidence for these occupations; it does not show which words did it.
+- **Flagged bios.** Leaving out the 752 flagged bios changes no conclusion: the pooled rates move by at most 0.8 points, and for every screener, occupation and condition the unflagged interval overlaps the one for all bios. In the unflagged subset the baseline model's pooled swap and removal intervals are still separate (12.9% [10.8, 14.9] against 8.0% [6.4, 9.7]).
+
+Flip direction, swap only. Among flipped bios, the share whose new prediction has a training share of women that moves toward the new gender (a woman's bio turned male is toward when the share falls). This uses the same `share_women` as F1, so the two results are not independent. The six showcase occupations sit at the extremes of that share, so a flip out of nurse in a woman's bio can only lower it. The removal flips, read as if the new gender were the opposite one, give the reference:
+
+| Screener | Toward, swap | Toward, swap, unflagged | Toward, removal (reference) |
+|---|---|---|---|
+| Main model | 88.2% [82.4, 93.7] of 119 flips | 85.3% [75.4, 93.0] of 68 | 71.6% [62.8, 80.0] of 109 |
+| Baseline model | 94.8% [91.8, 97.4] of 233 | 95.2% [90.9, 98.4] of 125 | 83.6% [77.4, 89.3] of 152 |
+
+Most flips go to an occupation with the opposite share of women whatever the edit; the swap sits above the reference for both screeners (about 17 and 11 points) with separate intervals. Per-occupation rows are in the csv; with 12 to 52 flips each they are wide, and the main model's software engineer rows (50.0% of 14 flips) show no direction.
+
+Limits: 50 hand-checked bios cannot rule out failure types that are rare; the unflagged subset has no detected cue, not no cue; names and origin are out of scope here (the LLM audit, #12); the swap is binary and says nothing about non-binary people.
+
 ## How to run
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build.
@@ -131,6 +181,17 @@ uv run python scripts/figure_f2.py       # reads the saved attributions and pred
 uv run python scripts/gap_decomposition.py   # CPU, 30 s: reads the saved attributions, writes results/gap_decomposition.csv and gap_explained.json
 uv run python scripts/figure_f3.py       # reads those two files, writes F3 and results/f3_panels.json
 ```
+
+The counterfactual swap needs the pinned name list, then both saved models (the main model on the GPU, with nothing else running; 45 s including the tagger):
+
+```bash
+uv run python scripts/fetch_first_names.py        # downloads the SSA names (sha256 checked), writes the list to HBX_ARTIFACTS and results/first_names.json
+uv run python scripts/counterfactual_hand_check.py   # prints the changed sentences of the 50 bios of the hand check; the verdicts go into results/counterfactual_hand_check.csv by hand
+uv run python scripts/counterfactual_gender.py    # writes results/counterfactual_gender.csv and .json
+uv run python scripts/figure_f4.py                # reads the csv, writes F4
+```
+
+The part-of-speech tags come from spaCy's small English model, installed from a wheel pinned by URL and sha256 in `pyproject.toml`; no separate download step is needed.
 
 The pilot took 11 minutes and the run 2 hours for the main model and 5 minutes for the baseline model on the RTX 3050.
 
