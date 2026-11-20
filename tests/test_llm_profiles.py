@@ -27,3 +27,8 @@ def test_the_none_and_neutral_arms_leave_the_bio_alone_and_the_neutral_one_adds_
     assert none == (None, bio)
     neutral = llm_profiles.candidate(bio, "female", "test-1234", "neutral", GROUPS)
     assert neutral == ("Candidate ID: 1234", bio)
+
+
+def test_the_swap_arm_swaps_the_pronouns_and_adds_no_header():
+    header, text = llm_profiles.candidate("She is a nurse.", "female", "test-1", "swap", GROUPS)
+    assert (header, text) == (None, "He is a nurse.")
