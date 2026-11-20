@@ -244,6 +244,38 @@ def test_the_resampling_is_reproducible_with_the_seed_and_defaults_to_the_projec
     assert default == gap_decomposition.decompose(BIOS, min_bios=1, n_boot=30, seed=SEED).summary
 
 
+def test_a_gap_that_is_zero_in_every_resample_is_unstable_because_its_interval_touches_zero():
+    bios = [_bio("female", {"a": 0.0}), _bio("male", {"a": 0.0})]
+    summary = gap_decomposition.decompose(bios, min_bios=1, n_boot=10).summary
+    assert (summary["decomposed_gap"]["ci_low"], summary["decomposed_gap"]["ci_high"]) == (0, 0)
+    assert summary["gap_unstable"] is True
+
+
+def test_the_top_words_are_listed_by_absolute_contribution_not_alphabetically():
+    # D: y = 3, x = -1
+    bios = [_bio("female", {"y": 3.0}), _bio("male", {"x": 1.0})]
+    summary = gap_decomposition.decompose(bios, min_bios=1, top=2).summary
+    assert summary["top_words"] == ["y", "x"]
+
+
+def test_the_defaults_are_the_study_settings_20_bios_the_top_10_and_1000_resamples():
+    assert (gap_decomposition.MIN_BIOS, gap_decomposition.TOP, gap_decomposition.N_BOOT) == (
+        20,
+        10,
+        1000,
+    )
+    # 11 words in all 22 bios (women 11 x c_i, men 0) and one word in 19 bios with D = 0.
+    bios = []
+    for i in range(22):
+        values = {f"c{k}": float(k + 1) if i < 11 else 0.0 for k in range(11)}
+        if i < 19:
+            values["rare"] = 0.0
+        bios.append(_bio("female" if i < 11 else "male", values))
+    table = gap_decomposition.decompose(bios, n_boot=10).table
+    assert sorted(table["word"]) == sorted(f"c{k}" for k in range(11))  # rare: 19 bios < 20
+    assert table["top"].sum() == 10
+
+
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
     # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
     # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
