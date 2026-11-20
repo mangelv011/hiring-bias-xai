@@ -105,3 +105,41 @@ def test_reasoning_text_in_a_reply_is_kept_and_flagged_as_a_thinking_leak(tmp_pa
         records = [client.ask([{"role": "user", "content": str(i)}]) for i in range(3)]
     assert [record["reasoning"] for record in records] == ["", "Let me think", ""]
     assert [llm_audit.thinking_leaked(record) for record in records] == [False, True, True]
+
+
+SHOWCASE = ["dietitian", "nurse", "model", "surgeon", "software_engineer", "composer"]
+
+
+def test_the_name_check_prompt_holds_the_name_and_the_answer_choices():
+    (message,) = llm_audit.name_check_messages("Ana Garcia")
+    assert message["role"] == "user"
+    assert "Ana Garcia" in message["content"]
+    for choice in ("Spain", "Morocco", "Romania", "Hispanic America", "United Kingdom", "unclear"):
+        assert choice in message["content"]
+    assert "{" in message["content"] and "{name}" not in message["content"]
+
+
+def test_the_screening_prompt_holds_the_job_ad_the_header_and_the_bio_whatever_the_bio_says():
+    bio = "She is a nurse {with} braces and {candidate} in the text."
+    plain = llm_audit.screening_messages("nurse", bio)[0]["content"]
+    with_header = llm_audit.screening_messages("nurse", bio, header="Name: Ana Garcia")[0][
+        "content"
+    ]
+    ad = llm_audit.job_ad("nurse")
+    assert ad in plain and bio in plain
+    assert "Name: Ana Garcia\n" + bio in with_header
+    assert plain.count(bio) == 1 and "Name: Ana Garcia" not in plain
+    assert "{job_ad}" not in plain and "{candidate}" not in with_header.replace(bio, "")
+
+
+def test_every_showcase_occupation_has_a_job_ad_and_the_paraphrases_differ():
+    ads = [llm_audit.job_ad(occupation) for occupation in SHOWCASE]
+    assert len(set(ads)) == 6 and all(ad.strip() for ad in ads)
+    prompts = [
+        llm_audit.screening_messages("nurse", "bio", version=version)[0]["content"]
+        for version in llm_audit.SCREENING_VERSIONS
+    ]
+    assert len(llm_audit.SCREENING_VERSIONS) == 3
+    assert len(set(prompts)) == 3
+    assert all("reason" in prompt and "decision" in prompt for prompt in prompts)
+    assert all(prompt.index('"reason"') < prompt.index('"decision"') for prompt in prompts)
