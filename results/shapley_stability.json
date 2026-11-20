@@ -1,0 +1,42 @@
+{
+  "by_permutations": {
+    "5": {
+      "mean_top_overlap": 0.7175,
+      "median_spearman_all": 0.8210874130290889,
+      "median_spearman_rest": 0.6785247132750243,
+      "median_spearman_top": 0.8787878787878788,
+      "n_bios": 50
+    },
+    "10": {
+      "mean_top_overlap": 0.775,
+      "median_spearman_all": 0.8927098699615772,
+      "median_spearman_rest": 0.7969490431245726,
+      "median_spearman_top": 0.9151515151515152,
+      "n_bios": 50
+    },
+    "20": {
+      "mean_top_overlap": 0.8275,
+      "median_spearman_all": 0.9248751901290049,
+      "median_spearman_rest": 0.8631705961736922,
+      "median_spearman_top": 0.9272727272727272,
+      "n_bios": 50
+    },
+    "40": {
+      "mean_top_overlap": 0.8825,
+      "median_spearman_all": 0.9619213468301279,
+      "median_spearman_rest": 0.9307149501177042,
+      "median_spearman_top": 0.9575757575757575,
+      "n_bios": 50
+    }
+  },
+  "model": "baseline",
+  "n_bios": 50,
+  "removal": "delete",
+  "rule": "The cost pilot's 50 showcase-subset bios, its removal and its seeds 0 and 1, on the baseline model. For each bio and count: the Spearman correlation between the two seeds over all words, over the top 10 words (by the mean of |value| over the two seeds) and over the other words, and the share of the 8 words with the largest |value| in one seed that are also among the 8 largest in the other. Bios where a correlation is undefined are left out of its median.",
+  "seeds": [
+    0,
+    1
+  ],
+  "shown": 8,
+  "top": 10
+}
