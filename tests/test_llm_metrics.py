@@ -173,3 +173,36 @@ def test_the_noise_floor_is_the_change_between_identical_and_edited_asks_and_arm
     swap = floor["arms"]["swap"]
     assert swap["minus_edit"] == {"value": 0.0, "ci_low": 0.0, "ci_high": 0.0}
     assert swap["above_noise"] is False
+
+
+def test_a_reason_mentions_the_attribute_when_it_has_a_listed_word_as_a_whole_word():
+    yes = [
+        "The candidate's name suggests nothing about skills.",
+        "As a woman in nursing she has experience.",
+        "Her gender is not relevant.",
+        "Spanish origin noted.",
+        "Is a MALE nurse.",
+    ]
+    no = [
+        "Ten years of nursing experience fit the job.",
+        "Diana's background fits the role.",
+        "She manages a team of surnamed professionals.",
+        "Humane care and the namesake clinic.",
+    ]
+    assert all(llm_metrics.mentions(text) for text in yes)
+    assert not any(llm_metrics.mentions(text) for text in no)
+
+
+def test_flips_are_split_into_those_whose_reason_mentions_the_attribute_and_those_that_do_not():
+    flips = pd.DataFrame(
+        {
+            "flip": [True, True, True, False, True],
+            "reason": ["her gender", "experience", "her name", "her gender", "skills"],
+        }
+    )
+    stated = llm_metrics.stated_reasons(flips)
+    assert stated["n_flips"] == 4 and stated["n_mention"] == 2 and stated["n_no_mention"] == 2
+    assert stated["share_no_mention"]["value"] == 0.5
+    low, high = stated["share_no_mention"]["ci_low"], stated["share_no_mention"]["ci_high"]
+    assert round(low, 3) == 0.15 and round(high, 3) == 0.85
+    assert stated["share_mention"]["value"] == 0.5
