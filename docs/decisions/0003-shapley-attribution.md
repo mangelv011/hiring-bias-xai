@@ -115,4 +115,4 @@ Picks (`results/f2_cases.json`): among 114 misclassified women in the male-domin
 
 ## Update from #9: checks not run
 
-Weight randomization (Adebayo et al. 2018) is not run: a perturbation method reads only the model's outputs, so it passes by construction. Retraining-based evaluation (ROAR; Hooker et al. 2019) is not run: it needs one fine-tuning run for each fraction of removed words, and the two learning-rate runs of the main model took about 3.5 hours (ADR 0002).
+Weight randomization (Adebayo et al. 2018) is not run: a perturbation method reads only the model's outputs, so it passes by construction. Retraining-based evaluation (ROAR; Hooker et al. 2019) is not run: it needs one fine-tuning run for each fraction of removed words, and the two learning-rate runs of the main model took about 3.5 hours (README, "How to run").
