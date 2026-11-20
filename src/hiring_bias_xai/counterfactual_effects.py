@@ -66,5 +66,10 @@ def summarise(
     ):
         low, high = _interval(resampled)
         summary |= {name: float(value), f"{name}_ci_low": low, f"{name}_ci_high": high}
-    summary |= dict.fromkeys(("toward_share", "toward_share_ci_low", "toward_share_ci_high"), np.nan)
-    return summary
+    value, low, high = np.nan, np.nan, np.nan
+    if toward is not None and flip.any():
+        moved = flip & np.asarray(toward, dtype=bool)
+        value = moved.sum() / flip.sum()
+        with np.errstate(invalid="ignore"):
+            low, high = _interval(moved[drawn].sum(axis=1) / flip[drawn].sum(axis=1))
+    return summary | {"toward_share": value, "toward_share_ci_low": low, "toward_share_ci_high": high}
