@@ -39,7 +39,7 @@ Word-level Shapley values by permutation sampling (Lundberg and Lee 2017; Mitche
 ## Pilot design
 
 - **Removal pilot.** 200 random dev bios; for each, 30% of the words are dropped at random with each removal (same words for both), 5 draws, main model. The removal with the smaller mean macro-F1 drop is primary. A tie goes to `delete`.
-- **Cost pilot.** 50 random showcase-subset bios, primary removal, 5, 10 and 20 permutations, seeds 0 and 1. Seed agreement is the median Spearman correlation of a bio's two value vectors. The permutation count is the smallest with median at least 0.9. If the projection (seconds per bio times 1,721) exceeds 3 hours, the run falls back to leave-one-out occlusion and this record says why.
+- **Cost pilot.** 50 random showcase-subset bios, primary removal, 5, 10, 20 and 40 permutations, seeds 0 and 1 (40 was added after 20 reached a median of 0.83, below the rule, with the projected run at 0.8 of the 3 hours). Seed agreement is the median Spearman correlation of a bio's two value vectors. The permutation count is the smallest with median at least 0.9. If the projection (seconds per bio times 1,721) exceeds 3 hours, the run falls back to leave-one-out occlusion and this record says why.
 
 ## Inference throughput
 

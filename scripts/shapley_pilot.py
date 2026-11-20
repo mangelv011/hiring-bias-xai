@@ -34,11 +34,11 @@ REMOVAL_RULE = (
 )
 
 COST_BIOS = 50
-PERMUTATIONS = (5, 10, 20)
+PERMUTATIONS = (5, 10, 20, 40)
 SEEDS = (0, 1)
 SPEARMAN_THRESHOLD = 0.9
 COST_RULE = (
-    "50 random showcase-subset bios, the primary removal, the permutation counts 5, 10 and 20 "
+    "50 random showcase-subset bios, the primary removal, the permutation counts 5, 10, 20 and 40 "
     "with seeds 0 and 1 each. Seed agreement of a bio is the Spearman correlation between the "
     "values of its two seeds (bios with fewer than 2 words or constant values are left out). "
     "The permutation count is the smallest whose median Spearman is at least 0.9; if none "
