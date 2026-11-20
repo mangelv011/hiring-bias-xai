@@ -205,3 +205,74 @@ def name_ranges(
             "shuffled_p95": float(np.percentile(shuffled, 95)),
         }
     return ranges
+
+
+def flips(calls: pd.DataFrame) -> pd.DataFrame:
+    """For every row of an arm other than `none`, whether its answer differs from the `none`
+    answer of the same profile. Rows where either answer is invalid are left out. Columns: the
+    row's `pid`, `arm`, `kind`, `group`, `name_gender`, `first`, `yes`, `yes_none`, `flip` and
+    `reason`."""
+    base = calls[calls["arm"] == "none"].set_index("pid")["yes"]
+    rows = calls[calls["arm"] != "none"].assign(yes_none=lambda d: d["pid"].map(base))
+    rows = rows[rows["yes"].notna() & rows["yes_none"].notna()]
+    rows = rows.assign(flip=rows["yes"] != rows["yes_none"])
+    columns = ["pid", "arm", "kind", "group", "name_gender", "first"]
+    return rows[[*columns, "yes", "yes_none", "flip", "reason"]].reset_index(drop=True)
+
+
+def _interval(per_profile: np.ndarray, n_boot: int, seed: int) -> dict:
+    """The mean of `per_profile` (NaN skipped) with a 95% percentile interval over profiles."""
+    rng = np.random.default_rng(seed)
+    n = len(per_profile)
+    runs = [np.nanmean(per_profile[rng.integers(0, n, n)]) for _ in range(n_boot)]
+    low, high = np.nanpercentile(runs, [2.5, 97.5])
+    return {"value": float(np.nanmean(per_profile)), "ci_low": float(low), "ci_high": float(high)}
+
+
+def noise_floor(
+    calls: pd.DataFrame, noise: pd.DataFrame, n_boot: int = N_BOOT, seed: int = SEED
+) -> dict:
+    """How much decisions change when nothing that matters changes, and each arm against that.
+
+    `noise` has the rows of the sample profiles asked again: `part` is `rerun` (identical) or
+    `edit` (whitespace), with `pid`, `match` and `yes`. The sample is the profiles in `noise`;
+    `calls` supplies their `none` answers and the rows of every arm. For `rerun` and `edit`:
+    `flip_rate` (share of profiles whose decision changes) and `tpr_diff` (TPR minus the TPR of
+    `none` on the matches). For each arm: its `flip_rate` against `none` on the sample, and
+    `minus_edit` and `minus_rerun`, the paired differences of flip rates over profiles.
+    `above_noise` is True when both differences have a 95% interval above 0.
+    """
+    sample = list(dict.fromkeys(noise["pid"]))
+    none = calls[(calls["arm"] == "none") & calls["pid"].isin(sample)].set_index("pid")
+    none = none.loc[sample]
+    base, match = none["yes"].to_numpy(), none["match"].to_numpy(dtype=bool)
+
+    def changes(rows: pd.DataFrame) -> np.ndarray:
+        yes = rows.set_index("pid")["yes"].reindex(sample).to_numpy()
+        return np.where(np.isnan(yes) | np.isnan(base), np.nan, (yes != base).astype(float))
+
+    parts = {part: rows for part, rows in noise.groupby("part")}
+    flip = {part: changes(rows) for part, rows in parts.items()}
+    report = {"n_profiles": len(sample)}
+    for part, rows in parts.items():
+        yes = rows.set_index("pid")["yes"].reindex(sample).to_numpy()
+        both = match & ~np.isnan(yes) & ~np.isnan(base)
+        report[part] = {
+            "flip_rate": _interval(flip[part], n_boot, seed),
+            "tpr_diff": _interval(np.where(both, yes - base, np.nan)[match], n_boot, seed),
+        }
+    report["arms"] = {}
+    for arm, rows in calls[calls["pid"].isin(sample)].groupby("arm", sort=False):
+        if arm == "none":
+            continue
+        own = changes(rows)
+        diffs = {
+            name: _interval(own - flip[part], n_boot, seed)
+            for name, part in (("minus_edit", "edit"), ("minus_rerun", "rerun"))
+        }
+        report["arms"][arm] = {
+            "flip_rate": _interval(own, n_boot, seed),
+            **diffs,
+            "above_noise": bool(all(d["ci_low"] > 0 for d in diffs.values())),
+        }
+    return report
