@@ -5,6 +5,7 @@ baseline model's) call as more words go. The words are removed with `unk`, the r
 attributions did not use, so the check is not circular for the main model.
 """
 
+import re
 from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
@@ -14,6 +15,7 @@ from scipy.stats import spearmanr
 
 from hiring_bias_xai.attribution import remove_words
 from hiring_bias_xai.config import SEED
+from hiring_bias_xai.data import word_core
 from hiring_bias_xai.models import Classifier, log_odds
 
 
@@ -164,3 +166,41 @@ def stratified_sample(subset: pd.DataFrame, n: int, seed) -> np.ndarray:
             raise ValueError(f"{name} has {len(positions)} bios, fewer than its share of {size}")
         chosen.append(rng.choice(positions, size=size, replace=False))
     return np.sort(np.concatenate(chosen))
+
+
+MIN_UNITS = 15
+IDENTIFIER = re.compile(r"[0-9]{6,}")
+
+
+class Case(NamedTuple):
+    """One bio's Shapley and leave-one-out values for its true occupation."""
+
+    bio_id: str
+    words: list[str]
+    shapley: np.ndarray
+    loo: np.ndarray
+
+
+def _eligible(case: Case) -> bool:
+    """At least `MIN_UNITS` word units, no run of six digits (it may be an identifier), and a top
+    Shapley word (largest absolute value, first on ties) that occurs at least twice, matched
+    without case and without punctuation at its ends."""
+    if len(case.words) < MIN_UNITS or IDENTIFIER.search(" ".join(case.words)):
+        return False
+    cores = [word_core(word) or word for word in case.words]
+    top = int(np.argmax(np.abs(case.shapley)))
+    return cores.count(cores[top]) >= 2
+
+
+def disagreement_example(cases: Sequence[Case]) -> tuple[Case, float] | None:
+    """The eligible bio with the lowest Spearman correlation between its Shapley and
+    leave-one-out values, with that correlation; the first such bio on a tie. None if no bio
+    qualifies or every correlation is undefined."""
+    scored = [
+        (rank_agreement(case.shapley, case.loo)[0], case) for case in cases if _eligible(case)
+    ]
+    scored = [(spearman, case) for spearman, case in scored if not np.isnan(spearman)]
+    if not scored:
+        return None
+    spearman, case = min(scored, key=lambda pair: pair[0])  # min keeps the first on a tie
+    return case, spearman
