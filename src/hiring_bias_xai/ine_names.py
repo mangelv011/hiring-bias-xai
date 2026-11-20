@@ -28,6 +28,15 @@ FILES = {
         "5f7cfa24abd6e013e0277422c4536229918c0d837184c6cd6790b25be848fa3c",
     ),
 }
+# Padrón Continuo for the first names, Censos de población anuales for the surnames.
+DATES = {
+    "first_names": "01/01/2022",
+    "spain_first_names": "01/01/2022",
+    "surnames": "01/01/2025",
+    "spain_surnames": "01/01/2025",
+}
+LICENCE = "CC BY 4.0"
+ATTRIBUTION = "Elaboración propia con datos extraídos del sitio web del INE: www.ine.es"
 N_FIRST_NAMES = 10  # per sex
 N_SURNAMES = 20
 
@@ -151,3 +160,12 @@ def build_groups(files: dict, n_first: int = N_FIRST_NAMES, n_surnames: int = N_
     hispanic = groups["Hispanic America"]["surnames"]
     groups["Hispanic America"]["surnames"] = [s for s in hispanic if s not in spanish]
     return {"groups": groups, "dropped_surnames": [s for s in hispanic if s in spanish]}
+
+
+def shared_surnames(groups: dict) -> dict[str, list[str]]:
+    """The surnames that more than one group lists, each with the groups that list it."""
+    owners: dict[str, list[str]] = {}
+    for group, content in groups.items():
+        for surname in content["surnames"]:
+            owners.setdefault(surname, []).append(group)
+    return {surname: found for surname, found in owners.items() if len(found) > 1}
