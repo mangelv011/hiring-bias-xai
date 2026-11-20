@@ -1,0 +1,61 @@
+{
+  "direction_basis": "training share of women, the share F1 uses (not independent of F1)",
+  "edits": {
+    "removal_changed": 1706,
+    "swap_changed": 1689
+  },
+  "flags": {
+    "by_occupation": {
+      "composer": 151,
+      "dietitian": 106,
+      "model": 133,
+      "nurse": 190,
+      "software_engineer": 97,
+      "surgeon": 75
+    },
+    "n_bios": 1721,
+    "n_distinct_cues": 492,
+    "n_flagged": 752,
+    "n_name": 631,
+    "n_noun": 225,
+    "top_cues": {
+      "Brian": 8,
+      "Chris": 7,
+      "David": 25,
+      "James": 9,
+      "John": 18,
+      "Lee": 7,
+      "Mark": 14,
+      "Mary": 9,
+      "Michael": 8,
+      "Paul": 10,
+      "Richard": 9,
+      "Robert": 13,
+      "Scott": 8,
+      "daughters": 8,
+      "father": 17,
+      "female": 13,
+      "girl": 9,
+      "girls": 9,
+      "husband": 18,
+      "king": 8,
+      "man": 22,
+      "men": 9,
+      "mother": 12,
+      "wife": 13,
+      "women": 54
+    }
+  },
+  "hand_check": {
+    "ci_high": 0.16217343370877002,
+    "ci_low": 0.020614596364630478,
+    "incoherent_share": 0.06,
+    "n": 50,
+    "n_incoherent": 3
+  },
+  "settings": {
+    "min_name_count": 10000,
+    "n_boot": 1000,
+    "seed": 42
+  }
+}
