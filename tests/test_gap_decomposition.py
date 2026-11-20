@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import pytest
 from fakes import BagOfWords
 
@@ -83,6 +84,16 @@ def test_the_contribution_splits_into_a_usage_part_and_a_weight_part_that_add_up
     assert (table["usage"] + table["weight"]).to_numpy() == pytest.approx(
         table["contribution"].to_numpy()
     )
+
+
+def test_a_word_one_gender_never_uses_has_no_mean_value_there_and_the_split_still_adds_up():
+    # guard: the split counts a missing mean value as 0, which its zero frequency makes exact
+    bios = [_bio("female", {"x": 2.0}), _bio("male", {"y": 1.0})]
+    table = _by_word(gap_decomposition.decompose(bios, min_bios=1).table)
+    assert np.isnan(table.loc["x", "value_male"])
+    assert table.loc["x", "freq_male"] == 0
+    assert table.loc["x", ["usage", "weight"]].to_numpy() == pytest.approx([1.0, 1.0])
+    assert table.loc["y", ["usage", "weight"]].to_numpy() == pytest.approx([-0.5, -0.5])
 
 
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
