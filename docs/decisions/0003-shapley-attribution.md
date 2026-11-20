@@ -112,3 +112,7 @@ F2 shows two showcase-subset bios, main model, with the eight units of largest a
 A first version of F2 used the largest sum over all misclassified bios and the largest gendered share among correct ones. Review showed that it picked outliers, a fan-fiction listing and an advertisement, and that its gendered-word match found `she` inside `shoot...she`. The rules above replace it.
 
 Picks (`results/f2_cases.json`): among 114 misclassified women in the male-dominated occupations, `test-30717`, true composer, predicted rapper, the 11 gendered units add +3.21 (131 units). Among 154 misclassified men in the female-dominated ones, `test-9467`, true model, predicted poet, the 2 gendered units add +1.98 (51 units). In both bios the largest single words are topic words (songs, career, play), not gendered ones: the gendered units add up because there are several of them, and one gendered unit alone is +0.6 and +1.0. The picks are the largest of their groups, not typical. F2 shows no interval per word, because the run stored one seed.
+
+## Update from #9: checks not run
+
+Weight randomization (Adebayo et al. 2018) is not run: a perturbation method reads only the model's outputs, so it passes by construction. Retraining-based evaluation (ROAR; Hooker et al. 2019) is not run: it needs one fine-tuning run for each fraction of removed words, and the two learning-rate runs of the main model took about 3.5 hours (ADR 0002).
