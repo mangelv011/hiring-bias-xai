@@ -73,7 +73,12 @@ def test_true_class_log_odds_uses_each_bios_own_occupation():
 
 
 CLEAN = ["alpha beta gamma delta", "zeta eta", "alpha beta gamma delta epsilon theta", "beta gamma"]
-CORRUPTED = ["alpha zeta gamma eta", "eta zeta", "theta beta gamma delta epsilon alpha", "gamma beta"]
+CORRUPTED = [
+    "alpha zeta gamma eta",
+    "eta zeta",
+    "theta beta gamma delta epsilon alpha",
+    "gamma beta",
+]
 TRUE = np.array([3, 13, 27, 0])  # the true occupation of each pair, as a column of the 28 logits
 
 
