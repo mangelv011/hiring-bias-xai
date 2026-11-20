@@ -1,4 +1,5 @@
 import importlib.util
+import re
 from pathlib import Path
 
 import matplotlib
@@ -245,3 +246,102 @@ def test_the_effect_has_left_the_edited_words_only_when_the_whole_interval_is_be
     differing = patching["position_set"] == "differing"
     patching.loc[differing & (patching["layer"] == 1), ["mean", "mean_ci_high"]] = (0.45, 0.55)
     assert f6.title(probing, patching).endswith("leaves the edited words by layer 2.")
+
+
+def _text(ax, label):
+    (text,) = [t for t in ax.texts if t.get_text() == label]
+    return text
+
+
+def test_an_interval_that_ends_exactly_at_one_half_has_not_left_the_edited_words_yet(
+    f6, probing, patching
+):
+    patching.loc[
+        (patching["position_set"] == "differing") & (patching["layer"] == 1), "mean_ci_high"
+    ] = 0.5
+    assert f6.title(probing, patching).endswith("leaves the edited words by layer 2.")
+
+
+def test_the_title_names_the_first_layer_below_one_half_whatever_the_order_of_the_rows(
+    f6, probing, patching
+):
+    differing = patching["position_set"] == "differing"
+    patching.loc[differing & (patching["layer"] == 1), ["mean", "mean_ci_high"]] = (0.4, 0.45)
+    assert f6.title(probing, patching.iloc[::-1]).endswith("leaves the edited words by layer 1.")
+
+
+def _occupation_reference(probing, column):
+    rows = probing[(probing["model"] == "occupation_only") & (probing["subset"] == "all")]
+    return rows[column].iloc[0]
+
+
+def test_a_probe_whose_interval_starts_exactly_at_the_reference_interval_end_does_not_count(
+    f6, probing, patching
+):
+    ends = _occupation_reference(probing, "ci_high")
+    probing.loc[(probing["model"] == "deberta") & (probing["layer"] == 2), "ci_low"] = ends
+    assert "in 5 of 6 layers" in f6.title(probing, patching)
+
+
+def test_a_probe_counts_only_when_its_interval_starts_above_the_end_of_the_reference_interval(
+    f6, probing, patching
+):
+    inside = (
+        _occupation_reference(probing, "accuracy") + 0.01
+    )  # above the accuracy, in the interval
+    probing.loc[(probing["model"] == "deberta") & (probing["layer"] == 2), "ci_low"] = inside
+    assert "in 5 of 6 layers" in f6.title(probing, patching)
+
+
+def test_spread_moves_labels_up_to_the_gap_and_keeps_their_order(f6):
+    assert f6._spread([0.5, 0.51, 0.52], 0.1) == pytest.approx([0.5, 0.6, 0.7])
+    assert f6._spread([0.52, 0.5], 0.1) == pytest.approx([0.6, 0.5])
+    assert f6._spread([0.1, 0.9], 0.1) == [0.1, 0.9]
+
+
+def test_panel_a_labels_sit_at_the_last_layer_accuracy_moved_apart_only_where_they_touch(figure):
+    top, _ = _panels(figure)
+    assert _text(top, "pretrained").get_position()[1] == pytest.approx(0.66)
+    assert _text(top, "main model").get_position()[1] == pytest.approx(0.57)  # TF-IDF is 0.58
+
+
+def test_panel_a_axis_spans_the_intervals_with_a_margin_of_two_points(figure):
+    top, _ = _panels(figure)
+    assert top.get_ylim() == pytest.approx((0.46 - 0.02, 0.68 + 0.02))
+    labels = [t.get_text() for t in top.get_yticklabels() if t.get_text()]
+    assert labels and all(re.fullmatch(r"\d+%", label) for label in labels)
+
+
+def test_panel_b_ticks_zero_half_and_one_and_labels_its_lines_around_their_last_value(figure):
+    _, bottom = _panels(figure)
+    assert list(bottom.get_yticks()) == [0, 0.5, 1]
+    assert _text(bottom, "edited words only").get_position()[1] == pytest.approx(0.0 + 0.12)
+    label = next(t for t in bottom.texts if t.get_text().startswith("all positions"))
+    assert label.get_position()[1] == pytest.approx(1.0 - 0.1)
+
+
+def test_the_bands_are_translucent_and_the_x_axis_line_spans_the_layers(figure):
+    top, bottom = _panels(figure)
+    for ax, colour in ((top, plotting.NEUTRAL), (bottom, plotting.HIGHLIGHT)):
+        assert _band(ax, colour).get_facecolor()[0][3] == pytest.approx(0.25)
+        assert ax.spines["bottom"].get_bounds() == (0, 2)
+
+
+def test_the_three_references_are_told_apart_by_line_style(figure):
+    top, _ = _panels(figure)
+    styles = [_line(top, name).get_linestyle() for name in REFERENCES]
+    assert len(set(styles)) == 3
+
+
+def test_the_title_is_left_aligned_and_the_top_panel_is_taller_than_the_bottom_one(figure):
+    top, bottom = _panels(figure)
+    assert figure._suptitle.get_position()[0] == 0
+    assert top.get_position().height > bottom.get_position().height
+    assert figure.get_size_inches()[1] == 5.6
+
+
+def test_the_labels_of_panel_a_fit_inside_the_axes_to_the_right_of_the_last_layer(figure):
+    top, _ = _panels(figure)
+    box = top.get_window_extent()
+    for label in ("main model", "pretrained", "TF-IDF", "occupation only", "majority class"):
+        assert _text(top, label).get_window_extent().x1 <= box.x1 + 1, label

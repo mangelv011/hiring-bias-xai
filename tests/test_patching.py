@@ -154,3 +154,9 @@ def test_patch_pairs_refuses_pairs_whose_lengths_differ_even_when_the_padded_bat
         patching.patch_pairs(
             model, ["alpha beta", "alpha beta gamma"], ["alpha beta gamma", "alpha beta"], TRUE[:2]
         )
+
+
+def test_equal_length_is_false_for_a_pair_whatever_the_side_that_is_longer(model):
+    clean = ["alpha", "alpha beta"]
+    corrupted = ["alpha beta", "alpha"]
+    assert list(patching.equal_length(model.tokenizer, clean, corrupted)) == [False, False]

@@ -175,3 +175,25 @@ def test_the_model_is_loaded_with_the_script_batch_size(monkeypatch, tiny_networ
     module.DEVICE = "cpu"
     assert module._load() is model
     assert loaded == [module.BATCH_SIZE] == [32]
+
+
+def _constant_share(monkeypatch, value):
+    monkeypatch.setattr(
+        patching, "restored_share", lambda clean, corrupted, patched: np.full(len(clean), value)
+    )
+
+
+def test_the_hook_check_allows_a_share_within_one_percent_of_one_and_stops_beyond(run, monkeypatch):
+    _constant_share(monkeypatch, 1.005)
+    assert json.loads((run() / "patching.json").read_text())["max_all_positions_error"] == (
+        pytest.approx(0.005)
+    )
+    _constant_share(monkeypatch, 1.02)
+    with pytest.raises(RuntimeError, match="all positions"):
+        run()
+
+
+def test_the_hook_check_accepts_a_share_exactly_at_the_allowed_error(run, monkeypatch):
+    run.module.MAX_ALL_POSITIONS_ERROR = 2**-7
+    _constant_share(monkeypatch, 1 + 2**-7)
+    run()
