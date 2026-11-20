@@ -122,6 +122,51 @@ def test_top_share_is_the_sum_of_the_largest_absolute_contributions_over_the_tot
     assert summary["top_words"] == ["q"]
 
 
+def _resamples(bios, n_boot, seed):
+    """The bootstrap of the documented procedure, drawn independently of the module: women's
+    bios first, then men's, each resampled with replacement within its gender."""
+    rng = np.random.default_rng(seed)
+    women = [b for b in bios if b.gender == "female"]
+    men = [b for b in bios if b.gender == "male"]
+    draw_women = rng.integers(0, len(women), size=(n_boot, len(women)))
+    draw_men = rng.integers(0, len(men), size=(n_boot, len(men)))
+    return [
+        ([women[i] for i in w], [men[i] for i in m])
+        for w, m in zip(draw_women, draw_men, strict=True)
+    ]
+
+
+def _contributions(women, men):
+    """D of every word by plain arithmetic over two lists of bios."""
+    words = {word for bio in women + men for word in bio.values}
+    return {
+        w: sum(b.values.get(w, 0.0) for b in women) / len(women)
+        - sum(b.values.get(w, 0.0) for b in men) / len(men)
+        for w in words
+    }
+
+
+def _interval(values):
+    return np.percentile(values, [2.5, 97.5])
+
+
+def test_the_gaps_have_95_percent_intervals_from_resampling_bios_within_each_gender():
+    resamples = _resamples(BIOS, 50, seed=7)
+    score = [
+        np.mean([b.score for b in women]) - np.mean([b.score for b in men])
+        for women, men in resamples
+    ]
+    decomposed = [sum(_contributions(women, men).values()) for women, men in resamples]
+    summary = gap_decomposition.decompose(BIOS, min_bios=1, n_boot=50, seed=7).summary
+    assert [summary["score_gap"]["ci_low"], summary["score_gap"]["ci_high"]] == pytest.approx(
+        _interval(score)
+    )
+    assert [
+        summary["decomposed_gap"]["ci_low"],
+        summary["decomposed_gap"]["ci_high"],
+    ] == pytest.approx(_interval(decomposed))
+
+
 def test_the_contributions_add_up_to_the_gap_of_full_minus_empty_scores_and_drift_is_reported():
     # Same values as BIOS, but the empty bio scores -1.0 for women and -0.9 for men (as with a
     # classifier whose empty-bio logits vary by 1e-3 with the batch): the score gap of the full
