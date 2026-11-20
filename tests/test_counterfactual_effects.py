@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -126,3 +128,44 @@ def test_the_hand_check_summary_gives_the_incoherent_share_with_a_wilson_interva
 def test_the_hand_check_needs_yes_or_no_and_a_reason_for_every_no(verdicts, reasons, message):
     with pytest.raises(ValueError, match=message):
         effects.hand_check_summary(_checks(verdicts, reasons))
+
+
+def test_one_blank_reason_among_several_incoherent_bios_is_refused():
+    with pytest.raises(ValueError, match="reason"):
+        effects.hand_check_summary(_checks(["no", "no"], {0: "why"}))
+
+
+def test_a_tie_between_the_shares_is_not_toward_for_men_either():
+    toward = effects.moves_toward_new_gender(["male"], ["nurse"], ["nurse"], SHARE)
+    assert toward.tolist() == [False]
+
+
+def test_the_interval_is_the_95_percent_one():
+    # 400 bios with a flip rate of 0.5: the standard error is 0.025, so a 95% interval is about
+    # 0.098 wide, where a 90% one would be 0.082.
+    flip = np.arange(400) % 2 == 0
+    summary = effects.summarise(flip, np.zeros(400), n_boot=2000)
+    width = summary["flip_rate_ci_high"] - summary["flip_rate_ci_low"]
+    assert 0.090 < width < 0.106
+
+
+def test_the_toward_share_counts_only_flipped_bios_and_its_interval_follows_the_ratio():
+    # 100 bios, 30 flips, 20 of them toward; 40 non-flipped bios are marked toward too.
+    flip = np.arange(100) < 30
+    toward = (np.arange(100) < 20) | (np.arange(100) >= 60)
+    summary = effects.summarise(flip, np.zeros(100), toward, n_boot=500)
+    assert summary["toward_share"] == pytest.approx(2 / 3)
+    assert summary["toward_share_ci_low"] < 2 / 3 < summary["toward_share_ci_high"]
+    assert summary["toward_share_ci_high"] - summary["toward_share_ci_low"] < 0.45
+
+
+def test_no_flips_give_an_empty_toward_share_without_a_numpy_warning():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        summary = effects.summarise(np.zeros(5, dtype=bool), np.zeros(5), np.ones(5, dtype=bool))
+    assert np.isnan(summary["toward_share"])
+
+
+def test_all_the_ids_can_be_drawn():
+    ids = ["a", "b", "c"]
+    assert effects.hand_check_sample(ids, 3) == ids

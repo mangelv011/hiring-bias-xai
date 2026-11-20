@@ -123,3 +123,18 @@ def test_swapping_twice_restores_a_text_with_unambiguous_pronouns():
 def test_a_her_or_his_inside_a_longer_token_such_as_a_web_address_is_left_alone():
     assert swap_gender("See praxis-his.com for his book.") == "See praxis-his.com for her book."
     assert swap_gender("See www.her-site.org and her book.") == "See www.her-site.org and his book."
+
+
+@pytest.mark.parametrize(
+    ("text", "swapped"),
+    [
+        ("The book is his", "The book is hers"),
+        ("The choice was his in the end.", "The choice was hers in the end."),
+        ("She said it was his because he asked.", "He said it was hers because she asked."),
+        ("That one is his to keep.", "That one is hers to keep."),
+    ],
+)
+def test_his_is_hers_at_the_end_of_the_text_and_before_a_preposition_conjunction_or_particle(
+    text, swapped
+):
+    assert swap_gender(text) == swapped
