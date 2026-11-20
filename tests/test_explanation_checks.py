@@ -96,3 +96,29 @@ def test_removed_words_become_unk_and_the_rest_keep_their_place():
     assert {"[UNK] beta gamma delta", "alpha beta [UNK] delta", "alpha beta gamma delta"} <= set(
         texts
     )
+
+
+def test_the_bootstrap_interval_of_a_mean_is_the_2_5th_to_97_5th_percentile_of_resampled_means():
+    values = np.arange(100.0)
+    low, high = checks.bootstrap_ci(lambda rows: values[rows].mean(), len(values), 2000, seed=1)
+    # standard error 28.9 / 10 = 2.89, so the 95% interval is about 49.5 +- 5.7
+    assert low == pytest.approx(43.8, abs=0.7)
+    assert high == pytest.approx(55.2, abs=0.7)
+
+
+def test_the_bootstrap_follows_the_seed_and_resamples_bios_not_values():
+    values = np.array([1.0, 2.0, 3.0, 4.0])
+    one = checks.bootstrap_ci(lambda rows: values[rows].mean(), 4, 50, seed=3)
+    again = checks.bootstrap_ci(lambda rows: values[rows].mean(), 4, 50, seed=3)
+    assert one == again
+    seen = []
+    checks.bootstrap_ci(lambda rows: seen.append(rows.copy()) or 0.0, 4, 5, seed=3)
+    assert all(rows.shape == (4,) and rows.min() >= 0 and rows.max() <= 3 for rows in seen)
+
+
+def test_the_bootstrap_of_a_curve_gives_one_bound_per_step():
+    curves = np.array([[0.0, 1.0], [0.0, 3.0]])
+    low, high = checks.bootstrap_ci(lambda rows: curves[rows].mean(axis=0), 2, 100, seed=0)
+    assert low.shape == high.shape == (2,)
+    np.testing.assert_allclose(low[0], 0)
+    assert 1.0 <= low[1] <= high[1] <= 3.0
