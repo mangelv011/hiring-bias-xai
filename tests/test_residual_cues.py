@@ -1,6 +1,8 @@
 import pytest
 
-from hiring_bias_xai.counterfactual import RESIDUAL_NOUNS, residual_cues
+from hiring_bias_xai.counterfactual import RESIDUAL_NOUNS, first_names_in, residual_cues
+
+NAMES = frozenset({"Maria", "Mark", "Will", "June", "Grace", "Lee"})
 
 
 @pytest.mark.parametrize(
@@ -31,3 +33,17 @@ def test_a_bio_without_cues_has_none():
 def test_every_cue_is_a_lower_case_word_and_listed_once():
     assert len(set(RESIDUAL_NOUNS)) == len(RESIDUAL_NOUNS)
     assert all(word.isalpha() and word.islower() for word in RESIDUAL_NOUNS)
+
+
+def test_a_first_name_of_the_list_used_as_a_proper_noun_is_a_cue():
+    assert first_names_in("I work with Maria and Dr. Lee.", NAMES) == ["Lee", "Maria"]
+
+
+def test_a_listed_name_that_is_a_verb_a_month_or_in_lower_case_is_not_a_cue():
+    text = "We mark the date. Will you join? In June 2020 she showed grace, said maria."
+    assert first_names_in(text, NAMES) == []
+
+
+def test_residual_cues_adds_the_names_to_the_nouns():
+    assert residual_cues("Maria is a mother.", NAMES) == ["Maria", "mother"]
+    assert residual_cues("Maria is a mother.") == ["mother"]
