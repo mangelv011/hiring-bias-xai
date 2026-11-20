@@ -2,6 +2,7 @@
 
 import functools
 import re
+from collections.abc import Collection
 
 _SWAPPED = {
     "he": "she",
@@ -94,6 +95,29 @@ RESIDUAL_NOUNS = (
 _RESIDUAL_NOUN = re.compile(r"\b(?:" + "|".join(RESIDUAL_NOUNS) + r")\b", re.IGNORECASE)
 
 
-def residual_cues(text: str) -> list[str]:
-    """The residual cues in the text, lower-cased, each once, in alphabetical order."""
-    return sorted({match.group().lower() for match in _RESIDUAL_NOUN.finditer(text)})
+_MONTHS = frozenset(
+    "January February March April May June July August September October November December".split()
+)
+_CAPITALISED_WORD = re.compile(r"\b[A-Z][a-z]+\b")
+
+
+def first_names_in(text: str, first_names: Collection[str]) -> list[str]:
+    """The first names of `first_names` that the text uses, each once, in alphabetical order.
+
+    A name counts when it is written Capitalised, the tagger reads it as a proper noun and it is
+    not a month, so "Mark the date" and "in June" do not count. `first_names` holds Capitalised
+    names.
+    """
+    candidates = {word for word in _CAPITALISED_WORD.findall(text) if word in first_names}
+    if not candidates - _MONTHS:
+        return []
+    proper = {token.text for token in _tagger()(text) if token.pos_ == "PROPN"}
+    return sorted(candidates & proper - _MONTHS)
+
+
+def residual_cues(text: str, first_names: Collection[str] = ()) -> list[str]:
+    """The residual cues in the text, each once: the gendered nouns of `RESIDUAL_NOUNS`
+    lower-cased, then the first names of `first_names` as written, in alphabetical order.
+    """
+    nouns = {match.group().lower() for match in _RESIDUAL_NOUN.finditer(text)}
+    return sorted(nouns | set(first_names_in(text, first_names)))
