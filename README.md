@@ -30,7 +30,7 @@ A job platform that ranks candidates with a model is a high-risk AI system under
 | Which words make up the gap between women and men? | Exact decomposition of the score gap into word contributions | Global | Done |
 | Does the decision change if only the gender changes? | Counterfactual pronoun swaps, with a deletion control | Local and global | Done |
 | Can we trust these explanations? | Deletion curves, seed and method stability | Explanation check | Done |
-| Where does the model store gender? | Probing and activation patching | Mechanistic | Planned |
+| Where does the model store gender? | Probing and activation patching | Mechanistic | Done |
 | Does removing the cues close the gap, and at what cost? | Retraining on scrubbed text, masking proxy words | Mitigation | Planned |
 | Does a general-purpose LLM do the same with names? | Black-box audit with names from four origin groups | Audit | Planned |
 
