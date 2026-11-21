@@ -312,3 +312,44 @@ def test_the_results_page_explains_why_condition_a_differs_from_the_first_table(
     text = " ".join(_read("docs/results.md").split())
     assert "(0.148 against 0.147; dietitian 25 against 24 points)" in text
     assert "scored in batches of 4 instead of 64" in text
+
+
+def test_the_report_describes_the_data_the_models_and_the_gap_plainly():
+    report = _report()
+    for phrase in (
+        "English short biographies, each labelled with one of 28 jobs",
+        "257,478 train, 39,642 dev and 99,069 test bios",
+        "Common Crawl",
+        "select on 10,000 of the dev bios",
+        "(rapper) to 93\% (dietitian) in the training bios",
+        "(dietitian, nurse, fashion model)",
+        "reading at most 256 tokens",
+        "TF-IDF (weighted counts of words and word pairs)",
+        "The main model's overall shortlist gap is lower than the baseline's (0.148 against 0.167),",
+        "in every one of the six jobs but software engineer",
+        "explanations can help",
+        "Change in gap vs (a)",
+    ):
+        assert phrase in report, phrase
+    assert "biographies, text," not in report and "(dietitian, nurse, model)" not in report
+
+
+def test_the_report_links_the_explanations_to_the_fix_and_states_the_ai_assistance():
+    report = _report()
+    assert "which is why I scrub them" in report
+    assert "tests the explanation's next hypothesis, that a few words carry the rest, and it does not hold" in report
+    assert "which cut the gap by a fifth in one run" in report
+    assert "I used an AI coding assistant for implementation and editing; I designed the audit" in report
+
+
+def test_the_chance_level_is_named_as_the_95th_percentile_of_what_chance_gives():
+    for name in ("report/main.tex", "README.md", "docs/results.md"):
+        text = " ".join(_read(name).split())
+        assert "twice what chance gives" not in text, name
+        assert "twice the 95th percentile of what chance gives (0.050)" in text, name
+
+
+def test_the_readme_reads_freeones_as_a_possible_trace_not_a_spurious_correlation():
+    readme = _read("README.md")
+    assert "may reflect" in readme and "spurious" not in readme
+    assert "I did not check" not in readme

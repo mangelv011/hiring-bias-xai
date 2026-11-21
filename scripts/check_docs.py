@@ -861,7 +861,26 @@ CELLS: list[Cell] = [
         "abs1",
     ),
     Cell(REPORT, r"subsample of ([\d,]+) bios", "data_summary.json", "bios.train", "count"),
-    Cell(REPORT, r"select on ([\d,]+) and", "data_summary.json", "bios.dev", "count"),
+    Cell(REPORT, r"select on ([\d,]+) of the dev", "data_summary.json", "bios.dev", "count"),
+    Cell(REPORT, r"and ([\d,]+) test bios;", "data_summary.json", "bios.test", "count"),
+    Cell(
+        REPORT, r"reading at most (\d+) tokens", MAIN, "hyperparameters.max_length", "count"
+    ),
+    Cell(
+        REPORT,
+        r"as that alone gave (\d+)% with no retraining",
+        MITIGATION,
+        "conditions.b.outside_showcase.change_from_a.rms_tpr_gap.value over "
+        f"{CONDITION_A}.rms_tpr_gap.value",
+        "abs_per100",
+    ),
+    Cell(
+        README,
+        r"what chance gives \(([\d.]+)\)",
+        MITIGATION,
+        f"{CONDITION_A}.rms_tpr_gap.null.p95",
+        "dec3",
+    ),
     Cell(REPORT, r"test on all ([\d,]+) test bios", "data_summary.json", "bios.test", "count"),
     Cell(
         REPORT,
@@ -916,8 +935,8 @@ CELLS: list[Cell] = [
     Cell(
         REPORT, r"for [\d.]+ \([\d.]+ \[[\d.]+, ([\d.]+)\]", BASE, "test.macro_f1.ci_high", "dec3"
     ),
-    Cell(REPORT, r"lower \(([\d.]+) against", MAIN, "test.rms_tpr_gap.value", "dec3"),
-    Cell(REPORT, r"against ([\d.]+)\) but", BASE, "test.rms_tpr_gap.value", "dec3"),
+    Cell(REPORT, r"lower than the baseline's \(([\d.]+) against", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(REPORT, r"against ([\d.]+)\), but", BASE, "test.rms_tpr_gap.value", "dec3"),
     Cell(
         REPORT,
         r"shortlists (\d+) women and \d+ men; of",
@@ -1551,7 +1570,11 @@ ALLOWED: list[Allowed] = [
         "mitigation.py, docs/results.md",
     ),
     Allowed(README, r"about 25 seconds", "llm_analyse.py, docs/results.md"),
-    Allowed(REPORT, r"\b1--2 grams", "ngram_range=(1, 2) of the baseline, models.py"),
+    Allowed(
+        REPORT,
+        r"257,478 train, 39,642 dev",
+        "the full splits of the release, docs/data_card.md",
+    ),
     Allowed(REPORT, r"at least 500 test bios", "the threshold of the showcase rule, config.py"),
     Allowed(
         REPORT, r"\b(?:11|2) gender words", "gender words of the two bios of F2, docs/results.md"
