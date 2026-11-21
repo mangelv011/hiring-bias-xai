@@ -90,7 +90,6 @@ What this means: of 100 qualified women surgeons the model shortlists 56, and of
 - **A first fix is not a cure.** Removing the pronouns narrows the gap by about a fifth and leaves most of it ([results.md](results.md#f7-does-removing-the-cues-close-the-gap)). I would not present it as making the screener fair.
 - **Gap and accuracy do not move together.** The more accurate model is not clearly the fairer one.
 - **The LLM's stated reasons are not its causes.** The audit reads a reason as text, not as an account of what drove the decision.
-- Real client data is not used anywhere in the project.
 
 ## Caveats and limitations
 
