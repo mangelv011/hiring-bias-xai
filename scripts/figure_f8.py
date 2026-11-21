@@ -25,13 +25,15 @@ def _points(stat: dict) -> tuple[float, float, float]:
 
 
 def title(report: dict) -> str:
-    """The primary contrast in points; a gap only when its interval excludes 0."""
+    """The primary contrast in plain words; a gap only when its interval excludes 0."""
     value, low, high = _points(report["statistics"]["primary"])
-    interval = f"(95% CI {low:+.1f} to {high:+.1f})"
     if low > 0 or high < 0:
         more = "more" if value > 0 else "fewer"
-        return f"Women's names get {abs(value):.1f} points {more} yes than men's names {interval}"
-    return f"No clear gap between women's and men's names: {value:+.1f} points {interval}"
+        return (
+            f"With a woman's name, {abs(value):.0f} {more} qualified candidates per 100 get yes "
+            "than with a man's."
+        )
+    return "With a woman's or a man's name, qualified candidates get yes about equally often."
 
 
 def _label(arm: str) -> str:
@@ -56,10 +58,9 @@ def _note(report: dict) -> str:
     share = stated["share_no_mention"]
     low, high = 100 * share["ci_low"], 100 * share["ci_high"]
     return (
-        f"{stated['n_flips']} decision changes\n"
-        "beyond noise:\n"
-        f"{100 * share['value']:.0f}% ({low:.0f} to {high:.0f}) of the\n"
-        "reasons does not\n"
+        f"Of {stated['n_flips']} changed decisions,\n"
+        f"{100 * share['value']:.0f}% ({low:.0f} to {high:.0f}) give a\n"
+        "reason that does not\n"
         "mention name, origin\n"
         "or gender."
     )
@@ -95,7 +96,7 @@ def build(report: dict):
     ax.text(ax.get_xlim()[0], -1.6, _note(report), color=DARK, va="top", ha="left")
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
-    ax.set_xlabel("Yes-rate change, qualified\ncandidates (points)")
+    ax.set_xlabel("Change in yes per 100 qualified\ncandidates, against no name")
     return fig
 
 
