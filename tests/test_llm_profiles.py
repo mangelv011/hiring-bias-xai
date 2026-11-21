@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from hiring_bias_xai import llm_profiles
 
@@ -152,3 +153,53 @@ def test_names_drawn_for_different_arms_of_one_bio_are_not_drawn_alike():
         for i in range(80)
     ]
     assert not all(same_group_other_gender)
+
+
+def test_a_name_is_drawn_with_the_global_seed_so_a_rerun_gives_the_same_names():
+    pool = {
+        "first_names": {"female": list("abcdefghij"), "male": list("ABCDEFGHIJ")},
+        "surnames": [f"s{i}" for i in range(20)],
+    }
+    groups = {"X": pool}
+    drawn = [llm_profiles.draw_name(groups, "X", "female", f"test-{i}") for i in (1, 2, 3)]
+    assert drawn == [("f", "s14"), ("a", "s0"), ("j", "s5")]
+    drawn = [llm_profiles.draw_name(groups, "X", "male", f"test-{i}") for i in (1, 2, 3)]
+    assert drawn == [("H", "s6"), ("F", "s14"), ("B", "s16")]
+
+
+def test_an_arm_that_is_not_one_of_the_four_kinds_is_an_error():
+    for arm in ("other", "names|Spain|female"):
+        with pytest.raises(ValueError, match="unknown arm"):
+            llm_profiles.candidate("She is a nurse.", "female", "test-1", arm, GROUPS)
+
+
+def test_an_occupation_never_mistaken_or_tied_goes_to_the_first_other_one_in_the_list():
+    true = ["a"] * 3 + ["b"] * 3 + ["c"] * 3
+    predicted = ["a"] * 3 + ["b"] * 3 + ["c"] * 3
+    hardest = llm_profiles.hardest_confusions(true, predicted, ["a", "b", "c"])
+    assert hardest == {"a": "b", "b": "a", "c": "a"}
+    predicted = ["b", "c", "a"] + ["a", "c", "b"] + ["a", "b", "c"]
+    hardest = llm_profiles.hardest_confusions(true, predicted, ["a", "b", "c"])
+    assert hardest == {"a": "b", "b": "a", "c": "a"}  # one each: the first of the others
+
+
+def test_asking_for_a_whole_group_gives_every_bio_of_it_once():
+    subset = _subset()
+    profiles = llm_profiles.sample_profiles(subset, {"a": "b"}, n_match=20, n_nonmatch=0)
+    assert sorted(profiles["id"]) == sorted(subset[subset["occupation"] == "a"]["id"])
+
+
+def test_merged_groups_list_a_shared_surname_once_and_are_labelled_in_the_order_of_the_rule():
+    groups = {
+        "Morocco": {"first_names": {"female": ["Fatima"], "male": ["Ali"]}, "surnames": ["Benali"]},
+        "Romania": {
+            "first_names": {"female": ["Elena"], "male": ["Ion", "Ali"]},
+            "surnames": ["Benali", "Radu"],
+        },
+    }
+    pools = llm_profiles.analysis_groups(
+        groups, {"groups": [["Morocco", "Romania"]], "dropped": []}
+    )
+    assert list(pools) == ["Morocco + Romania"]
+    assert pools["Morocco + Romania"]["surnames"] == ["Benali", "Radu"]
+    assert pools["Morocco + Romania"]["first_names"]["male"] == ["Ali", "Ion"]
