@@ -358,7 +358,7 @@ def test_the_other_formats_the_documents_use():
 REPO = Path(__file__).resolve().parents[1]
 
 
-def test_the_numbers_of_the_readme_and_the_model_card_match_results():
+def test_the_numbers_of_the_readme_the_model_card_and_the_report_match_results():
     assert _load().check_numbers(REPO) == []
 
 
@@ -424,9 +424,9 @@ def test_a_missing_document_is_reported_by_name(tmp_path):
     assert errors == ["docs/model_card.md: document is missing"]
 
 
-def test_both_documents_are_checked_and_every_row_belongs_to_one_of_them():
+def test_the_three_documents_are_checked_and_every_row_belongs_to_one_of_them():
     module = _load()
-    assert module.NUMBER_DOCUMENTS == ("README.md", "docs/model_card.md")
+    assert module.NUMBER_DOCUMENTS == ("README.md", "docs/model_card.md", "report/main.tex")
     assert {cell.document for cell in module.CELLS} == set(module.NUMBER_DOCUMENTS)
 
 
