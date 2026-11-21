@@ -64,6 +64,7 @@ Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as l
 src/hiring_bias_xai/   library: data, models, fairness metrics, attribution, plotting
 scripts/               one entry point per experiment; each writes to results/
 results/               metrics (JSON, CSV) and figures (PDF, PNG)
+notebooks/audit.ipynb  the whole audit told from the saved results; CI runs it
 docs/                  results, data card, decision records, figure guidelines
 tests/                 pytest suite, run by CI on every pull request
 ```
