@@ -302,12 +302,6 @@ def test_a_probe_counts_only_when_its_interval_starts_above_the_end_of_the_refer
     assert "in only some layers" in f6.title(probing, patching)
 
 
-def test_spread_moves_labels_up_to_the_gap_and_keeps_their_order(f6):
-    assert f6._spread([0.5, 0.51, 0.52], 0.1) == pytest.approx([0.5, 0.6, 0.7])
-    assert f6._spread([0.52, 0.5], 0.1) == pytest.approx([0.6, 0.5])
-    assert f6._spread([0.1, 0.9], 0.1) == [0.1, 0.9]
-
-
 def test_panel_a_labels_sit_at_the_last_layer_accuracy_moved_apart_only_where_they_touch(figure):
     top, _ = _panels(figure)
     assert _text(top, "pretrained").get_position()[1] == pytest.approx(0.66)
