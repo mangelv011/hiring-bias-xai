@@ -71,6 +71,21 @@ docs/methods.md        one entry per technique: what it does, how to read it, pi
 tests/                 pytest suite, run by CI on every pull request
 ```
 
+## Which script makes which figure
+
+Each figure is drawn from small files in `results/`. This table names the script that computes them and the one that draws the figure.
+
+| Figure | Result | Computed by | Writes | Drawn by |
+|---|---|---|---|---|
+| F1 | TPR gap by job | [`gap_statistics`](scripts/gap_statistics.py) | [`gap_statistics.json`](results/gap_statistics.json) | [`figure_f1`](scripts/figure_f1.py) |
+| F2 | Shapley values of one decision | [`shapley_run`](scripts/shapley_run.py) | [`shapley_summary.json`](results/shapley_summary.json) | [`figure_f2`](scripts/figure_f2.py) |
+| F3 | Gap decomposition by word | [`gap_decomposition`](scripts/gap_decomposition.py) | [`gap_decomposition.csv`](results/gap_decomposition.csv) | [`figure_f3`](scripts/figure_f3.py) |
+| F4 | Counterfactual swap | [`counterfactual_gender`](scripts/counterfactual_gender.py) | [`counterfactual_gender.csv`](results/counterfactual_gender.csv) | [`figure_f4`](scripts/figure_f4.py) |
+| F5 | Explanation check | [`deletion_curves`](scripts/deletion_curves.py), [`stability`](scripts/stability.py) | [`deletion_curves.csv`](results/deletion_curves.csv), [`stability.json`](results/stability.json) | [`figure_f5`](scripts/figure_f5.py) |
+| F6 | Probing and patching | [`probing`](scripts/probing.py), [`patching`](scripts/patching.py) | [`probing.csv`](results/probing.csv), [`patching.csv`](results/patching.csv) | [`figure_f6`](scripts/figure_f6.py) |
+| F7 | Mitigation | [`mitigation`](scripts/mitigation.py) | [`mitigation.json`](results/mitigation.json) | [`figure_f7`](scripts/figure_f7.py) |
+| F8 | LLM name audit | [`llm_analyse`](scripts/llm_analyse.py) | [`llm_audit.json`](results/llm_audit.json) | [`figure_f8`](scripts/figure_f8.py) |
+
 ## How to run
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build. Run the steps in this order; times are measured on the RTX 3050 Laptop GPU (4 GB). Data and model weights live outside the repository, in `HBX_ARTIFACTS` (default `~/.cache/hiring-bias-xai`). Without `uv`: `pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128`, then `pip install -e . --no-deps`.
@@ -87,19 +102,6 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins Py
 | F6 | `scripts/probing_features.py`; `scripts/probing.py`; `scripts/patching.py`; `scripts/figure_f6.py` | features about 1 minute each; probes 1, 4 and 5 minutes; patching 32 seconds |
 | F7 | `scripts/proxy_words.py`; `scripts/train_scrubbed.py`; `scripts/mitigation.py`; `scripts/figure_f7.py` | training about 1.9 hours; scoring about 2.8 minutes per condition and 2 minutes for the report; the rest not recorded |
 | F8 | `scripts/llm_names.py`; `scripts/llm_name_check.py`; `scripts/llm_pilot.py`; `scripts/llm_run.py`; `scripts/llm_analyse.py`; `scripts/figure_f8.py` | name check 3 minutes; pilot 2.4 minutes; run 2.99 hours; analysis about 25 seconds; the rest not recorded |
-
-Each figure is drawn from small files in `results/`. This table names the script that computes them and the one that draws the figure.
-
-| Figure | Result | Computed by | Writes | Drawn by |
-|---|---|---|---|---|
-| F1 | TPR gap by job | [`gap_statistics`](scripts/gap_statistics.py) | [`gap_statistics.json`](results/gap_statistics.json) | [`figure_f1`](scripts/figure_f1.py) |
-| F2 | Shapley values of one decision | [`shapley_run`](scripts/shapley_run.py) | [`shapley_summary.json`](results/shapley_summary.json) | [`figure_f2`](scripts/figure_f2.py) |
-| F3 | Gap decomposition by word | [`gap_decomposition`](scripts/gap_decomposition.py) | [`gap_decomposition.csv`](results/gap_decomposition.csv) | [`figure_f3`](scripts/figure_f3.py) |
-| F4 | Counterfactual swap | [`counterfactual_gender`](scripts/counterfactual_gender.py) | [`counterfactual_gender.csv`](results/counterfactual_gender.csv) | [`figure_f4`](scripts/figure_f4.py) |
-| F5 | Explanation check | [`deletion_curves`](scripts/deletion_curves.py), [`stability`](scripts/stability.py) | [`deletion_curves.csv`](results/deletion_curves.csv), [`stability.json`](results/stability.json) | [`figure_f5`](scripts/figure_f5.py) |
-| F6 | Probing and patching | [`probing`](scripts/probing.py), [`patching`](scripts/patching.py) | [`probing.csv`](results/probing.csv), [`patching.csv`](results/patching.csv) | [`figure_f6`](scripts/figure_f6.py) |
-| F7 | Mitigation | [`mitigation`](scripts/mitigation.py) | [`mitigation.json`](results/mitigation.json) | [`figure_f7`](scripts/figure_f7.py) |
-| F8 | LLM name audit | [`llm_analyse`](scripts/llm_analyse.py) | [`llm_audit.json`](results/llm_audit.json) | [`figure_f8`](scripts/figure_f8.py) |
 
 The arguments of each script and the order inside a step are in [docs/results.md](docs/results.md#reproduce-every-result). Before a pull request, `uv run python scripts/check_docs.py` checks the links and the numbers of this page and the model card against `results/`.
 
