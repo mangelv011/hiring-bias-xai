@@ -25,6 +25,8 @@ def code(source):
         "The macro-F1 averages over jobs.",
         "Macro-F1 heads the column.",
         "The main model is DeBERTa-v3-small.",
+        "One reader labelled them, and often none of them agreed.",
+        "A tenant and a tentative answer.",
         "No digits at all.",
     ],
 )
@@ -46,11 +48,20 @@ def test_allowed_text_has_no_numbers(text):
         ("The F1 of 0.7.", "0.7."),
         ("The micro-F1 of the model.", "micro-F1"),
         ("DeBERTa-v4 is another model.", "DeBERTa-v4"),
+        ("I compare two screeners.", "two"),
+        ("Three guesses to compare.", "Three"),
+        ("About a dozen words.", "dozen"),
+        ("Of every hundred women.", "hundred"),
+        ("Fifty of them.", "Fifty"),
         ("The file notes 5.txt has it.", "5.txt"),
     ],
 )
 def test_a_typed_number_is_found(text, token):
     assert token in loose_numbers(text)
+
+
+def test_numbers_written_in_words_are_listed_in_reading_order():
+    assert loose_numbers("Two of 76 jobs, then three.") == ["Two", "76", "three"]
 
 
 def test_a_number_beside_an_allowed_token_is_still_found():
