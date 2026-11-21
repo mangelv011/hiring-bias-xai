@@ -139,7 +139,8 @@ def test_there_is_a_zero_line_and_an_axis_label_naming_the_predicted_occupation(
     for ax, predicted in ((woman_ax, "nurse"), (man_ax, "surgeon")):
         assert any(np.all(np.asarray(line.get_xdata()) == 0) for line in ax.get_lines())
         assert predicted in ax.get_xlabel()
-        assert "log-odds" in ax.get_xlabel()
+        assert "log-odds" not in ax.get_xlabel()
+        assert "score points" in ax.get_xlabel()
 
 
 def test_the_whole_bio_is_written_above_its_bars_in_a_monospaced_font(figure):
@@ -219,7 +220,7 @@ def test_the_title_is_one_sentence_of_at_most_two_lines_with_both_pushes(figure)
     # Gendered sum of the woman's bio: She 2.0 + her 1.2 = 3.2. Of the man's: He 0.5 + his 1.0.
     text, lines = _title_lines(figure)
     assert text == (
-        "Gendered words added +3.2 log-odds to a wrong call for a woman and +1.5 for a man."
+        "Gender words raised the score of a wrong job by 3.2 points for a woman and 1.5 for a man."
     )
     assert lines <= 2
 
@@ -228,14 +229,14 @@ def test_the_title_says_which_group_has_no_case(f2):
     woman = _case(f2, ["she", "x"], [2.0, 1.0])
     only_woman, lines = _title_lines(f2.build(woman, None))
     assert only_woman == (
-        "Gendered words added +2.0 log-odds to a wrong call for a woman; no misclassified man "
+        "Gender words raised the score of a wrong job by 2.0 points for a woman; no misclassified man "
         "qualified."
     )
     assert lines <= 2
     man = _case(f2, ["he", "x"], [3.0, 1.0], gender="male")
     only_man, lines = _title_lines(f2.build(None, man))
     assert only_man == (
-        "Gendered words added +3.0 log-odds to a wrong call for a man; no misclassified woman "
+        "Gender words raised the score of a wrong job by 3.0 points for a man; no misclassified woman "
         "qualified."
     )
     assert lines <= 2
@@ -260,6 +261,26 @@ def test_a_group_without_a_case_has_a_panel_that_says_so_and_no_bars(f2):
     plt.close(empty)
 
 
+def test_no_text_of_the_figure_says_log_odds(figure):
+    figure.canvas.draw()
+    assert not [t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()]
+
+
+def test_no_text_of_the_figure_says_log_odds(figure):
+    figure.canvas.draw()
+    assert not [t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()]
+
+
+def test_no_text_of_the_figure_says_log_odds(figure):
+    figure.canvas.draw()
+    assert not [t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()]
+
+
+def test_no_text_of_the_figure_says_log_odds(figure):
+    figure.canvas.draw()
+    assert not [t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()]
+
+
 def test_the_figure_says_that_per_word_values_carry_sampling_noise(figure):
     assert any("sampling noise" in t.get_text() for t in figure.texts)
 
@@ -268,11 +289,11 @@ def test_each_case_is_named_above_its_sentence_by_gender_true_and_predicted_occu
     headers = [t.get_text() for t in figure.texts]
     # Gendered units of the woman's bio: She, her and she (2.0 + 1.2 + 0.0); of the man's: He, his.
     assert (
-        "Woman, true surgeon, predicted nurse (test-1). Gendered words: +3.2 over 3 units."
+        "Woman, true surgeon, predicted nurse (test-1). Gender words: +3.2 over 3 units."
         in headers
     )
     assert (
-        "Man, true nurse, predicted surgeon (test-2). Gendered words: +1.5 over 2 units." in headers
+        "Man, true nurse, predicted surgeon (test-2). Gender words: +1.5 over 2 units." in headers
     )
 
 

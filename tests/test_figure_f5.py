@@ -212,13 +212,14 @@ def test_each_curve_has_its_interval_band_and_the_zero_reference_is_drawn(figure
 def test_curves_are_named_next_to_their_ends_and_there_is_no_legend(figure):
     top, _ = _axes(figure)
     texts = " ".join(t.get_text() for t in top.texts)
-    assert "MoRF" in texts and "LeRF" in texts and "random" in texts
+    assert "highest value first" in " ".join(texts.split()) and "lowest value first" in " ".join(texts.split()) and "random" in texts
+    assert not any(word in texts for word in ("MoRF", "LeRF"))
     assert top.get_legend() is None
 
 
 def test_the_deletion_axes_name_the_quantities_and_stop_at_half_of_the_words(figure):
     top, _ = _axes(figure)
-    assert "log-odds" in top.get_ylabel()
+    assert "log-odds" not in top.get_ylabel() and "score" in top.get_ylabel()
     assert "words removed" in top.get_xlabel().lower()
     assert [t for t in top.get_xticks() if 0 <= t <= 0.5][-1] == 0.5
     assert top.get_xlim()[0] == 0
@@ -232,7 +233,7 @@ def test_checks_are_rows_sorted_by_the_median_correlation_and_say_what_changed(f
     assert labels == [
         "leave-one-out, not Shapley",
         "same method, another seed",
-        "[UNK] instead of deleting",
+        "a blank instead of deleting",
     ]
     assert not any(word in " ".join(labels) for word in ("passed", "failed"))
     assert "main run" in bottom.get_xlabel()
