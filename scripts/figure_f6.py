@@ -20,7 +20,7 @@ from hiring_bias_xai.plotting import HIGHLIGHT, NEUTRAL
 
 FIGURE_NAME = "f6_probing_patching"
 DARK = "#333333"
-HEIGHT_INCHES = 5.6
+HEIGHT_INCHES = 4.6
 MODELS = (("pretrained", NEUTRAL, "pretrained"), ("deberta", HIGHLIGHT, "main model"))
 REFERENCES = (
     ("tfidf", "TF-IDF", "-."),
@@ -28,43 +28,35 @@ REFERENCES = (
     ("majority", "majority class", ":"),
 )
 OCCUPATION_ONLY = "occupation_only"
+BANDED = ("tfidf", OCCUPATION_ONLY)  # the two references the text compares the model with
 LABEL_GAP = 0.07  # least distance between the labels of panel a, as a share of its y range
 LABEL_ROOM = 2.0  # room right of the last layer for the labels, in layers
 LAST_LAYER_NOTE = (
     "Last layer:\nthe classifier\nreads only the\nfirst position,\nso edited words\ngive 0%."
 )
-HALF = 0.5  # the share of the effect that marks where it has left the edited words
 
 
 def _all_bios(probing: pd.DataFrame) -> pd.DataFrame:
     return probing[probing["subset"] == "all"]
 
 
-def title(probing: pd.DataFrame, patching: pd.DataFrame) -> str:
+def title(probing: pd.DataFrame) -> str:
     """The finding: whether a probe reads gender beyond the occupation alone once the pronouns
-    are removed, and the first layer where the effect of the swap has left the edited words.
+    are removed.
 
     A probe counts when its interval starts above the interval of the occupation-only reference;
-    the title says "stays readable" if all do, "in only some layers" if some do. The effect has
-    left the edited words when the interval of the restored share is below one half.
+    the title says "still readable" if all do, "in only some layers" if some do. It claims no
+    more: what patching shows is in the caption and the text.
     """
     rows = _all_bios(probing)
     probes = rows[rows["model"].isin([name for name, _, _ in MODELS])]
     reference = rows[rows["model"] == OCCUPATION_ONLY].iloc[0]
     above = int((probes["ci_low"] > reference["ci_high"]).sum())
     if above == len(probes):
-        readable = "Gender stays readable after the pronouns are removed"
-    elif above:
-        readable = "Gender stays readable in only some layers after the pronouns are removed"
-    else:
-        readable = "Gender is not readable beyond the occupation once the pronouns are removed"
-    differing = patching[patching["position_set"] == "differing"].sort_values("layer")
-    left = differing[differing["mean_ci_high"] < HALF]
-    if left.empty:
-        where = "stays in the edited words in every layer"
-    else:
-        where = f"leaves the edited words by layer {left['layer'].iloc[0]}"
-    return f"{readable}, and the swap's effect {where}."
+        return "Gender is still readable from bios without pronouns."
+    if above:
+        return "Gender is readable from bios without pronouns in only some layers."
+    return "Gender is not readable beyond the occupation from bios without pronouns."
 
 
 def _set_layers(ax, layers: list[int]) -> None:
@@ -88,6 +80,11 @@ def _probe_panel(ax, probing: pd.DataFrame) -> None:
         ends.append((label, colour, model["accuracy"].iloc[-1]))
     for name, label, style in REFERENCES:
         accuracy = rows[rows["model"] == name]["accuracy"].iloc[0]
+        if name in BANDED:
+            row = rows[rows["model"] == name].iloc[0]
+            ax.fill_between(
+                [layers[0], layers[-1]], row["ci_low"], row["ci_high"], color=DARK, alpha=0.1, lw=0
+            )
         ax.plot(
             [layers[0], layers[-1]], [accuracy, accuracy], color=DARK, lw=0.8, ls=style, label=name
         )
@@ -127,12 +124,12 @@ def _patch_panel(ax, patching: pd.DataFrame) -> None:
 
 
 def build(probing: pd.DataFrame, patching: pd.DataFrame):
-    """Panel a above panel b, under a title that states the finding."""
+    """Panel a above panel b, under a title that states the finding of panel a."""
     fig, probe = plotting.new_figure(HEIGHT_INCHES)
     probe.remove()
     top, bottom = fig.subplots(2, 1, height_ratios=[1.15, 1])
     fig.suptitle(
-        title(probing, patching),
+        title(probing),
         fontsize=plotting.MIN_FONT_PT,
         fontweight="bold",
         wrap=True,

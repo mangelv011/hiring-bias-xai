@@ -289,7 +289,7 @@ def test_the_bands_are_translucent_and_the_x_axis_line_spans_the_layers(figure):
         assert ax.spines["bottom"].get_bounds() == (0, 2)
 
 
-def test_each_reference_line_has_its_interval_as_a_faint_band(figure):
+def test_the_tfidf_and_occupation_only_lines_have_their_interval_as_a_faint_band(figure):
     top, _ = _panels(figure)
     bands = [
         c
@@ -297,7 +297,7 @@ def test_each_reference_line_has_its_interval_as_a_faint_band(figure):
         if isinstance(c, matplotlib.collections.PolyCollection)
         and matplotlib.colors.to_hex(c.get_facecolor()[0]).upper() == "#333333"
     ]
-    assert len(bands) == len(REFERENCES)
+    assert len(bands) == 2  # the majority class is a plain baseline, so it has no band
     spans = sorted(
         (
             round(b.get_paths()[0].vertices[:, 1].min(), 2),
@@ -305,7 +305,8 @@ def test_each_reference_line_has_its_interval_as_a_faint_band(figure):
         )
         for b in bands
     )
-    assert spans == sorted((round(a - 0.02, 2), round(a + 0.02, 2)) for a in REFERENCES.values())
+    expected = [REFERENCES["tfidf"], REFERENCES["occupation_only"]]
+    assert spans == sorted((round(a - 0.02, 2), round(a + 0.02, 2)) for a in expected)
     assert all(b.get_facecolor()[0][3] < 0.2 for b in bands)
 
 
