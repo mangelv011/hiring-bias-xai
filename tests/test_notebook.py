@@ -20,6 +20,7 @@ SECTIONS = [
     "Inside the model (F6)",
     "Mitigation (F7)",
     "LLM screener (F8)",
+    "What I would do",
     "Limits",
 ]
 FIGURES = {
@@ -142,7 +143,7 @@ def test_it_is_a_short_tour(nb):
 
 def test_each_section_names_the_scripts_that_made_its_results_and_they_exist(nb):
     for title, cells in _sections(nb).items():
-        if title == "Limits":
+        if title in ("What I would do", "Limits"):
             continue
         scripts = re.findall(r"scripts/\w+\.py", "\n".join(source(c) for c in cells))
         assert scripts, title
@@ -199,3 +200,42 @@ def test_the_first_cell_says_it_is_a_results_viewer_and_points_to_the_script_tab
     assert "results viewer" in intro
     assert "each stage is one script" in " ".join(intro.split())
     assert "docs/results.md#reproduce-every-result" in intro
+
+
+def _all_text(nb):
+    return "\n".join(source(c) for c in nb["cells"])
+
+
+def test_the_first_cell_gives_a_short_answer_in_three_sentences(nb):
+    intro = source(nb["cells"][0])
+    answer = intro.split("**Short answer.**")[1].split("\n\n")[0]
+    assert len(re.findall(r"[.!?](?:\s|$)", answer)) == 3
+    assert "pronouns push scores towards the gender that usually holds a job" in answer
+
+
+def test_the_notebook_says_what_i_would_do_before_the_limits(nb):
+    text = _text(nb, "What I would do")
+    for who in ("model team", "compliance team"):
+        assert who in text
+    assert "LEACE" in text and "never word by word" in text
+
+
+def test_the_notebook_defines_its_terms_where_it_first_uses_them(nb):
+    assert "Macro-F1 is" in _text(nb, "Models and training")
+    bias = _text(nb, "The bias (F1)")
+    assert "overall shortlist gap" in bias and "root mean square" in bias
+    assert "`[UNK]` is" in _text(nb, "Checking the explanations (F4, F5)")
+    llm = _text(nb, "LLM screener (F8)")
+    assert "origin groups" in llm and "no name" in llm and "Spain" in llm
+
+
+def test_every_figure_has_a_sentence_that_says_how_to_read_it(nb):
+    text = _all_text(nb)
+    for number in range(1, 9):
+        assert f"To read F{number}:" in text, number
+
+
+def test_the_notebook_reads_freeones_as_a_possible_trace(nb):
+    text = " ".join(_all_text(nb).split())
+    assert "may reflect the work or where the bio was published" in text
+    assert "spurious" not in text
