@@ -153,16 +153,6 @@ def test_key_findings_has_at_most_one_bullet_per_finding():
     assert len(labels) == len(set(labels))
 
 
-def test_every_row_of_what_the_audit_does_is_done():
-    rows = [
-        line
-        for line in _readme_section("What the audit does").splitlines()
-        if line.startswith("| ") and not line.startswith(("| Question", "|---"))
-    ]
-    assert len(rows) == 8
-    assert all(row.endswith("| Done |") for row in rows)
-
-
 def test_the_repository_map_lists_the_notebook_the_model_card_and_the_methods_page():
     layout = _readme_section("Repository layout")
     for path in ("notebooks/", "docs/model_card.md", "docs/methods.md"):
@@ -385,3 +375,50 @@ def test_the_figure_captions_explain_what_a_reader_needs():
         "the 5 points of the text are the outer bound of its interval, not a margin fixed",
     ):
         assert phrase in report, phrase
+
+
+def _readme_headings():
+    return re.findall(r"(?m)^## (.+)$", _read("README.md"))
+
+
+def test_the_readme_links_the_report_near_the_top_and_in_how_to_read_this():
+    readme = _read("README.md")
+    assert "report/main.pdf" in "\n".join(readme.splitlines()[:6])
+    assert "report/main.pdf" in readme.split("**How to read this.**")[1].split("## ")[0]
+
+
+def test_the_readme_answers_why_in_its_first_screen():
+    top = "\n".join(_read("README.md").splitlines()[:30])
+    assert "pronouns push scores towards the gender that usually holds a job" in top
+    assert "a website name found only in women's bios" in top
+    assert "still readable inside the model after the pronouns are removed" in top
+    assert "uses explainable-AI methods to find out why" not in top
+
+
+def test_why_it_matters_comes_right_after_the_opening_and_before_the_key_findings():
+    headings = _readme_headings()
+    assert headings.index("Why it matters") < headings.index("Key findings")
+
+
+def test_what_the_audit_does_has_no_status_column_and_eight_rows():
+    rows = [
+        line
+        for line in _readme_section("What the audit does").splitlines()
+        if line.startswith("| ") and not line.startswith(("| Question", "|---"))
+    ]
+    assert len(rows) == 8
+    assert "Status" not in _readme_section("What the audit does")
+    assert "TPR" not in _readme_section("What the audit does")
+
+
+def test_the_readme_defines_rms_and_tpr_once_under_the_results_table():
+    readme = _read("README.md")
+    assert readme.count("root mean square") == 1 and readme.count("true positive rate") == 1
+    assert "root mean square" in _readme_section("Results")
+
+
+def test_the_readme_layout_lists_the_report_and_the_prompts_and_the_run_note_is_there():
+    readme = _read("README.md")
+    layout = _readme_section("Repository layout")
+    assert "report/" in layout and "prompts/" in layout
+    assert "uv run python scripts/<name>.py" in _readme_section("How to run")
