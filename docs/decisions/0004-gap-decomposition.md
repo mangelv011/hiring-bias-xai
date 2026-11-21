@@ -37,3 +37,7 @@ Per screener and showcase occupation `o`, on the showcase subset, using the stor
 - The decomposition describes the score, not the model's behaviour under edits.
 - Not every large contribution is a property of the person. In the model occupation, the largest word is `freeones`, a listing site. It is in 54 of 150 women's model bios of the showcase subset and in none of the 150 men's (counted on the stored word units), and it adds +0.96 to the main model's +5.40 gap. Part of that gap follows where the bios were scraped from, not gender words. The counts do not show the source of the bios.
 - When one group never uses a word (its frequency is 0), the usage and weight parts are each half of the contribution by construction. For such words, such as `he` in the bios of women, read the frequencies and the mean values, not the split.
+
+## Outcomes
+
+The decomposition ran for six showcase occupations and both screeners, and the parts add up to the score gap to within 3e-15. In both screeners the gender words work against women in the male-dominated occupations and for them in the female-dominated ones; the one exception is the main model in software engineer, where the gender words' total cannot be told from zero. For the main model in surgeon the gender words alone put women 1.12 below men; in model they account for 0.80 of a gap of 5.40, and the strongest single word is `freeones`. Shares are not given where the gap itself may be zero (surgeon, software engineer and composer for the main model). The proxy words of ADR 0007 come from this table.

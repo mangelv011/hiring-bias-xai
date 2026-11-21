@@ -54,7 +54,7 @@ Used by the counterfactual swap (#8, [ADR 0005](decisions/0005-counterfactual-ge
 ## Known issues
 
 - **Binary gender.** The audit says nothing about non-binary people.
-- **The gender label is derived from the text.** The pronouns that define the label are in the input, so a model can read it directly. The scrubbed variant and the probing control task address this; scrubbing leaves other signals (names inside the text, topics, wording).
+- **The gender label is derived from the text.** The pronouns that define the label are in the input, so a model can read it directly. The scrubbed variant and the permutation test of the probes address this; scrubbing leaves other signals (names inside the text, topics, wording).
 - **First names can stay in the text.** They leak gender and sometimes origin. In the showcase subset 631 of 1,721 bios contain one from the list above (a lower bound: the recogniser misses some lone names). The audit does not use them as an origin signal; origin groups enter only through counterfactual name headers.
 - **Source is web text.** The bios are short professional summaries, not CVs.
 - **Skewed occupations**, as above. Rare occupations have few test bios, so their per-occupation metrics are noisy.
