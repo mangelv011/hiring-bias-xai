@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 import pytest
-from notebook_rules import hand_typed_numbers, prints, result_reads, source
+from notebook_rules import hand_typed_numbers, prints, result_literals, result_reads, source
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK = ROOT / "notebooks" / "audit.ipynb"
@@ -134,3 +134,26 @@ def test_it_is_committed_executed_once_top_to_bottom_with_its_outputs(nb):
     assert all(c["outputs"] for c in code[1:])  # the first cell only sets up
     errors = [o for c in code for o in c["outputs"] if o["output_type"] == "error"]
     assert errors == []
+
+
+def test_every_result_file_the_notebook_names_is_opened_by_a_reader(nb):
+    assert set(result_literals(nb)) <= set(result_reads(nb))
+
+
+def test_the_scripts_each_section_names_exist(nb):
+    for title, cells in _sections(nb).items():
+        run = next(source(c) for c in cells if "**How this was run.**" in source(c))
+        scripts = re.findall(r"scripts/\w+\.py", run)
+        assert scripts, title
+        assert [s for s in scripts if not (ROOT / s).is_file()] == [], title
+
+
+def test_no_cell_writes_to_stderr(nb):
+    streams = [
+        o["name"]
+        for c in nb["cells"]
+        if c["cell_type"] == "code"
+        for o in c["outputs"]
+        if o["output_type"] == "stream"
+    ]
+    assert "stderr" not in streams
