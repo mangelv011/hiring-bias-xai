@@ -206,3 +206,20 @@ def test_flips_are_split_into_those_whose_reason_mentions_the_attribute_and_thos
     low, high = stated["share_no_mention"]["ci_low"], stated["share_no_mention"]["ci_high"]
     assert round(low, 3) == 0.15 and round(high, 3) == 0.85
     assert stated["share_mention"]["value"] == 0.5
+
+
+def test_the_false_positive_rate_is_split_between_hard_and_other_non_matches():
+    rows = [
+        ("p1", False, "none", None, None, None, 1.0, ""),
+        ("p2", False, "none", None, None, None, 0.0, ""),
+        ("p3", False, "none", None, None, None, 0.0, ""),
+        ("p4", False, "none", None, None, None, 0.0, ""),
+        ("p5", False, "none", None, None, None, np.nan, ""),
+        ("p6", True, "none", None, None, None, 1.0, ""),
+        ("p1", False, "swap", None, None, None, 1.0, ""),
+    ]
+    frame = _calls(rows).assign(hard=[True, True, False, False, True, False, True])
+    rates = llm_metrics.fpr_by_hardness(frame, "none")
+    assert rates["hard"]["value"] == 0.5 and rates["hard"]["n"] == 2
+    assert rates["other"]["value"] == 0.0 and rates["other"]["n"] == 2
+    assert 0 < rates["hard"]["ci_low"] < 0.5 < rates["hard"]["ci_high"] < 1
