@@ -376,7 +376,7 @@ def test_the_figure_captions_explain_what_a_reader_needs():
     report = _report()
     for phrase in (
         "The ten words with the largest contribution to the score gap",
-        "gender words make up 61\% of the fashion model gap",
+        "The ten words make up 61\% of the fashion model gap",
         "no share is given for surgeon, whose gap interval includes 0",
         "emb.\ is the input layer",
         "pretrained is the same network before fine-tuning",
