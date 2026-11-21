@@ -19,8 +19,8 @@ from hiring_bias_xai import plotting, results
 from hiring_bias_xai.config import RESULTS_DIR
 
 DARK = "#333333"
-ROW_INCHES = 0.17
-PANEL_EXTRA_INCHES = 0.9
+ROW_INCHES = 0.14
+PANEL_EXTRA_INCHES = 1.0
 
 
 class Panel(NamedTuple):
@@ -35,26 +35,33 @@ WHO_HOLDS = {"male_dominated": "mostly men", "female_dominated": "mostly women"}
 
 
 def title(panels: Sequence[Panel]) -> str:
-    """The finding as one sentence: how much of the score gap the gender words account for in
-    each panel, from the summed gendered contribution (`gendered_sum`).
+    """The finding as one sentence: how far the gender words move women's scores in each panel,
+    from the summed gendered contribution (`gendered_sum`).
 
-    The sum needs no division, so it is stated even when the total gap includes 0. A panel whose
-    sum has an interval that includes 0 has no clear part. The sentence says what the words
-    account for, not what they cause.
+    The sum needs no division, so it is stated even when the total gap includes 0; then the
+    words about the job offset it, and the title says so, so that it does not read as a part of
+    the net gap. A panel whose sum has an interval that includes 0 has no clear part. The
+    sentence says what the words account for, not what they cause.
     """
     clauses = []
+    previous = None
     for panel in panels:
         total = panel.summary["gendered_sum"]
         job = plotting.job_name(panel.occupation)
-        # the unit and "of the score gap" are named once, to keep the title at two lines
-        tail = " of the gap" if not clauses else ""
         if total["ci_low"] <= 0 <= total["ci_high"]:
-            clauses.append(f"no clear part{tail} in {job}")
-        elif not clauses:
-            clauses.append(f"{total['value']:+.1f} score points{tail} in {job}")
+            clauses.append(f"have no clear part in {job}")
+            continue
+        verb = "lower" if total["value"] < 0 else "raise"
+        amount = f"by {abs(total['value']):.1f} in {job}"
+        if previous is None:
+            clause = f"{verb} women's scores {amount}"
         else:
-            clauses.append(f"{total['value']:+.1f} in {job}")
-    return f"Gender words account for {', '.join(clauses)}."
+            clause = amount if verb == previous else f"{verb} them {amount}"
+        if panel.summary["gap_unstable"]:
+            clause += ", offset by job words"
+        clauses.append(clause)
+        previous = verb
+    return f"Gender words {', and '.join(clauses)}."
 
 
 def _interval(share: dict) -> str:
@@ -68,8 +75,8 @@ def header(panel: Panel) -> str:
     """
     gap = panel.summary["score_gap"]
     first = (
-        f"{plotting.job_name(panel.occupation).capitalize()} ({WHO_HOLDS[panel.kind]}), "
-        f"gap {gap['value']:+.1f} [{gap['ci_low']:+.1f}, {gap['ci_high']:+.1f}]"
+        f"{plotting.job_name(panel.occupation).capitalize()} ({WHO_HOLDS[panel.kind]})\n"
+        f"score gap {gap['value']:+.1f} [{gap['ci_low']:+.1f}, {gap['ci_high']:+.1f}]"
     )
     total = panel.summary["gendered_sum"]
     first += (

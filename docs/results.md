@@ -71,7 +71,7 @@ How far to trust single words: the values come from random orders, so a rerun gi
 
 **In short:** in surgeon bios, gender words lower women's scores and words about the job offset that. This is a breakdown of the score, not the effect of changing the words. In fashion model bios, the strongest single word is not a gender word but the name of a website, `freeones`, that appears only in women's bios.
 
-<p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gender words account for -1.1 score points of the gap in surgeon and +0.8 in fashion model."></p>
+<p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gender words lower women's scores by 1.1 in surgeon, offset by job words, and raise them by 0.8 in fashion model."></p>
 
 For each of the six jobs I study in detail, I take the main model's average score for that job in women's bios and subtract the average in men's bios: the score gap (positive favours women). Because Shapley values add up exactly to the score, this gap splits exactly into one part per word: how much more (or less) that word adds in women's bios than in men's, counting 0 where the word is missing. The parts add up to the gap to within 3 in 10^15. This tells how the gap is made up, not what would happen if a word were edited; F4 tests that. Definitions are in [ADR 0004](decisions/0004-gap-decomposition.md). This uses 1,721 test bios: up to 150 women and 150 men per job.
 

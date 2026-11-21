@@ -170,7 +170,7 @@ def test_the_title_gives_the_summed_gendered_contribution_in_each_panel(figure):
         "Gender words lower women's scores by 1.1 in surgeon, offset by job words, "
         "and raise them by 0.8 in fashion model."
     )
-    assert lines <= 2
+    assert lines <= 3
 
 
 def test_the_title_does_not_read_as_a_part_of_the_surgeon_gap(figure):
@@ -187,7 +187,7 @@ def test_the_title_ends_above_the_first_panel_header(figure):
     assert title.y0 > header.y1
 
 
-def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
+def test_the_title_covers_two_clear_sums_and_one_within_noise_in_three_lines(f3):
     nurse = {**_MODEL_SUMMARY, "gendered_sum": _shares(1.97, 1.80, 2.14)}
     both_above = [
         f3.Panel("nurse", "female_dominated", MODEL_WORDS, nurse),
@@ -197,7 +197,7 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
     assert text == (
         "Gender words raise women's scores by 2.0 in nurse, and by 0.8 in fashion model."
     )
-    assert lines <= 2
+    assert lines <= 3
     engineer = {**_SURGEON_SUMMARY, "gendered_sum": _shares(0.05, -0.06, 0.16)}
     one_clear = [
         f3.Panel("surgeon", "male_dominated", SURGEON_WORDS, _SURGEON_SUMMARY),
@@ -208,7 +208,7 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
         "Gender words lower women's scores by 1.1 in surgeon, offset by job words, "
         "and have no clear part in composer."
     )
-    assert lines <= 2
+    assert lines <= 3
 
 
 def test_a_sum_whose_interval_ends_at_zero_is_no_clear_part(f3):
