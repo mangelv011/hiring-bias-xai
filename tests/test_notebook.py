@@ -40,12 +40,12 @@ def nb():
 
 
 def _sections(nb):
-    """The cells of each `## ` section, by title."""
+    """The cells of each `## ` section, by the title on its first line."""
     sections, title = {}, None
     for cell in nb["cells"]:
         text = source(cell)
         if cell["cell_type"] == "markdown" and text.startswith("## "):
-            title = text[3:].strip()
+            title = text[3:].splitlines()[0].strip()
             sections[title] = []
         elif title:
             sections[title].append(cell)
