@@ -152,3 +152,13 @@ def test_result_reads_rejects_a_call_without_a_name():
 def test_prints_lists_the_cells_that_print():
     nb = _nb(code("x = 1"), code('print("hi")'), md("print"), code("y = 2\nprint(y)"))
     assert prints(nb) == [1, 3]
+
+
+def test_tokens_in_one_literal_keep_their_reading_order():
+    nb = _nb(code('Markdown(f"{x} of 76 men and 100 women")'))
+    assert hand_typed_numbers(nb) == [(0, "76"), (0, "100")]
+
+
+def test_result_reads_follow_the_source_when_one_call_is_nested_in_another():
+    nb = _nb(code('total = size(read_json("first.json")) + read_csv("second.csv")'))
+    assert result_reads(nb) == ["first.json", "second.csv"]
