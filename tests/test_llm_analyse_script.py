@@ -33,7 +33,7 @@ def analysed(setup, tmp_path):  # noqa: F811
     with FakeLLMServer(_answer) as server:
         client = llm_audit.Client(setup / "llm" / "main.jsonl", server.base_url, "m")
         _load_script().main(setup, client=client, max_minutes=60, **SIZES)
-        _load_analysis().main(setup, client=client, n_boot=50, **SIZES)
+        _load_analysis().main(setup, client=client, n_boot=50)
     return setup, json.loads((setup / "llm_audit.json").read_text())
 
 
@@ -50,6 +50,7 @@ def test_the_report_holds_the_arms_the_primary_contrast_and_the_run_cost(analyse
     assert cost["n_invalid"] == 0 and cost["thinking_leaks"] == 0
     assert report["model"] == "m"
     assert report["profiles"]["n_profiles"] == 24
+    assert report["n_noise_profiles"] == 3
 
 
 def test_flips_are_counted_against_the_noise_floor_and_split_by_their_reason(analysed):
@@ -74,7 +75,7 @@ def test_the_hand_check_sample_is_written_for_labelling_and_scored_once_labelled
     sample.to_csv(path, index=False)
     with FakeLLMServer(_answer) as server:
         client = llm_audit.Client(results_dir / "llm" / "main.jsonl", server.base_url, "m")
-        _load_analysis().main(results_dir, client=client, n_boot=50, **SIZES)
+        _load_analysis().main(results_dir, client=client, n_boot=50)
     check = json.loads((results_dir / "llm_audit.json").read_text())
     summary = check["rationalization"]["hand_check"]
     assert summary["n"] == 24 and summary["n_rule_agrees"] == 20
