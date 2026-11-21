@@ -13,6 +13,7 @@ Three screeners, all developed by me for this audit and described in [ADR 0002](
 - **What it is.** DeBERTa-v3-small (`microsoft/deberta-v3-small`, revision `a36c739020e01763fe789b4b85e2df55d6180012`) with a new output layer over the 28 jobs, fine-tuned on bios.
 - **Training data.** 60,000 bios of the training subsample; 10,000 dev bios choose the weights.
 - **Recipe.** AdamW, a linear warm-up over 6% of the steps and then a linear decay, bfloat16 autocast, 5 epochs, an effective batch of 32 (4 bios per step, 8 steps added up), at most 256 tokens per bio. Learning rate 3e-5, after also trying 5e-5; the two differ by less than the noise between neighbouring evaluations. Seed 42. The weights kept are those of the evaluation with the best dev macro-F1, at step 9,375.
+- **Fit to the training bios.** The model fits its training bios better than new ones, as every such model does, and it scores the same on two sets of bios it never trained on: macro-F1 is 0.929 on the training bios, 0.788 on the dev bios and 0.783 on the test bios. I chose the model and the learning rate on the dev bios, and the test bios agree with them. The gap between training and test macro-F1 is 0.145, about half the baseline model's 0.271 ([ADR 0002](decisions/0002-models.md)). Over the run, dev macro-F1 reached its best value at the last step, while dev loss rose slightly after epoch 3, from 0.59 to 0.64. The model grew more confident, and its accuracy on bios it had not seen did not fall (`results/training_log.csv`).
 - **Cost.** 6,167 s for the chosen run on the RTX 3050 laptop GPU (4 GB); 12,411 s for both learning rates.
 
 ### Baseline model
@@ -30,7 +31,7 @@ A research audit of screening bias: how a model that decides which job a bio des
 
 ## Out-of-scope uses
 
-- Screening, ranking or rejecting real people. The models were trained on 60,000 web bios, not on a hiring process, and they pass on qualified women and men at different rates.
+- Screening, ranking or rejecting real people. The models were trained on 60,000 web bios, not on a hiring process, and they shortlist qualified women and men at different rates.
 - Showing that a screener is fair. A small gap on this data does not carry over to another data set, another job or another model.
 - Judging anyone's gender, origin or ability from a bio.
 - Any decision about non-binary people: the data has two gender labels only.
@@ -45,8 +46,8 @@ A research audit of screening bias: how a model that decides which job a bio des
 
 - **Accuracy.** The share of bios for which the decision is the true job. For a recruiter: of 100 bios the model sorts, how many go to the right search.
 - **Macro-F1.** The F1 score of each job averaged over the 28 jobs, so small jobs count as much as large ones. For a recruiter: whether the model also works for the rare jobs, not only for the common ones.
-- **True positive rate (TPR).** Among the qualified candidates of a job, the share the model passes on. For a recruiter: of 100 qualified surgeons, how many the search shows.
-- **TPR gap and RMS TPR gap.** The TPR gap of a job is the TPR of women minus the TPR of men; above 0 the model favours women. The RMS TPR gap is the root mean square of the 28 jobs' gaps, one number for the gender gap whichever gender is favoured. For a recruiter: how far the search is from showing the same share of qualified women and qualified men; shuffling the genders at random gives a gap of about 0.04.
+- **True positive rate (TPR).** Among the qualified candidates of a job, the share the model shortlists. For a recruiter: of 100 qualified surgeons, how many the search shows.
+- **TPR gap and RMS TPR gap.** The TPR gap of a job is the TPR of women minus the TPR of men; above 0 the model favours women. The RMS TPR gap is the root mean square of the 28 jobs' gaps, one number for the gender gap whichever gender is favoured. For a recruiter: how far the search is from showing the same share of qualified women and qualified men; shuffling the genders at random gives a gap of about 0.04. The RMS TPR gap is a typical size of the per-job difference between the two shares: 0.148 means about 15 points on a typical job. The main model's gap is 0.148 on the full test set, and 0.143 on the test bios outside the showcase subset, which the mitigation uses.
 
 Intervals are 95% bootstrap intervals over the test bios (1,000 resamples). They do not cover the variation between training runs.
 
@@ -68,18 +69,18 @@ All of the test split. The gender gap is the RMS TPR gap; the last two rows scor
 | Scrubbed model, raw bios | 83.6 [83.4, 83.8] | 0.779 [0.775, 0.784] | 0.113 [0.102, 0.138] |
 | Scrubbed model, scrubbed bios | 83.7 [83.4, 83.9] | 0.778 [0.774, 0.783] | 0.118 [0.104, 0.143] |
 
-The main model, per job, for the six jobs studied in detail. "Passed on" is the TPR: of 100 qualified women and of 100 qualified men, how many the model passes on. The gap is women minus men, in points.
+The main model, per job, for the six jobs studied in detail. "Shortlisted" is the TPR: of 100 qualified women and of 100 qualified men, how many the model shortlists. The gap is women minus men, in points.
 
-| Job | Qualified women | Qualified men | Women passed on, of 100 | Men passed on, of 100 | Gap, in points |
+| Job | Qualified women | Qualified men | Women shortlisted, of 100 | Men shortlisted, of 100 | Gap, in points |
 |---|---|---|---|---|---|
 | surgeon | 504 | 2,894 | 56.0 [51.8, 60.4] | 75.7 [74.2, 77.1] | -19.7 [-24.0, -14.9] |
 | software engineer | 273 | 1,455 | 73.6 [67.9, 78.9] | 73.5 [71.1, 75.9] | +0.2 [-5.7, +6.0] |
 | composer | 230 | 1,171 | 87.8 [83.6, 92.3] | 87.1 [85.1, 89.0] | +0.7 [-4.2, +5.6] |
 | dietitian | 918 | 71 | 84.4 [81.8, 86.6] | 59.2 [47.8, 69.7] | +25.3 [+14.3, +37.1] |
 | nurse | 4,304 | 434 | 84.1 [83.0, 85.2] | 73.3 [69.3, 77.1] | +10.8 [+6.8, +15.2] |
-| model | 1,550 | 324 | 86.1 [84.4, 87.9] | 42.6 [37.3, 48.2] | +43.5 [+37.7, +48.8] |
+| fashion model | 1,550 | 324 | 86.1 [84.4, 87.9] | 42.6 [37.3, 48.2] | +43.5 [+37.7, +48.8] |
 
-What this means: of 100 qualified women surgeons the model passes on 56, and of 100 men 76, so a recruiter searching for surgeons sees fewer of the qualified women. For nurses it is the other way round, and in the job "model" it passes on 86 of 100 women and 43 of 100 men. Software engineer and composer show no gap that this data can tell from zero. The more a job is held by one gender, the more the model favours that gender (correlation 0.85, 95% interval 0.71 to 0.93 over the 28 jobs). The gaps of all 28 jobs are in `results/metrics_deberta.json`, and the other results are in [results.md](results.md).
+What this means: of 100 qualified women surgeons the model shortlists 56, and of 100 men 76, so a recruiter searching for surgeons sees fewer of the qualified women. For nurses it is the other way round, and in the job "fashion model" it shortlists 86 of 100 women and 43 of 100 men. Software engineer and composer show no gap that this data can tell from zero. The more a job is held by one gender, the more the model favours that gender (correlation 0.85, 95% interval 0.71 to 0.93 over the 28 jobs). The gaps of all 28 jobs are in `results/metrics_deberta.json`, and the other results are in [results.md](results.md).
 
 ## Ethical considerations
 
@@ -88,7 +89,7 @@ What this means: of 100 qualified women surgeons the model passes on 56, and of 
 - **A fairness measurement is not a certificate.** A job platform that ranks candidates with a model falls under the EU AI Act as a high-risk system (Annex III). This audit shows how a gap can be measured and explained; it does not show that a model is fit for that use.
 - **A first fix is not a cure.** Removing the pronouns narrows the gap by about a fifth and leaves most of it ([results.md](results.md#f7-does-removing-the-cues-close-the-gap)). I would not present it as making the screener fair.
 - **Gap and accuracy do not move together.** The more accurate model is not clearly the fairer one.
-- **The LLM's stated reasons are not its causes.** The audit reads them, and does not take them as an account of what drove the answer.
+- **The LLM's stated reasons are not its causes.** The reason comes before the decision in the answer, so it is not written afterwards to justify it. The audit still reads it as text, not as an account of what drove the decision.
 - Real client data is not used anywhere in the project.
 
 ## Caveats and limitations
@@ -107,6 +108,6 @@ I audited this model from outside, as a black box. Full results are in [results.
 
 - **Identity.** Ternary Bonsai 2 9B by Prism ML: a 2-bit ternary version of Qwen3.5-9B (`Qwen/Qwen3.5-9B`). File `Ternary-Bonsai-2-9B-PQ2_0-MTP-Q8_0.gguf` from `prism-ml/Ternary-Bonsai-2-9B-gguf` on Hugging Face, Apache-2.0 licence. Served on the laptop by llama-swap with a llama.cpp fork from Prism ML, under the name `pc-equilibrado`.
 - **Settings.** Temperature 0, seed 42, thinking off, presence penalty 0, at most 400 tokens. For a job ad and a bio it answers `{"reason": ..., "decision": "yes" or "no"}`. The prompts and job ads are in `prompts/`.
-- **What I measured.** 600 profiles, 100 for each of the six jobs: 70 qualified candidates and 30 who are not. Each goes through eleven presentations (arms): the bio alone, a neutral ID line, the pronouns swapped, and a name from each of four origin groups, for each gender. Of 100 qualified candidates it says yes to 59 with no header (interval 55 to 64). The primary contrast, a woman's name minus a man's name, is -0.5 points (interval -4.7 to +3.5), so this data shows no reaction to gender, though the interval is wide. Any name at all lowers the yes-rate by 6.0 points against no name (interval 2.1 to 10.1), a lead I did not plan for. Rewording the instruction moves the yes-rate to 47 and 39 of 100.
+- **What I measured.** 600 profiles, 100 for each of the six jobs: 70 qualified candidates and 30 who are not. Each goes through eleven presentations (arms): the bio alone, a neutral ID line, the pronouns swapped, and a name from each of four origin groups, for each gender. Of 100 qualified candidates it says yes to 59 with no header (interval 55 to 64). The primary contrast, a woman's name minus a man's name, is -0.5 points (interval -4.7 to +3.5), so this data shows no gap of 5 points or more, and the interval is wide. The contrast pools the six jobs, so effects of opposite sign in different jobs could cancel. Any name at all lowers the yes-rate by 6.0 points against no name (interval 2.1 to 10.1), a lead I did not plan for, and a confounded one: some bios already contain a name, for example a profile that opens with "Mrs." and a full name, and adding a name sometimes changes the pronouns. Rewording the instruction moves the yes-rate to 47 and 39 of 100.
 - **Cost.** 8,167 calls in 2.99 hours on the laptop.
 - **Limits.** One model, one prompt, six jobs, 180 profiles that are not qualified. A gap of one or two points could hide in these intervals.

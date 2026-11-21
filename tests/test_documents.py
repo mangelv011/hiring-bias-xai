@@ -8,7 +8,7 @@ WRITTEN = [
     *sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "docs").glob("*.md")),
     *sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "docs" / "decisions").glob("*.md")),
 ]
-SHOWCASE = ["surgeon", "software engineer", "composer", "dietitian", "nurse", "model"]
+SHOWCASE = ["surgeon", "software engineer", "composer", "dietitian", "nurse", "fashion model"]
 
 
 def _read(name):

@@ -26,7 +26,7 @@ Three screeners. The first two satisfy the `Classifier` interface; the LLM answe
 - Expensive explanations run on the showcase subset, not on the whole test set.
 - A new classifier, such as a mitigated variant, only needs `labels` and `predict_proba`; fairness and counterfactual code do not change.
 
-## Update: how the main model was trained (issue #4)
+## Update: how the main model was trained
 
 Numbers are in `results/metrics_deberta.json` and `results/training_log.csv`.
 
@@ -44,9 +44,9 @@ Numbers are in `results/metrics_deberta.json` and `results/training_log.csv`.
 
 **Bias.** RMS TPR gap is 0.1476 [0.1342, 0.1715] for the main model and 0.1666 [0.1506, 0.1895] for the baseline model. The intervals overlap, so the data do not show that either model is fairer.
 
-## Update: attribution moved to Shapley values (issue #6)
+## Update: attribution moved to Shapley values
 
-The context and the alternatives above name Integrated Gradients as the explanation that needs gradients. Issue #6 replaced it with word-level Shapley values. The reasons and the alternatives are in [ADR 0003](0003-shapley-attribution.md). The choice of models stands.
+The context and the alternatives above name Integrated Gradients as the explanation that needs gradients. The audit replaced it with word-level Shapley values. The reasons and the alternatives are in [ADR 0003](0003-shapley-attribution.md). The choice of models stands.
 
 ## Outcomes
 

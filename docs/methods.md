@@ -10,7 +10,7 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 **Why it fits.** Some jobs have few bios of one gender: the test split holds 71 men dietitians. A gap measured on so few needs an interval. The shuffle gives a yardstick for the overall gap without assuming a distribution.
 
-**How to read it.** In [F1](results.md#f1-the-gap-follows-the-share-of-women) every dot is one job's gap, the share of qualified women passed on minus the share of qualified men, with its interval. When the interval includes 0, this data cannot tell that gap from zero; that does not make it zero. The overall gap is compared with the 95th percentile of the shuffled gaps, which is about 0.05.
+**How to read it.** In [F1](results.md#f1-the-gap-follows-the-share-of-women) every dot is one job's gap, the share of qualified women shortlisted minus the share of qualified men, with its interval. When the interval includes 0, this data cannot tell that gap from zero; that does not make it zero. The overall gap is compared with the 95th percentile of the shuffled gaps, which is about 0.05.
 
 **Pitfalls.** The intervals cover the choice of test bios and nothing else: each model has one training run, and the Shapley values have their own sampling noise. 1,000 shuffles cannot give a p-value below 1 in 1,001. Overlapping intervals do not show that two models are equally fair.
 
@@ -18,7 +18,7 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 ## Shapley attribution with permutation sampling
 
-**What it does.** It splits a bio's score for its job among its words. A word's value is the amount it adds to the score, averaged over many orders in which the words could be revealed, starting from an empty bio. The values add up exactly to the score of the full bio minus the score of the empty one. I use 40 random orders per bio, each also read backwards, and "absent" means the word is deleted.
+**What it does.** This is SHAP at the level of words: the same Shapley values that the SHAP library estimates, with the permutation estimator its PermutationExplainer uses. It splits a bio's score for its job among its words. A word's value is the amount it adds to the score, averaged over many orders in which the words could be revealed, starting from an empty bio. The values add up exactly to the score of the full bio minus the score of the empty one. I use 40 random orders per bio, each also read backwards, and "absent" means the word is deleted. I did not use the library because its text masker hides a word with a mask token, while I delete it, and F5 shows that hiding a word with `[UNK]` changes the ranking a lot (rank correlation 0.47).
 
 **Why it fits.** A bio has no neutral version to compare against, and DeBERTa-v3 was not pretrained with a mask token, so methods that need a blank reference misbehave. Shapley values only need the model's outputs on bios with words removed, and their exact addition is what lets the gap decomposition below work.
 
@@ -32,7 +32,7 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 **What it does.** For one job it takes the main model's average score for that job in women's bios minus the average in men's bios. Because Shapley values add up exactly, this gap splits into one part per word: how much more, or less, that word adds in women's bios than in men's, counting 0 where the word is missing. Each part also splits into usage and weight: how often the genders use the word, and how differently the model weighs it.
 
-**Why it fits.** The question is why the screener passes on women and men at different rates. The decomposition answers it in words, and the sum of the parts is checked against the gap to float precision.
+**Why it fits.** The question is why the screener shortlists women and men at different rates. The decomposition answers it in words, and the sum of the parts is checked against the gap to float precision.
 
 **How to read it.** [F3](results.md#f3-which-words-make-up-the-gap-between-women-and-men) lists the ten words with the largest part for two jobs, gender words in the highlight colour. The gender words' total is the part of the gap that pronouns and titles account for. Shares can pass 100% when other words pull the other way.
 
@@ -54,19 +54,19 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 ## Deletion curves and stability checks
 
-**What it does.** A deletion curve removes a bio's words step by step, up to half of them, in three orders: highest Shapley value first (MoRF), lowest first (LeRF) and at random. It follows how far the score of the true job falls. The stability checks compare the ranking of the main run with a rerun under another seed, with `[UNK]` in place of deleted words, and with leave-one-out (remove one word at a time).
+**What it does.** A deletion curve removes a bio's words step by step, up to half of them, in three orders: highest Shapley value first, lowest first and at random. It follows how far the score of the true job falls. The stability checks compare the ranking of the main run with a rerun under another seed, with `[UNK]` in place of deleted words, and with leave-one-out (remove one word at a time).
 
 **Why it fits.** Everything above rests on Shapley values, so I first test whether they point at words the model really relies on and whether the ranking survives reasonable changes.
 
 **How to read it.** [F5](results.md#f5-can-the-explanations-be-trusted) panel a: removing the top words first should hurt most and removing the least useful first should hurt least. Panel b: the rank correlation and the shared top-10 words between two ways of computing the same thing; 1 means the same order.
 
-**Pitfalls.** The check removes words with `[UNK]`, which the baseline model's word counts read almost like a deletion, so for that model it partly repeats the Shapley run. Weight randomization and retraining-based checks are not run. The stability comparisons use 100 bios for two of the three alternatives.
+**Pitfalls.** The check removes words with `[UNK]`, which the baseline model's word counts read almost like a deletion, so for that model it partly repeats the Shapley run. A check that scrambles all the weights is run (see [F5](results.md#f5-can-the-explanations-be-trusted)); retraining-based checks are not. The stability comparisons use 100 bios for two of the three alternatives.
 
 **Script and ADR.** `scripts/deletion_curves.py`, `scripts/stability_runs.py` (the reruns) and `scripts/stability.py` (leave-one-out and the comparison). Recorded in [ADR 0003](decisions/0003-shapley-attribution.md).
 
 ## Linear probing
 
-**What it does.** A probe is a logistic regression that tries to guess gender from the model's internal representation of a bio at one layer. It learns on 10,000 training bios without pronouns and is scored on the 1,721 showcase bios.
+**What it does.** Linear probing looks for a concept, here gender, in the model's activations, layer by layer. A probe is a logistic regression that tries to guess gender from the model's internal representation of a bio at one layer. It learns on 10,000 training bios without pronouns and is scored on the 1,721 showcase bios.
 
 **Why it fits.** Scrubbing the pronouns is the usual first fix, so the question is whether gender is still in the model afterwards. A linear probe keeps the claim modest: what a straight line can read, a later layer can read too.
 
@@ -80,9 +80,9 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 **What it does.** It takes a bio and its gender swap, runs the swapped bio, and copies in the model's internal state from the original bio at one layer, at the swapped words only and then at all the other words. The restored share is how much of the original score comes back: 100% is all of it.
 
-**Why it fits.** A probe is descriptive. Patching is causal: it shows where the effect of the swap sits and how fast it moves away from the swapped words.
+**Why it fits.** A probe only says that gender is readable. Patching shows where in the bio the swap's effect sits, at the gender words or at other positions, and how fast it moves away from the swapped words.
 
-**How to read it.** [F6](results.md#f6-gender-inside-the-model) panel b: two curves over the layers. Early on the swapped words carry the effect; by layer 5 the other words do. The two ends are fixed by the model's design (embeddings and last layer) and are not findings.
+**How to read it.** [F6](results.md#f6-gender-inside-the-model) panel b: two curves over the layers. Early on the effect sits at the swapped words; by layer 5 it sits at the other positions. The two ends are fixed by the model's design (embeddings and last layer) and are not findings.
 
 **Pitfalls.** Patching shows that the states are sufficient to restore the effect, not that they are needed. It covers only the 168 bios the swap moves most, and only the main model. Pairs whose swap changes the number of tokens are dropped. The reverse direction is not run.
 
@@ -90,9 +90,9 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 ## Scrubbed retraining and proxy-word masking
 
-**What it does.** Scrubbed retraining trains a second model with the main model's recipe on bios without pronouns and titles. Proxy-word masking deletes, at scoring time, the few non-gendered words that one gender uses much more than the other and that push the gap the way pronouns do. Five mitigation conditions pair a model with a test text, and each is scored on the same bios.
+**What it does.** Scrubbed retraining trains a second model with the main model's recipe on bios without pronouns and titles. Proxy-word masking deletes, at scoring time, the few non-gender words that one gender uses much more than the other and that push the gap the way pronouns do. Five mitigation conditions pair a model with a test text, and each is scored on the same bios.
 
-**Why it fits.** The decomposition says the gap has two parts, pronouns and other words, and each fix acts on one of them.
+**Why it fits.** The decomposition says the gap has two parts, pronouns and other words, and each fix acts on one of them. Of the two ways to scrub, I recommend training and scoring on scrubbed bios (d) over scoring raw bios with the scrubbed model (c). Their gaps differ by less than their intervals, and 99% of the bios hold at least one gender word. In (c) these words reach a model that never saw one; in (d) none does.
 
 **How to read it.** [F7](results.md#f7-does-removing-the-cues-close-the-gap) shows the gap and macro-F1 of each condition against the original model, with the band that shuffled genders give. The change from the original is computed on the same resampled bios, which is why its interval is narrow.
 
@@ -108,6 +108,6 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 **How to read it.** [F8](results.md#f8-does-an-llm-screener-react-to-names) shows each arm's change in the yes-rate from the no-header arm, against a grey band for the noise floor. An arm inside the band has not been shown to differ from rewording noise. The model also writes a reason with each answer; the audit counts how often the reasons of changed decisions mention name, origin or gender.
 
-**Pitfalls.** One model, one prompt, six jobs. The manipulation check found the model cannot tell Spanish from Hispanic American names, so the two groups are merged. The pooled comparison of all names with no header was added after seeing the arms, so it is a lead. The 50 reasons were labelled by one reader, who also wrote the keyword rule. A null result here means gaps of 5 points or more are ruled out, not smaller ones.
+**Pitfalls.** One model, one prompt, six jobs. The manipulation check found the model cannot tell Spanish from Hispanic American names, so the two groups are merged. The pooled comparison of all names with no header was added after seeing the arms, so it is a lead, and a confounded one: some bios already contain a name, and adding a name sometimes changes the pronouns. The pooled contrast of women's and men's names sums over jobs, so effects of opposite sign in different jobs could cancel. The 50 reasons were labelled by one reader, who also wrote the keyword rule. A null result here means no gap of 5 points or more, not that there is no gap.
 
 **Script and ADR.** `scripts/llm_names.py`, `scripts/llm_name_check.py`, `scripts/llm_pilot.py`, `scripts/llm_run.py` and `scripts/llm_analyse.py`. Recorded in [ADR 0008](decisions/0008-llm-audit.md).
