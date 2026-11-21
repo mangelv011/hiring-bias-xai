@@ -273,8 +273,8 @@ def test_the_two_measures_are_named_next_to_the_data_and_zero_is_marked(figure):
     assert any(list(line.get_xdata()) == [0, 0] for line in bottom.lines)
 
 
-def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
-    assert figure.get_size_inches()[0] == 3.3
+def test_the_figure_is_3_3_by_4_4_inches_so_it_fits_a_column_at_report_size(figure):
+    assert tuple(figure.get_size_inches()) == (3.3, 4.4)
     texts = [t for t in figure.findobj(matplotlib.text.Text) if t.get_text().strip()]
     assert min(t.get_fontsize() for t in texts) >= 7
 
