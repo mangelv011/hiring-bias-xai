@@ -423,3 +423,10 @@ def test_the_readme_layout_lists_the_report_and_the_prompts_and_the_run_note_is_
     layout = _readme_section("Repository layout")
     assert "report/" in layout and "prompts/" in layout
     assert "uv run python scripts/<name>.py" in _readme_section("How to run")
+
+
+def test_every_figure_in_the_report_prints_at_its_true_size():
+    # a figure drawn 3.03 in wide scaled to the column would print its 7 pt text smaller
+    widths = re.findall(r"\includegraphics\[width=([^\]]*)\]", _read("report/main.tex"))
+    assert len(widths) == 8
+    assert set(widths) == {r"\columnwidth"}

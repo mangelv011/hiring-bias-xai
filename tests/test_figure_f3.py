@@ -245,9 +245,9 @@ def test_the_x_axis_names_the_quantity_and_its_unit(figure):
         assert ax.get_xlabel() == "Women-minus-men gap contribution (score points)"
 
 
-def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
+def test_the_figure_is_3_03_inches_wide_and_no_text_is_below_7_pt(figure):
     # guard: the style sets 7 pt and new_figure's width; this pins both for F3
-    assert figure.get_size_inches()[0] == 3.3
+    assert figure.get_size_inches()[0] == plotting.WIDTH_INCHES == 3.03
     texts = [t for t in figure.findobj(matplotlib.text.Text) if t.get_text().strip()]
     assert texts
     assert min(t.get_fontsize() for t in texts) >= 7

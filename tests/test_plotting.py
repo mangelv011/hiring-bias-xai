@@ -52,7 +52,7 @@ def test_new_figure_is_single_column_wide_with_readable_text_and_open_spines():
         ax.set_ylabel("y")
         ax.text(0.5, 0.5, "note")
         fig.canvas.draw()
-        assert tuple(fig.get_size_inches()) == (3.3, 2.5)
+        assert tuple(fig.get_size_inches()) == (3.03, 2.5)
         assert not ax.spines["top"].get_visible()
         assert not ax.spines["right"].get_visible()
         assert not ax.xaxis.get_gridlines()[0].get_visible()
