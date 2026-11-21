@@ -170,6 +170,14 @@ def test_the_note_sits_below_the_axes_and_does_not_cover_the_noise_band(figure):
     assert not note.get_window_extent().overlaps(band.get_window_extent())
 
 
+def test_the_zero_line_does_not_cross_the_noise_floor_label(figure):
+    ax = _ax(figure)
+    (label,) = [t for t in ax.texts if t.get_text() == "noise floor"]
+    (zero,) = [line for line in ax.lines if list(line.get_xdata()) == [0, 0]]
+    assert not label.get_window_extent().overlaps(zero.get_window_extent())
+    assert zero.get_window_extent().y0 <= ax.get_window_extent().y0 + 1  # it still spans the dots
+
+
 def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qualified(figure):
     ax = _ax(figure)
     labels = [t.get_text() for t in ax.get_yticklabels()]

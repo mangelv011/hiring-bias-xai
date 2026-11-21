@@ -220,7 +220,7 @@ def test_the_title_is_one_sentence_of_at_most_two_lines_with_both_pushes(figure)
     # Gendered sum of the woman's bio: She 2.0 + her 1.2 = 3.2. Of the man's: He 0.5 + his 1.0.
     text, lines = _title_lines(figure)
     assert text == (
-        "Gender words raised the score of a wrong job by 3.2 points for a woman and 1.5 for a man."
+        "Gender words added 3.2 score points to a wrong job for a woman and 1.5 for a man."
     )
     assert lines <= 2
 
@@ -229,14 +229,14 @@ def test_the_title_says_which_group_has_no_case(f2):
     woman = _case(f2, ["she", "x"], [2.0, 1.0])
     only_woman, lines = _title_lines(f2.build(woman, None))
     assert only_woman == (
-        "Gender words raised the score of a wrong job by 2.0 points for a woman; "
+        "Gender words added 2.0 score points to a wrong job for a woman; "
         "no misclassified man qualified."
     )
     assert lines <= 2
     man = _case(f2, ["he", "x"], [3.0, 1.0], gender="male")
     only_man, lines = _title_lines(f2.build(None, man))
     assert only_man == (
-        "Gender words raised the score of a wrong job by 3.0 points for a man; "
+        "Gender words added 3.0 score points to a wrong job for a man; "
         "no misclassified woman qualified."
     )
     assert lines <= 2
