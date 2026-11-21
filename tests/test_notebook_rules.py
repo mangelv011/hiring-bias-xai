@@ -23,6 +23,8 @@ def code(source):
         "Hooker et al. (2019) needs retraining.",
         "The script `scripts/figure_f3.py` writes `results/f3_panels.json`.",
         "The macro-F1 averages over jobs.",
+        "Macro-F1 heads the column.",
+        "The main model is DeBERTa-v3-small.",
         "No digits at all.",
     ],
 )
@@ -42,6 +44,8 @@ def test_allowed_text_has_no_numbers(text):
         ("Figure F10 shows it.", "F10"),
         ("See ADR 3.", "3."),
         ("The F1 of 0.7.", "0.7."),
+        ("The micro-F1 of the model.", "micro-F1"),
+        ("DeBERTa-v4 is another model.", "DeBERTa-v4"),
         ("The file notes 5.txt has it.", "5.txt"),
     ],
 )
