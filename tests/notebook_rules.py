@@ -18,10 +18,12 @@ ALLOWED = re.compile(
 )
 NUMBER_WORDS = (
     r"\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty"
-    r"|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million)\b"
+    r"|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million|half|twice|double|triple|quarter)\b"
 )
 SCALES = {0, 1, 100}
 READERS = {"read_json", "read_csv", "show_figure"}
+PROSE_CALLS = {"say", "Markdown"}
+FILE_LIKE = re.compile(r"[\w./-]+\.(?:json|jsonl|csv|png)")
 
 
 def source(cell):
@@ -34,6 +36,18 @@ def loose_numbers(text):
     return re.findall(rf"\S*\d\S*|{NUMBER_WORDS}", ALLOWED.sub(" ", text), re.IGNORECASE)
 
 
+def _literals(node):
+    """The string pieces that are written out in an argument: not those inside {expressions}."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        yield node
+    elif isinstance(node, ast.JoinedStr):
+        for part in node.values:
+            yield from _literals(part)
+    elif isinstance(node, ast.BinOp):
+        yield from _literals(node.left)
+        yield from _literals(node.right)
+
+
 def _fragments(tree):
     """(line, column, token) for every typed number in the code of one cell."""
     in_spec = {
@@ -42,13 +56,22 @@ def _fragments(tree):
         if isinstance(node, ast.FormattedValue) and node.format_spec
         for inner in ast.walk(node.format_spec)
     }
+    in_prose = {
+        id(literal)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in PROSE_CALLS
+        for argument in node.args
+        for literal in _literals(argument)
+    }
     found = []
     for node in ast.walk(tree):
         if (
             isinstance(node, ast.Constant)
             and isinstance(node.value, str)
             and id(node) not in in_spec
-            and any(c.isspace() for c in node.value)
+            and (id(node) in in_prose or any(c.isspace() for c in node.value))
         ):
             found += [(node.lineno, node.col_offset, t) for t in loose_numbers(node.value)]
         if isinstance(node, ast.FormattedValue):
@@ -103,3 +126,18 @@ def result_reads(nb):
 def prints(nb):
     """The cells that call print; all prose goes through Markdown."""
     return sorted({index for index, _ in _calls(nb, {"print"})})
+
+
+def result_literals(nb):
+    """Every string in the code that names a result file, whether or not a reader opens it."""
+    names = []
+    for cell in nb["cells"]:
+        if cell["cell_type"] == "code":
+            for node in ast.walk(ast.parse(source(cell))):
+                if (
+                    isinstance(node, ast.Constant)
+                    and isinstance(node.value, str)
+                    and FILE_LIKE.fullmatch(node.value)
+                ):
+                    names.append(node.value)
+    return names
