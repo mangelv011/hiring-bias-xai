@@ -73,14 +73,14 @@ tests/                 pytest suite, run by CI on every pull request
 
 ## Which script makes which figure
 
-Each figure is drawn from small files in `results/`. This table names the script that computes them and the one that draws the figure.
+For each figure: the script that computes the result, the file it writes and the script that draws the figure. F2 also reads the per-bio Shapley files kept in `HBX_ARTIFACTS`.
 
 | Figure | Result | Computed by | Writes | Drawn by |
 |---|---|---|---|---|
-| F1 | TPR gap by job | [`gap_statistics`](scripts/gap_statistics.py) | [`gap_statistics.json`](results/gap_statistics.json) | [`figure_f1`](scripts/figure_f1.py) |
-| F2 | Shapley values of one decision | [`shapley_run`](scripts/shapley_run.py) | [`shapley_summary.json`](results/shapley_summary.json) | [`figure_f2`](scripts/figure_f2.py) |
-| F3 | Gap decomposition by word | [`gap_decomposition`](scripts/gap_decomposition.py) | [`gap_decomposition.csv`](results/gap_decomposition.csv) | [`figure_f3`](scripts/figure_f3.py) |
-| F4 | Counterfactual swap | [`counterfactual_gender`](scripts/counterfactual_gender.py) | [`counterfactual_gender.csv`](results/counterfactual_gender.csv) | [`figure_f4`](scripts/figure_f4.py) |
+| F1 | Gap between women and men, by job | [`gap_statistics`](scripts/gap_statistics.py) | [`gap_statistics.json`](results/gap_statistics.json) | [`figure_f1`](scripts/figure_f1.py) |
+| F2 | Word scores of single decisions | [`shapley_run`](scripts/shapley_run.py) | [`shapley_summary.json`](results/shapley_summary.json) | [`figure_f2`](scripts/figure_f2.py) |
+| F3 | Which words make the gap | [`gap_decomposition`](scripts/gap_decomposition.py) | [`gap_decomposition.csv`](results/gap_decomposition.csv) | [`figure_f3`](scripts/figure_f3.py) |
+| F4 | Swapping gender words | [`counterfactual_gender`](scripts/counterfactual_gender.py) | [`counterfactual_gender.csv`](results/counterfactual_gender.csv) | [`figure_f4`](scripts/figure_f4.py) |
 | F5 | Explanation check | [`deletion_curves`](scripts/deletion_curves.py), [`stability`](scripts/stability.py) | [`deletion_curves.csv`](results/deletion_curves.csv), [`stability.json`](results/stability.json) | [`figure_f5`](scripts/figure_f5.py) |
 | F6 | Probing and patching | [`probing`](scripts/probing.py), [`patching`](scripts/patching.py) | [`probing.csv`](results/probing.csv), [`patching.csv`](results/patching.csv) | [`figure_f6`](scripts/figure_f6.py) |
 | F7 | Mitigation | [`mitigation`](scripts/mitigation.py) | [`mitigation.json`](results/mitigation.json) | [`figure_f7`](scripts/figure_f7.py) |
