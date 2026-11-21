@@ -277,3 +277,38 @@ def test_the_report_says_the_stated_reasons_were_sorted_by_a_keyword_rule():
     assert "by a keyword rule (82\% in a hand check of 50) give a reason" in report
     assert "was decided by a keyword rule, checked by hand on 50 cases (90\% agreement)" in report
     assert "labelled by one reader" not in report
+
+
+def test_the_model_card_does_not_vouch_for_the_data_it_never_saw():
+    assert "Real client data" not in _read("docs/model_card.md")
+
+
+def test_the_mitigation_record_scopes_leace_out_of_the_audit_not_an_issue():
+    text = _read("docs/decisions/0007-mitigation.md")
+    assert "out of scope for this audit" in text
+    assert "out of scope for this issue" not in text
+
+
+def test_the_models_record_says_what_was_done_with_the_explanations_and_the_llm():
+    text = _read("docs/decisions/0002-models.md")
+    head = text.split("## Consequences")[0]
+    assert "Integrated Gradients" not in head
+    assert "with counterfactual swaps only" not in head
+    for phrase in (
+        "Shapley attribution",
+        "hidden states for probing",
+        "name headers and pronoun swaps",
+    ):
+        assert phrase in head
+
+
+def test_the_results_page_reads_freeones_as_a_possible_trace_and_separates_the_breakdown():
+    results = _read("docs/results.md")
+    assert "may reflect" in results and "likely spurious correlation" not in results
+    assert "not the effect of changing the words" in results
+
+
+def test_the_results_page_explains_why_condition_a_differs_from_the_first_table():
+    text = " ".join(_read("docs/results.md").split())
+    assert "(0.148 against 0.147; dietitian 25 against 24 points)" in text
+    assert "scored in batches of 4 instead of 64" in text
