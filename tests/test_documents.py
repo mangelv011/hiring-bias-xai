@@ -134,3 +134,58 @@ def test_a_defined_term_is_not_listed_as_one_to_avoid():
 def test_the_terms_the_docs_use_for_the_gap_are_not_avoided():
     avoided = {word.lower() for words in _glossary().values() for word in words}
     assert "gender gap" not in avoided
+
+
+def _readme_section(title):
+    return _sections(_read("README.md"))[title]
+
+
+def test_the_readme_is_a_landing_page_of_about_its_current_length():
+    assert len(_read("README.md").splitlines()) <= 120
+
+
+def test_key_findings_has_at_most_one_bullet_per_finding():
+    readme = _read("README.md")
+    assert "## Key findings\n" in readme and "so far" not in readme
+    bullets = re.findall(r"(?m)^- \*\*", _readme_section("Key findings"))
+    assert 1 <= len(bullets) <= 8
+    labels = re.findall(r"\[F([1-8])\]\(", _readme_section("Key findings"))
+    assert len(labels) == len(set(labels))
+
+
+def test_every_row_of_what_the_audit_does_is_done():
+    rows = [
+        line
+        for line in _readme_section("What the audit does").splitlines()
+        if line.startswith("| ") and not line.startswith(("| Question", "|---"))
+    ]
+    assert len(rows) == 8
+    assert all(row.endswith("| Done |") for row in rows)
+
+
+def test_the_repository_map_lists_the_notebook_the_model_card_and_the_methods_page():
+    layout = _readme_section("Repository layout")
+    for path in ("notebooks/", "docs/model_card.md", "docs/methods.md"):
+        assert path in layout
+
+
+def test_how_to_run_gives_a_time_or_not_recorded_for_every_step():
+    section = _readme_section("How to run")
+    rows = [
+        line
+        for line in section.splitlines()
+        if line.startswith("| ") and not line.startswith(("| Step", "|---"))
+    ]
+    assert len(rows) >= 8
+    for row in rows:
+        cells = [cell.strip() for cell in row.strip("|").split("|")]
+        assert len(cells) == 3 and cells[2], row
+    commands = set(re.findall(r"`scripts/(\w+\.py)", section))
+    checks = {"check_deuteranopia.py", "check_docs.py"}
+    assert commands == {p.name for p in (ROOT / "scripts").glob("*.py")} - checks
+
+
+def test_the_readme_cites_the_data_the_model_the_name_lists_and_the_llm():
+    cite = _readme_section("Cite")
+    for name in ("De-Arteaga", "DeBERTa", "INE", "Bonsai"):
+        assert name in cite
