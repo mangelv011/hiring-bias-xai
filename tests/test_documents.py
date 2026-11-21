@@ -247,5 +247,33 @@ def test_the_report_says_the_intervals_are_too_wide_to_separate_what_it_compares
     assert "these per-job intervals overlap, so only the overall cut is established" in report
     assert "but each interval reaches about 7 to 8 points either side of its estimate" in report
     assert "so a smaller difference could not be seen" in report
-    assert "the intervals overlap, so I find no reaction to gender beyond the edit" in report
+    assert "The intervals overlap, so I find no reaction to gender beyond the edit" in report
     assert "would not show" in report
+
+
+def test_the_report_gives_the_surgeon_gap_as_a_breakdown_and_says_so_once():
+    report = _report()
+    assert "net score gap is small" in report
+    assert report.count("a breakdown of the score, not the effect of changing the words") == 1
+
+
+def test_the_report_reads_freeones_as_a_possible_trace_of_the_work_or_the_site():
+    report = _report()
+    assert "It says nothing about the person's work" not in report
+    assert "\paragraph{A gendered shortcut found with the explanations.}" in report
+    assert "may reflect the work or where the bio was published" in report
+    assert "I cannot tell which" in report
+    assert "it may reflect the work or where some bios were published" in report
+
+
+def test_the_report_says_the_mitigation_gap_averages_27_jobs():
+    report = _report()
+    assert "dietitian has no men left there, so the gap averages 27 jobs" in report
+    assert "Change in gap vs (a)" in report
+
+
+def test_the_report_says_the_stated_reasons_were_sorted_by_a_keyword_rule():
+    report = _report()
+    assert "by a keyword rule (82\% in a hand check of 50) give a reason" in report
+    assert "was decided by a keyword rule, checked by hand on 50 cases (90\% agreement)" in report
+    assert "labelled by one reader" not in report
