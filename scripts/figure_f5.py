@@ -61,15 +61,6 @@ def title(areas: dict, stability: dict) -> str:
     return f"{lead}, {joiner} {order} on how it is computed."
 
 
-def _spread(positions: list[float], gap: float) -> list[float]:
-    """`positions` moved apart so that neighbours are at least `gap` apart, order kept."""
-    order = sorted(range(len(positions)), key=lambda i: positions[i])
-    spread = list(positions)
-    for previous, current in zip(order, order[1:], strict=False):
-        spread[current] = max(spread[current], spread[previous] + gap)
-    return spread
-
-
 def _deletion_panel(ax, curves: pd.DataFrame) -> None:
     main = curves[curves["screener"] == SCREENER]
     ax.plot([0, LAST_STEP], [0, 0], color=DARK, lw=0.6, label="zero")
@@ -89,7 +80,7 @@ def _deletion_panel(ax, curves: pd.DataFrame) -> None:
         )
         ends.append((rows["fraction"].iloc[-1], rows["mean_logodds_drop"].iloc[-1]))
     span = max(y for _, y in ends) - min(0, min(y for _, y in ends))
-    label_y = _spread([y for _, y in ends], LABEL_GAP * span)
+    label_y = plotting.spread([y for _, y in ends], LABEL_GAP * span)
     for (_, colour, _, label), (x, _), y in zip(CURVES, ends, label_y, strict=True):
         ax.text(x + 0.015, y, label, color=colour, va="center", ha="left")
     ax.set_xticks([0, 0.25, LAST_STEP])

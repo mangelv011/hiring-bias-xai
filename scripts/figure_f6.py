@@ -65,15 +65,6 @@ def title(probing: pd.DataFrame, patching: pd.DataFrame) -> str:
     return f"{readable}, and the swap's effect {where}."
 
 
-def _spread(positions: list[float], gap: float) -> list[float]:
-    """`positions` moved apart so that neighbours are at least `gap` apart, order kept."""
-    order = sorted(range(len(positions)), key=lambda i: positions[i])
-    spread = list(positions)
-    for previous, current in zip(order, order[1:], strict=False):
-        spread[current] = max(spread[current], spread[previous] + gap)
-    return spread
-
-
 def _set_layers(ax, layers: list[int]) -> None:
     ax.set_xticks(layers)
     ax.set_xticklabels(["emb." if layer == 0 else str(layer) for layer in layers])
@@ -101,7 +92,7 @@ def _probe_panel(ax, probing: pd.DataFrame) -> None:
         ends.append((label, DARK, accuracy))
     low, high = rows["ci_low"].min() - 0.02, rows["ci_high"].max() + 0.02
     ax.set_ylim(low, high)
-    label_y = _spread([y for *_, y in ends], LABEL_GAP * (high - low))
+    label_y = plotting.spread([y for *_, y in ends], LABEL_GAP * (high - low))
     for (label, colour, _), y in zip(ends, label_y, strict=True):
         ax.text(layers[-1] + 0.15, y, label, color=colour, va="center", ha="left")
     _set_layers(ax, layers)

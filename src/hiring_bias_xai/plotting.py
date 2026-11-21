@@ -55,6 +55,15 @@ def simulate_deuteranopia(image: np.ndarray) -> np.ndarray:
     return out
 
 
+def spread(positions: list[float], gap: float) -> list[float]:
+    """`positions` moved apart so that neighbours are at least `gap` apart, order kept."""
+    order = sorted(range(len(positions)), key=lambda i: positions[i])
+    moved = list(positions)
+    for previous, current in zip(order, order[1:], strict=False):
+        moved[current] = max(moved[current], moved[previous] + gap)
+    return moved
+
+
 def new_figure(height: float):
     """A single-column figure of the given height in inches, in the project style: (fig, ax)."""
     plt.rcParams.update(STYLE)
