@@ -855,7 +855,7 @@ CELLS: list[Cell] = [
     Cell(REPORT, r"r = ([\d.]+)", GAPS, "main_model.pearson.value", "dec2"),
     Cell(
         REPORT,
-        r"account for ([\d.]+) score points of the women",
+        r"in surgeon bios gender words lower women's scores by ([\d.]+) score points",
         EXPLAINED,
         f"{DEBERTA_SURGEON}.value",
         "abs1",
@@ -1053,6 +1053,13 @@ CELLS: list[Cell] = [
         EXPLAINED,
         f"{DEBERTA_SURGEON}.ci_low",
         "abs2",
+    ),
+    Cell(
+        REPORT,
+        r"net score gap is small \((-[\d.]+), interval",
+        EXPLAINED,
+        f"{DEBERTA_SURGEON_GAP}.value",
+        "signed1",
     ),
     Cell(
         REPORT,
@@ -1481,9 +1488,25 @@ CELLS: list[Cell] = [
     ),
     Cell(
         REPORT,
-        r"(\d+)% give a reason",
+        r"(\d+)% by a keyword rule",
         AUDIT,
         "rationalization.beyond_noise.share_no_mention.value",
+        "per100",
+    ),
+    Cell(
+        REPORT,
+        r"\((\d+)% in a hand check of \d+\)",
+        AUDIT,
+        "rationalization.hand_check.share_no_mention_by_hand.value",
+        "per100",
+    ),
+    Cell(REPORT, r"hand check of (\d+)\)", AUDIT, "rationalization.hand_check.n", "count"),
+    Cell(REPORT, r"checked by hand on (\d+) cases", AUDIT, "rationalization.hand_check.n", "count"),
+    Cell(
+        REPORT,
+        r"\((\d+)% agreement\)",
+        AUDIT,
+        "rationalization.hand_check.agreement.value",
         "per100",
     ),
     Cell(REPORT, r"I ran ([\d,]+) calls in", AUDIT, "run_cost.n_calls", "count"),
@@ -1548,6 +1571,12 @@ ALLOWED: list[Allowed] = [
     Allowed(REPORT, r"yes to 53\b", "the mean of the four female and the four male tpr of arms"),
     Allowed(REPORT, r"gaps of 5 points", "the bounds of the interval of statistics.primary"),
     Allowed(REPORT, r"\b4 GB RTX 3050 GPU", "the laptop"),
+    Allowed(REPORT, r"interval includes 0\)", "the interval of the surgeon score gap spans zero"),
+    Allowed(
+        REPORT,
+        r"gap averages 27 jobs",
+        "28 jobs minus the dietitian of mitigation.json evaluation_set.occupations_left_out_of_gap",
+    ),
     Allowed(
         REPORT,
         r"about 7 to 8 points either side",
