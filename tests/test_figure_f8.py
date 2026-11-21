@@ -145,7 +145,7 @@ def test_the_band_is_the_range_of_the_noise_floor_intervals_in_points(figure):
 def test_the_annotation_says_the_decision_barely_depends_on_the_name_when_no_arm_is_above_noise(
     figure,
 ):
-    text = " ".join(t.get_text() for t in _ax(figure).texts)
+    text = " ".join(" ".join(t.get_text().split()) for t in _ax(figure).texts)
     assert "barely depends on the name" in text
 
 
@@ -155,7 +155,7 @@ def test_the_annotation_gives_the_share_without_a_mention_when_arms_are_above_no
     report["rationalization"]["name_arms_above_noise"] = 2
     fig = f8.build(report)
     fig.canvas.draw()
-    text = " ".join(t.get_text() for t in _ax(fig).texts)
+    text = " ".join(" ".join(t.get_text().split()) for t in _ax(fig).texts)
     assert "40 decision changes beyond noise" in text
     assert "90% (80 to 95)" in text and "does not mention" in text
     plt.close(fig)
