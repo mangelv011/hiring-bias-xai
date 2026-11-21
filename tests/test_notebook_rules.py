@@ -225,3 +225,30 @@ def test_result_literals_lists_every_file_like_string_in_the_code():
         code('f"plot_{n}.png"'),
     )
     assert result_literals(nb) == ["one.json", "two.csv"]
+
+
+@pytest.mark.parametrize(
+    "word",
+    "two three four five six seven eight nine ten eleven twelve twenty thirty forty fifty sixty "
+    "seventy eighty ninety dozen hundred thousand million".split(),
+)
+def test_every_number_word_is_found(word):
+    assert loose_numbers(f"About {word} of them.") == [word]
+
+
+def test_a_decision_record_number_must_have_exactly_four_digits():
+    assert loose_numbers("See ADR 00035.") == ["00035."]
+
+
+def test_a_year_outside_a_citation_is_found_even_after_a_bracket_or_semicolon():
+    assert loose_numbers("a gap of 2018) x") == ["2018)"]
+    assert loose_numbers("x 2018; y") == ["2018;"]
+
+
+def test_a_path_with_directories_and_digits_is_not_a_number():
+    assert loose_numbers("See results/run2/a.json") == []
+
+
+def test_result_reads_follow_the_source_across_blocks_on_different_lines():
+    nb = _nb(code('if x:\n    a = read_json("one.json")\nb = read_json("two.json")'))
+    assert result_reads(nb) == ["one.json", "two.json"]
