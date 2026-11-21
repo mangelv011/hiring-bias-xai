@@ -160,6 +160,7 @@ def test_the_weight_scrambling_result_is_read_from_stability(nb):
 
 
 def test_the_limits_are_five_bullets(nb):
-    (cell,) = _sections(nb)["Limits"]
-    bullets = [line for line in source(cell).splitlines() if line.startswith("- ")]
+    limits = source(nb["cells"][-1])
+    assert limits.startswith("## Limits")
+    bullets = [line for line in limits.splitlines() if line.startswith("- ")]
     assert len(bullets) == 5
