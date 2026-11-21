@@ -959,3 +959,19 @@ def test_commands_and_braces_are_removed_but_their_text_is_kept(tmp_path):
 
 def test_a_percent_in_a_markdown_document_does_not_start_a_comment(tmp_path):
     assert _numbers_of(_numbers(tmp_path, "50 % 7 left\n", [])) == ["50", "7"]
+
+
+def test_the_formats_the_report_uses_for_log_odds_and_counts_out_of_ten():
+    formats = _load().FORMATS
+    assert formats["dec1"](6.9826) == "7.0"
+    assert formats["dec1"](1.5324) == "1.5"
+    assert formats["abs1"](-0.675) == "0.7"
+    assert formats["abs1"](0.675) == "0.7"
+    assert formats["abs2"](-1.2415) == "1.24"
+    assert formats["signed1"](3.2147) == "+3.2"
+    assert formats["signed1"](-0.65) == "-0.7"
+    assert formats["signed2"](0.0801) == "+0.08"
+    assert formats["signed2"](-0.7744) == "-0.77"
+    assert formats["of10"](0.8) == "8"
+    assert formats["hours1"](10773.6) == "3.0"
+    assert formats["hours1"](5400) == "1.5"
