@@ -867,3 +867,95 @@ def test_a_json_path_through_a_number_is_an_error_line_not_a_crash(tmp_path):
     cells = [("README.md", r"is (\d+)", "m.json", "n.deeper", "count")]
     errors = _numbers(tmp_path, "is 1\n", cells, results={"m.json": ACCURACY})
     assert len(errors) == 1 and "n.deeper" in errors[0]
+
+
+REPORT = "report/main.tex"
+
+
+def _report(tmp_path, body, cells=(), allowed=(), results=None, preamble=""):
+    """Run check_numbers on a LaTeX report holding `body` between begin and end document."""
+    module = _load()
+    tex = f"{preamble}\\begin{{document}}\n{body}\\end{{document}}\n"
+    files = {REPORT: tex}
+    files.update({f"results/{name}": content for name, content in (results or {}).items()})
+    root = _repo(tmp_path, files)
+    table = [module.Cell(*cell) for cell in cells]
+    allow = [module.Allowed(*entry) for entry in allowed]
+    return module.check_numbers(root, table, allow, (REPORT,))
+
+
+def _tex_cell(pattern, path, fmt):
+    return (REPORT, pattern, "m.json", path, fmt)
+
+
+def _numbers_of(errors):
+    return [e.split(" number ")[1].split(" ")[0] for e in errors]
+
+
+GAPS = '{"gap": {"value": -0.7712, "low": -1.5432, "high": 0.0801}, "r": 0.8512, "lr": 3e-05}'
+
+
+def test_dollar_signs_around_a_signed_number_are_removed_before_matching(tmp_path):
+    cells = [_tex_cell(r"gap (-[\d.]+) here", "gap.value", "dec2")]
+    assert _report(tmp_path, "gap $-0.77$ here\n", cells, results={"m.json": GAPS}) == []
+    errors = _report(tmp_path / "x", "gap $-0.78$ here\n", cells, results={"m.json": GAPS})
+    assert errors == [f"{REPORT}:2: -0.78 in the text, -0.77 in m.json gap.value"]
+
+
+def test_an_escaped_percent_is_a_percent_sign(tmp_path):
+    cells = [_tex_cell(r"right on ([\d.]+)%", "r", "pct1")]
+    body = "right on 85.1\\% of bios\n"
+    assert _report(tmp_path, body, cells, results={"m.json": GAPS}) == []
+
+
+def test_an_interval_in_math_mode_matches_both_ends(tmp_path):
+    cells = [
+        _tex_cell(r"\[(-[\d.]+),", "gap.low", "dec2"),
+        _tex_cell(r", (\+[\d.]+)\]", "gap.high", "signed2"),
+    ]
+    body = "($-0.77$ [$-1.54$, $+0.08$])\n"
+    errors = _report(tmp_path, body, cells, [(None, r"-0\.77", "the value")], {"m.json": GAPS})
+    assert errors == []
+
+
+def test_a_correlation_written_in_math_mode_is_read(tmp_path):
+    cells = [_tex_cell(r"r = ([\d.]+)", "r", "dec2")]
+    assert _report(tmp_path, "($r = 0.85$)\n", cells, results={"m.json": GAPS}) == []
+
+
+def test_a_power_of_ten_is_read_as_the_written_exponent_form(tmp_path):
+    cells = [_tex_cell(r"rate (3e-5)", "lr", "learning_rate")]
+    body = "rate $3\\times10^{-5}$ chosen\n"
+    assert _report(tmp_path, body, cells, results={"m.json": GAPS}) == []
+
+
+def test_a_comment_is_not_read_but_an_escaped_percent_does_not_start_one(tmp_path):
+    errors = _report(tmp_path, "% 99 bios\nof 12\\% and 13 % 14 trailing\n")
+    assert _numbers_of(errors) == ["12", "13"]
+
+
+def test_the_preamble_is_not_read(tmp_path):
+    assert _report(tmp_path, "text\n", preamble="\\documentclass[11pt]{article}\n") == []
+
+
+def test_citation_keys_references_labels_files_and_links_are_not_read(tmp_path):
+    body = (
+        "\\citep[Annex III]{hardt2016equality} \\citet{dearteaga2019bias} \\fig{f1} "
+        "Table~\\ref{tab:methods}\n"
+        "\\label{fig:f2}\\includegraphics[width=0.5\\columnwidth]{f2_x.pdf} \\url{https://x/2025}\n"
+    )
+    assert _report(tmp_path, body) == []
+
+
+def test_a_table_column_specification_is_not_read(tmp_path):
+    body = "\\begin{tabular}{@{}p{0.27\\columnwidth}p{0.66\\columnwidth}@{}}\n"
+    assert _report(tmp_path, body) == []
+
+
+def test_commands_and_braces_are_removed_but_their_text_is_kept(tmp_path):
+    body = "\\paragraph{Data.} the \\emph{showcase} of \\texttt{[UNK]} and 7\\\\ 8~9 vs.\\ 10\n"
+    assert _numbers_of(_report(tmp_path, body)) == ["7", "8", "9", "10"]
+
+
+def test_a_percent_in_a_markdown_document_does_not_start_a_comment(tmp_path):
+    assert _numbers_of(_numbers(tmp_path, "50 % 7 left\n", [])) == ["50", "7"]
