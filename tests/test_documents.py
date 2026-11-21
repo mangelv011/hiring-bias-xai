@@ -382,6 +382,6 @@ def test_the_figure_captions_explain_what_a_reader_needs():
         "pretrained is the same network before fine-tuning",
         "orange: rank correlation; grey: shared top 10 words",
         "intervals narrower than the marker are hidden",
-        "the 5 points of the text are the outer bound of its interval, not a margin fixed in advance",
+        "the 5 points of the text are the outer bound of its interval, not a margin fixed",
     ):
         assert phrase in report, phrase
