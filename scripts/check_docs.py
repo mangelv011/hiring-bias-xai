@@ -565,6 +565,7 @@ CELLS: list[Cell] = [
     # README: results and data
     Cell(README, r"Tested on ([\d,]+) bios", "data_summary.json", "bios.test", "count"),
     Cell(README, r"It is ([\d.]+) on the full test set", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(README, r"about (\d+) points on a typical job", MAIN, "test.rms_tpr_gap.value", "per100"),
     Cell(
         README,
         r"and ([\d.]+) on the test bios outside",
@@ -1036,6 +1037,8 @@ CELLS: list[Cell] = [
         "checks.seed.top10_overlap.median",
         "of10",
     ),
+    Cell(REPORT, r"epoch \(([\d.]+) to", TRAINING_LOG, f"{LOSS_LOW}:dev_loss", "dec2"),
+    Cell(REPORT, r"epoch \([\d.]+ to ([\d.]+)\)", TRAINING_LOG, f"{LOSS_LAST}:dev_loss", "dec2"),
     # Report: single decisions and what makes up the gap
     Cell(
         REPORT,
