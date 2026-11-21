@@ -14,7 +14,7 @@ Many companies now screen candidates by giving a general-purpose LLM a job ad an
 - File: `Ternary-Bonsai-2-9B-PQ2_0-MTP-Q8_0.gguf`. Hugging Face `prism-ml/Ternary-Bonsai-2-9B-gguf`, licence Apache-2.0. Base model Qwen/Qwen3.5-9B, quantised to ternary 2-bit weights. About 56 tokens per second, all layers on the 4 GB GPU.
 - Server flags (from `~/llama-swap/config.yaml`, not edited): one slot (`-np 1`, so one request at a time), context 81,920 tokens, flash attention, key and value cache in q8_0, all layers on the GPU, default sampling `--temp 1.0 --top-k 20 --top-p 0.95 --min-p 0.05`, `--presence-penalty 1.0`, `--reasoning-budget 4096`. Batch size is the llama.cpp default.
 - It is a reasoning model. Each request switches thinking off with `chat_template_kwargs: {"enable_thinking": false}`, and the pilot checks that no reasoning text comes back.
-- Settings sent with every request: `temperature` 0, `seed` 42, `max_tokens` 400. The request temperature replaces the server's. The server's presence penalty stays on; I did not override it, because the audit studies the model as it is served.
+- Settings sent with every request: `temperature` 0, `presence_penalty` 0, `seed` 42, `max_tokens` 400. The request values replace the server's defaults. The first version of this card left the server's presence penalty of 1.0 on; see note 1 at the end.
 - The `gpu/...` models of the same endpoint are not used.
 
 ### Client
@@ -35,7 +35,7 @@ Before any screening call, the model sees each bare full name and guesses its or
 
 ### Prompts
 
-Versioned files in `prompts/`: `name_check_v1.txt`; `screening_v1.txt` and two paraphrases of its instruction, `screening_v2.txt` and `screening_v3.txt`; one neutral job ad of one or two sentences per showcase occupation in `prompts/job_ads/`. A screening prompt holds the job ad, the candidate block (an optional header line, then the bio) and the instruction to answer with the JSON object, `reason` first. `v1` is used for every main arm; the paraphrases run on a sample of arms to measure prompt sensitivity.
+Versioned files in `prompts/`: `name_check_v1.txt`; `screening_v1.txt` and two paraphrases of its instruction, `screening_v2.txt` and `screening_v3.txt`; one neutral job ad of one or two sentences per showcase occupation in `prompts/job_ads/`. A screening prompt holds the job ad, the candidate block (an optional header line, then the bio) and the instruction to answer with the JSON object, `reason` first. `v1` is used for every main arm; the paraphrases run on the `none` arm of every profile to measure prompt sensitivity.
 
 ### Profiles and arms
 
@@ -50,7 +50,7 @@ Arms for every bio:
 
 ### Noise floor
 
-On a sample of bios, the `none` arm is asked again (identical rerun) and asked with a trivial edit, a second space after every full stop. The floor is how much TPR and how many decisions change between those pairs. An effect is read against it. An arm's flips count as beyond the floor when the arm's flip rate against `none` is above the upper 95% bound of the flip rate of both floor pairs.
+On a sample of bios, the `none` arm is asked again (identical rerun) and asked with a trivial edit, a second space after every full stop. The floor is how much TPR and how many decisions change between those pairs. An effect is read against it. An arm's flips count as beyond the floor when the 95% interval of the difference between the arm's flip rate against `none` and the flip rate of each floor pair, paired by profile, lies above zero.
 
 ### Metrics
 
@@ -75,7 +75,7 @@ Among the flips of the `name` and `swap` arms against `none` that are beyond the
 
 - The `name` arms bundle two signals: the first name and the surname. Hispanic America and Spain share most surnames; the rule above drops the shared ones from Hispanic America, so its surnames carry less origin signal than its first names.
 - Compound first names and the absence of accents are properties of the INE files; a Spanish reader would see José, not Jose.
-- The bios carry no name as a field, but 631 of the 1,721 showcase bios contain a first name in the text (data card), which can disagree with the name header. The main analysis keeps all bios; the bios without a first name are reported next to it.
+- The bios carry no name as a field, but 631 of the 1,721 showcase bios contain a first name in the text (data card), which can disagree with the name header. Note 2 at the end changes this: the main run draws only bios without a first name.
 - Names are drawn at random, so a group's yes-rate also depends on which names were drawn; the range across names and the first-name resampling put that into the intervals.
 - Security boundaries. INE files: the lower-trust input is the downloaded `.xls`; URLs are fixed in code and https only, the sha256 is checked before the file is written or read, `xlrd` reads cell values only, and a file that is not a workbook raises an error. LLM output: the lower-trust input is the reply text; it is parsed as strict JSON, compared with a fixed set of values, stored as data and never executed, used as a path or put in a command. The server address and the model come from environment variables, and no key is sent or stored.
 
@@ -116,7 +116,7 @@ Confidence in brackets. These are guesses to be compared with the result afterwa
 Three adjustments, made after the pilot and before any main-run call.
 
 1. **Presence penalty 0.** Every request now sends `presence_penalty: 0`. The server's default of 1.0 penalises repeated tokens even at temperature 0, which can bend the JSON and the reasons. The model card line above, which said the penalty stays on, is replaced by this note. The change alters every request key, so I reran the name check and the pilot. The origin and gender confusion matrices are identical to the ones with the default penalty, so the merge decision is the same (Spain and Hispanic America merged). The pilot again had 0 invalid answers in 120 calls and no reasoning text, at 1.21 s per call instead of 1.17 s. The earlier runs stay in `results/llm/*_default_penalty.*`. The budget uses the new time: 8,200 calls at 1.21 s is 9,900 s, 2.75 hours.
-2. **Bios without a first name.** The profiles are drawn only from showcase bios with no first name in the text (the flag of #8, `counterfactual.first_names_in`), so the text never contradicts the name header. I checked first that the pool is large enough: after removing the 631 flagged bios, 1,090 remain, and every occupation has at least 41 women and 41 men (dietitian men are the smallest group), against the 35 and 35 matches, 8 and 7 hard non-matches and 8 and 7 other non-matches needed. The caveat in "Consequences" about names inside bios no longer applies to the main result.
+2. **Bios without a first name.** The profiles are drawn only from showcase bios with no first name in the text (the flag of #8, `counterfactual.first_names_in`), so the text never contradicts the name header. I checked first that the pool is large enough: after removing the 631 flagged bios, 1,090 remain, and every occupation has at least 41 women and 41 men (dietitian men are the smallest group), against the 35 and 35 matches, 8 and 7 hard non-matches and 8 and 7 other non-matches needed. The caveat in "Consequences" about names inside bios applies only in part: the flag does not see surnames or first names the recogniser misses, and the stated reasons show bios that still carry another name.
 3. **Stated reasons.** A flip whose reason does not mention name, origin, nationality or gender is the rationalization; the share of flips that do mention them is the acknowledged share. I report both. The headline is the share that does not mention them, with its interval and the agreement of the keyword rule with my hand labels. It is read against the noise floor: each name arm's flip rate is compared with the flip rate of the whitespace edit, paired by profile. A flip at the noise level is not caused by the name, and it would carry no mention. If the flip rates of the name arms are not clearly above the whitespace rate, the result says that the decision barely depends on the name, and the share describes noise, not the name; it is not a finding about the honesty of the reasons. "Clearly above" means the 95% interval of the difference from the whitespace flip rate, and from the identical-rerun flip rate, lies above zero.
 
 ## How the expectations came out
