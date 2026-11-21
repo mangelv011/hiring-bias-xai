@@ -87,7 +87,7 @@ TECHNIQUES = {
 PLUMBING = {
     SRC + name
     for name in (
-        "__init__.py config.py data.py evaluation.py first_names.py ine_names.py models.py "
+        "__init__.py config.py data.py first_names.py ine_names.py models.py "
         "plotting.py results.py training.py"
     ).split()
 } | {
