@@ -4,7 +4,7 @@ Status: accepted. The first rule and the expected outcomes were written before a
 
 ## Context
 
-The explanations (ADR 0004) say the main model's score gap between women and men has two parts: gendered words (pronouns and titles) and other words that go with gender in the training bios. Two mitigations follow from that, and each acts on one part. Scrubbing the pronouns and retraining targets the first. Hiding the other words at inference, with no retraining, targets the second. I run both and measure what each costs in accuracy and what it leaves of the gap.
+The explanations (ADR 0004) say the main model's score gap between women and men has two parts: gender words (pronouns and titles) and other words that go with gender in the training bios. Two mitigations follow from that, and each acts on one part. Scrubbing the pronouns and retraining targets the first. Hiding the other words at inference, with no retraining, targets the second. I run both and measure what each costs in accuracy and what it leaves of the gap.
 
 ## Decision
 
@@ -14,11 +14,11 @@ The recipe of the main model (ADR 0002) with one change: the text. `data.scrub` 
 
 ### Proxy words: the rule
 
-Fixed here, before the list was computed. The input is `results/gap_decomposition.csv`, rows of the main model, and the gendered sums of `results/gap_explained.json`. For each of the six showcase occupations, a word is a proxy word when all of these hold:
+Fixed here, before the list was computed. The input is `results/gap_decomposition.csv`, rows of the main model, and the gender-word sums of `results/gap_explained.json`. For each of the six showcase occupations, a word is a proxy word when all of these hold:
 
-1. It is not a gendered word (`data.is_gendered_word`).
+1. It is not a gender word (`data.is_gendered_word`).
 2. The 95% interval of its gap contribution excludes 0.
-3. Its contribution has the sign of the gendered sum of that occupation. The word pushes the gap the same way as the pronouns do.
+3. Its contribution has the sign of the gender-word sum of that occupation. The word pushes the gap the same way as the pronouns do.
 4. It is one of the 5 words with the largest absolute contribution that pass 1 to 3 in that occupation. Ties go to the alphabetical order.
 
 The mask list is the union over the six occupations. It is saved with this rule in `results/proxy_words.json`. A model at inference does not know the occupation of a bio, so the whole list is applied to every bio. Masking deletes every whitespace-separated unit of the bio whose `data.word_core` is a word of the list.
@@ -31,10 +31,10 @@ The rule above is the first one, kept as written. It selected 26 words: an, and,
 
 The rule was corrected after seeing that list and before any condition was evaluated. Nothing is tuned after the evaluation. The corrected rule keeps conditions 1 to 3 and adds a use condition before the top 5:
 
-1. It is not a gendered word (`data.is_gendered_word`).
+1. It is not a gender word (`data.is_gendered_word`).
 2. The 95% interval of its gap contribution excludes 0.
-3. Its contribution has the sign of the gendered sum of that occupation.
-4. The gender the gap favours (women when the gendered sum is positive, men when it is negative) uses it at least 3 times as often as the other gender: (share of that gender's bios that contain it + 0.01) / (share of the other gender's bios + 0.01) is 3 or more. The shares are `freq_female` and `freq_male` of `results/gap_decomposition.csv`. The 0.01 keeps the ratio finite for a word one gender never uses.
+3. Its contribution has the sign of the gender-word sum of that occupation.
+4. The gender the gap favours (women when the gender-word sum is positive, men when it is negative) uses it at least 3 times as often as the other gender: (share of that gender's bios that contain it + 0.01) / (share of the other gender's bios + 0.01) is 3 or more. The shares are `freq_female` and `freq_male` of `results/gap_decomposition.csv`. The 0.01 keeps the ratio finite for a word one gender never uses.
 5. At least 5% of the bios of that gender contain it. Rarer words cannot move the gap of a job much.
 6. The 5 with the largest absolute contribution are kept, ties in alphabetical order. The union over the six occupations is the mask list.
 
@@ -62,16 +62,16 @@ One training seed per model. A difference between the original and the scrubbed 
 
 Written before the evaluation. The bullets below were written for the first rule. After the correction, the bullet on masking (e) is re-read at the end of this section; the others do not depend on the list. Reference: the main model on the full test split has macro-F1 0.783 and an RMS TPR gap of 0.148 (null mean 0.036, 95th percentile 0.049).
 
-- **(b) and (d), scrubbing.** Macro-F1 falls by less than 1 point. The RMS TPR gap falls by 10% to 40% of 0.148, because pronouns carry only part of the gap (ADR 0004, gendered sums). [medium]
+- **(b) and (d), scrubbing.** Macro-F1 falls by less than 1 point. The RMS TPR gap falls by 10% to 40% of 0.148, because pronouns carry only part of the gap (ADR 0004, gender-word sums). [medium]
 - **(c).** Close to (d) in macro-F1 and gap. The scrubbed model never saw a pronoun, so raw text adds little. [medium]
 - **(e), masking.** Macro-F1 falls by less than 0.5 point. The gap falls by less than scrubbing does, and its interval overlaps the one of (a). [low]
 - **No condition reaches the null.** The RMS TPR gap stays above the 95th percentile of the null in all five. [high]
 - **Order of the cost.** None of the conditions loses more than 2 points of macro-F1. [medium]
 
-Re-read for the corrected rule, before any evaluation. The corrected rule is stricter, so the list is short and each word is used mostly by one gender. It is dominated by the occupation *model*, whose gap is the one carried by words such as *freeones*. The expectations on (e) become:
+Re-read for the corrected rule, before any evaluation. The corrected rule is stricter, so the list is short and each word is used mostly by one gender. It is dominated by the occupation *fashion model*, whose gap is the one carried by words such as *freeones*. The expectations on (e) become:
 
 - Macro-F1 changes by less than 0.1 point. A handful of words is deleted. [medium]
-- The RMS TPR gap changes by less than the width of its interval. The words belong to few occupations, and the RMS gap sums over 28. The TPR gap of *model*, the occupation that carries most of the list, is the one place I expect a visible fall. [low]
+- The RMS TPR gap changes by less than the width of its interval. The words belong to few occupations, and the RMS gap sums over 28. The TPR gap of *fashion model*, the occupation that carries most of the list, is the one place I expect a visible fall. [low]
 - The first-rule expectation that masking "falls by less than 0.5 point" and "gap falls less than scrubbing" still stands as written.
 
 ## Outcomes against the expectations
@@ -83,13 +83,13 @@ Numbers are on the 97,348 test bios outside the showcase subset (`results/mitiga
 - **(e), first-rule expectation.** Held. Macro-F1 fell by 0.16 points, under 0.5. The gap fell by 0.0023 (interval from -0.0047 to +0.0004), less than scrubbing, and its interval overlaps that of (a).
 - **No condition reaches the null.** Held. The lowest gap, 0.110 for (c), is more than twice the 95th percentile of the null; every permutation p-value is 1 in 1,001.
 - **No condition loses more than 2 points.** Held. The largest loss is 0.76 points.
-- **(e), corrected-rule expectations.** Two of three did not hold. Macro-F1 fell by 0.16 points [0.11, 0.21], not under 0.1. 12% of the bios contain one of the six words. The TPR gap of *model* did not show a visible fall: 0.438 before and 0.423 after, inside the interval of either. The RMS gap changed by less than the width of its interval, as expected.
+- **(e), corrected-rule expectations.** Two of three did not hold. Macro-F1 fell by 0.16 points [0.11, 0.21], not under 0.1. 12% of the bios contain one of the six words. The TPR gap of *fashion model* did not show a visible fall: 0.438 before and 0.423 after, inside the interval of either. The RMS gap changed by less than the width of its interval, as expected.
 
 ## Recommendation
 
 For a stakeholder: scrub the pronouns and titles from the bios, and train and score on scrubbed text (condition d). It takes the RMS TPR gap from 0.1435 to 0.1152, a fall of 0.028 [0.012, 0.043], for 0.48 points of macro-F1 [0.17, 0.76]. Accuracy does not change (-0.02 points, interval -0.16 to +0.12). If retraining is not possible, scrubbing the bios the original model reads (condition b) gives most of the gap fall, 0.025 [0.012, 0.036], for 0.76 points of macro-F1. Conditions c and d are within noise of each other, and d leaves no pronoun for the model to meet.
 
-Do not present this as making the screener fair. The gap after scrubbing is more than twice the upper edge of what shuffled genders give, in every condition. The gaps in the two jobs with the largest gap hardly moved: *model* from +0.44 to +0.40 and surgeon from -0.22 to -0.18 (women minus men, so positive favours women). What is left is not in the pronouns. In *model* the strongest single word was the name of a website (ADR 0004). Masking the six proxy words does not help: it leaves the gap where it was and costs 0.16 points of macro-F1, so I would not use it. The next step is a method that works on what the model has learned, not on the text. Beyond that, the gap per occupation should be measured on every new model before it is used.
+Do not present this as making the screener fair. The gap after scrubbing is more than twice the upper edge of what shuffled genders give, in every condition. The gaps in the two jobs with the largest gap hardly moved: *fashion model* from +0.44 to +0.40 and surgeon from -0.22 to -0.18 (women minus men, so positive favours women). What is left is not in the pronouns. In *fashion model* the strongest single word was the name of a website (ADR 0004). Masking the six proxy words does not help: it leaves the gap where it was and costs 0.16 points of macro-F1, so I would not use it. The next step is a method that works on what the model has learned, not on the text. Beyond that, the gap per occupation should be measured on every new model before it is used.
 
 Limits of this advice: one training seed per model, so the effect of retraining is not separated from run-to-run variation; the gap is measured on 27 of 28 occupations outside the showcase subset; the proxy words were chosen on the showcase subset and tested outside it, but there are only six.
 

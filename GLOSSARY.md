@@ -12,6 +12,14 @@ _Avoid_: class, category (in prose "job" is the plain word and means the same)
 The model's yes/no call on whether a bio matches the occupation a recruiter searches for.
 _Avoid_: prediction, hiring decision
 
+**Fashion model**:
+The occupation whose data label is `model`. Prose and figures say "fashion model", because "model" alone also means the AI model.
+_Avoid_: model (for the occupation)
+
+**Shortlist**:
+What the screener does to a candidate it labels with the occupation of the search: the bio goes on to the recruiter. A candidate the screener does not shortlist is set aside and never seen by a person.
+_Avoid_: pass on (it can read as reject), accept
+
 **Protected attribute**:
 A property of the person the screening decision must not depend on: gender or origin group.
 _Avoid_: sensitive feature, demographic
@@ -123,7 +131,7 @@ Root mean square of the TPR gaps over all occupations; one number for how far a 
 _Avoid_: average gap, mean gap
 
 **Gender gap**:
-The plain-language name of the RMS TPR gap, used in the README, the figures and the prose of the results: how far, over all the jobs, the share of qualified women passed on is from the share of qualified men. 0 would be equal treatment.
+The plain-language name of the RMS TPR gap, used in the README, the figures and the prose of the results: how far, over all the jobs, the share of qualified women shortlisted is from the share of qualified men. 0 would be equal treatment. Its size is a typical per-job difference between the share of qualified women and the share of qualified men that the screener shortlists: 0.148 means about 15 points on a typical job. Two values appear: 0.148 on the full test set and 0.143 on the test set outside the showcase subset, the one the mitigation compares.
 _Avoid_: bias score, fairness score
 
 **Gap-share correlation**:
@@ -168,7 +176,7 @@ _Avoid_: ablation, scrubbed swap
 
 **Residual cue**:
 A word that still shows the gender of the person after a gender swap: a gendered noun from the list fixed in `counterfactual.RESIDUAL_NOUNS` (mother, husband, actress...) or a first name from the SSA list used as a person's name in the bio.
-_Avoid_: leak, gendered word (that term is the scrubbing list)
+_Avoid_: leak, gender word (that term is the scrubbing list)
 
 **Flagged bio**:
 A bio with at least one residual cue. Results are reported for all bios and for the unflagged ones.
@@ -201,19 +209,19 @@ The bio with some of its words present and the rest removed.
 _Avoid_: subset, perturbation
 
 **Shapley value**:
-The average marginal effect of a word on the log-odds score over random orders in which the words are added to an empty bio. The values of a bio add up to the score of the full bio minus the score of the empty bio.
+The average marginal effect of a word on the log-odds score over random orders in which the words are added to an empty bio. The values of a bio add up to the score of the full bio minus the score of the empty bio. This is SHAP at the level of words: the same Shapley values the SHAP library estimates with its permutation estimator, except that an absent word is deleted instead of replaced by a mask token.
 _Avoid_: importance, contribution
 
-**Gendered word**:
+**Gender word**:
 A word unit of a bio whose core, without punctuation at its ends, is a word the scrubbing list removes: a gendered pronoun or title. `she,` is one; `sheriff` and `shoot...she` are not.
-_Avoid_: gender marker, gender term
+_Avoid_: gender marker, gender term, gendered word
 
 **Scrubbing**:
 Removing gender words from a bio so that only indirect signal remains.
 _Avoid_: anonymizing, masking (a different step: see proxy-word masking)
 
 **Probe**:
-A logistic regression on standardised representations, trained to read gender from one layer of an encoder. Its accuracy on the showcase subset is compared with references (the majority class, the occupation alone, TF-IDF) and with a permutation test that shuffles gender within occupation and refits it. A probe that reads gender does not show that the model uses it.
+A linear probe: a logistic regression on standardised representations, trained to read gender from one layer of an encoder. Its accuracy on the showcase subset is compared with references (the majority class, the occupation alone, TF-IDF) and with a permutation test that shuffles gender within occupation and refits it. A probe that reads gender does not show that the model uses it. Patching shows where in the bio, at the gender words or elsewhere, that gender signal sits.
 _Avoid_: detector
 
 **Activation patching**:
@@ -270,12 +278,12 @@ _Avoid_: bias of a word, word effect
 The sum of the gap contributions of the ten words with the largest absolute contribution, divided by the score gap. It can exceed 100% when the other words pull the other way. It is unstable when the interval of the score gap includes 0.
 _Avoid_: explained variance
 
-**Gendered sum**:
-The sum of the gap contributions of the gendered words: how far they put women's bios above (positive) or below (negative) men's. It needs no division, so it exists when the score gap is near 0.
-_Avoid_: gendered effect, bias of gendered words
+**Gender-word sum**:
+The sum of the gap contributions of the gender words: how far they put women's bios above (positive) or below (negative) men's. It needs no division, so it exists when the score gap is near 0.
+_Avoid_: gendered effect, bias of gender words
 
-**Gendered share**:
-The sum of the gap contributions of the gendered words, divided by the score gap.
+**Gender-word share**:
+The sum of the gap contributions of the gender words, divided by the score gap.
 _Avoid_: bias share
 
 **Usage and weight**:
@@ -285,7 +293,7 @@ _Avoid_: frequency effect, coefficient effect
 ## Mitigation
 
 **Proxy word**:
-A word that is not gendered, whose gap contribution has the sign of the occupation's gendered sum, that the gender the gap favours uses at least 3 times as often as the other gender (shares smoothed by 0.01), and that at least 5% of that gender's bios contain. The model can read gender from it. A word the model weighs heavily but both genders use alike, such as *the*, is not one.
+A word that is not gendered, whose gap contribution has the sign of the occupation's gender-word sum, that the gender the gap favours uses at least 3 times as often as the other gender (shares smoothed by 0.01), and that at least 5% of that gender's bios contain. The model can read gender from it. A word the model weighs heavily but both genders use alike, such as *the*, is not one.
 _Avoid_: bias word, stand-in word
 
 **Proxy-word masking**:

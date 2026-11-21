@@ -2,25 +2,42 @@
 
 **Does an AI that screens CVs treat women and men differently, and why?**
 
-A hospital needs a surgeon and receives thousands of applications. An AI model reads each candidate's short professional bio first and decides which of 28 jobs it describes (surgeon, nurse, lawyer and so on). Bios it labels "surgeon" go on to the recruiter; the rest are set aside and never seen by a person. A fair screener passes on the same share of real surgeons whether they are women or men.
+A hospital needs a surgeon and receives thousands of applications. An AI model reads each candidate's short professional bio first and decides which of 28 jobs it describes (surgeon, nurse, lawyer and so on). Bios it labels "surgeon" go on to the recruiter; the rest are set aside and never seen by a person. A fair screener shortlists the same share of real surgeons whether they are women or men.
 
-I trained such a model on 60,000 real professional bios and checked who it passes on among 99,069 bios it had never seen. Among people who really are surgeons, it passes on 76 of every 100 men but only 56 of every 100 women. Nurses show the opposite: 84 of every 100 women, 73 of every 100 men. Looking at all 28 jobs together, the more a job is held by one gender, the more the model favours that gender.
+I trained such a model on 60,000 real professional bios and checked who it shortlists among 99,069 bios it had never seen. Among people who really are surgeons, it shortlists 76 of every 100 men but only 56 of every 100 women. Nurses show the opposite: 84 of every 100 women, 73 of every 100 men. Looking at all 28 jobs together, the more a job is held by one gender, the more the model favours that gender.
 
 <p align="center">
-  <img src="results/figures/f1_gap_vs_share.png" width="520" alt="Each dot is a job. The more women hold a job, the more the model favours women in it; surgeon: 56 of 100 qualified women passed on against 76 of 100 men; nurse: 84 of 100 women against 73 of 100 men.">
+  <img src="results/figures/f1_gap_vs_share.png" width="520" alt="Each dot is a job. The more women hold a job, the more the model favours women in it; surgeon: 56 of 100 qualified women shortlisted against 76 of 100 men; nurse: 84 of 100 women against 73 of 100 men.">
 </p>
 
 This project uses explainable-AI methods to find out why: which words drive these decisions, whether those explanations can be trusted, and what reduces the gap.
 
+**How to read this.**
+
+- Each finding starts with the result in one sentence. The numbers behind it, with 95% intervals, are in [docs/results.md](docs/results.md).
+- A candidate is *qualified* when the bio belongs to someone who really does the job. The model *shortlists* a bio when it labels it with the job of the search, so the recruiter sees it.
+- The gender gap is 0.148, about 15 points on a typical job: the share of qualified women the model shortlists differs from the share of qualified men by that much.
+
 ## Key findings
 
-- **Gender words and stand-in words push the decisions ([F3](docs/results.md#f3-which-words-make-up-the-gap-between-women-and-men)).** In surgeon bios, *she* and *her* lower the model's score for "surgeon" and *he* and *his* raise it, which puts women below men; nurse bios show the reverse. For the job "model" the strongest single word is *freeones*, the name of a website listing adult performers. It is in 54 of 150 women's bios and in none of the 150 men's, so the model learned it as a sign of the job that only women's bios show.
-- **Swapping *she* for *he* changes few decisions ([F4](docs/results.md#f4-does-changing-only-the-gender-change-the-decision)).** It changes the decision for 7 of every 100 bios, about as often as deleting the pronouns does (6 of 100). The simpler baseline model reacts more: 14 against 9 of every 100.
+- **Gender words and proxy words push the scores ([F3](docs/results.md#f3-which-words-make-up-the-gap-between-women-and-men)).** In surgeon bios, *she* and *her* lower the model's score for "surgeon" and *he* and *his* raise it, which puts women below men; nurse bios show the reverse. A proxy word is a word that is not a gender word but that mostly one gender's bios contain. For the job "fashion model" the strongest single word is *freeones*, the name of a website listing adult performers. It is in 54 of 150 women's bios and in none of the 150 men's, so the model learned it as a sign of the job that only women's bios show.
+- **Swapping *she* for *he* changes few decisions ([F4](docs/results.md#f4-does-changing-only-the-gender-change-the-decision)).** Gender words push the scores, yet the swap changes the decision for 7 of every 100 bios, about as often as deleting the pronouns does (6 of 100). The decisions that do change lean towards the job that the new gender typically holds. The simpler baseline model reacts more: 14 against 9 of every 100.
 - **The explanations hold in aggregate and depend on the method word by word ([F5](docs/results.md#f5-can-the-explanations-be-trusted)).** Removing the words an explanation ranks highest hurts the model far more than removing random words, so the explanations point at what matters. The exact order of the words in one bio changes with how the explanation is computed, so the conclusions rest on totals over hundreds of bios.
-- **Gender stays inside the model after the pronouns go ([F6](docs/results.md#f6-gender-inside-the-model)).** A simple probe guesses gender from the main model's internal states for 58% to 63% of bios, against 52% from the job alone. The effect of swapping pronouns moves from the swapped words to the rest of the bio within a few layers.
-- **Removing the pronouns narrows the gap by a fifth and leaves most of it ([F7](docs/results.md#f7-does-removing-the-cues-close-the-gap)).** Training and scoring on bios without pronouns brings the gender gap from 0.143 to 0.115 for half a point of macro-F1, and what remains is still more than twice what chance gives. I would recommend it as a first step, not as a fix: in the job "model" the model still passes on 40 more qualified women than men per 100 of each, against 44 before. Deleting the six words that stand in for gender barely moves it.
-- **A local LLM screener answers alike for women's and men's names and for every origin, but any name changes its answers ([F8](docs/results.md#f8-does-an-llm-screener-react-to-names)).** With a woman's name instead of a man's, its yes-rate for qualified candidates differs by -0.5 points (interval -4.7 to +3.5). Names from Spain, Morocco, Romania, Hispanic America and the United Kingdom give the same answers. Any name lowers the yes-rate by about 6 points against no name, and rewording the instruction changes 13% and 16% of its decisions.
+- **The model keeps gender after the pronouns go ([F6](docs/results.md#f6-gender-inside-the-model)).** Gender is carried by the words themselves, such as names, topics and website names, and the model keeps it. A linear probe guesses gender from the main model's internal states for 58% to 63% of bios, against 52% from the job alone. The effect of swapping pronouns moves from the swapped words to the other positions of the bio within a few layers.
+- **Removing the pronouns narrows the gap by a fifth and leaves most of it ([F7](docs/results.md#f7-does-removing-the-cues-close-the-gap)).** Training and scoring on bios without pronouns brings the gender gap from 0.143 to 0.115 for half a point of macro-F1, both measured on the test bios outside the showcase subset. What remains is still more than twice what chance gives. I recommend it as a first step, not as a fix: in the job "fashion model" the model still shortlists 40 more qualified women than men per 100 of each, against 44 before. Deleting the six proxy words barely moves it.
+- **A local LLM screener shows no gap of 5 points or more between women's and men's names, but having a name at all changes its answers ([F8](docs/results.md#f8-does-an-llm-screener-react-to-names)).** With a woman's name instead of a man's, its yes-rate for qualified candidates differs by -0.5 points (interval -4.7 to +3.5). Names from Spain, Morocco, Romania, Hispanic America and the United Kingdom show no difference this data can detect. Any name lowers the yes-rate by about 6 points against no name. That is a lead, not a finding: some bios already contain a name, and adding one sometimes changes the pronouns. Rewording the instruction changes 13% and 16% of its decisions.
 - **A more accurate model is not a fairer one.** The transformer is right more often than a simple word-count baseline (84 against 80 of every 100 bios), but its gender gap is not clearly smaller.
+
+## Limits and intended use
+
+This is a research audit. Do not use these models to screen, rank or reject real people.
+
+- Each model has one training run, so a difference between two models includes run-to-run variation I did not measure.
+- The data are short web bios, not CVs. Gender is binary and inferred from pronouns, so the audit says nothing about non-binary people.
+- The LLM audit covers one small model, one prompt and six jobs. A small gap on this data does not show that a screener is fair.
+- Removing pronouns is a first step. It does not make the screener fair.
+
+More in the [model card](docs/model_card.md#caveats-and-limitations).
 
 ## Why it matters
 
@@ -30,12 +47,12 @@ A job platform that ranks candidates with a model is a high-risk AI system under
 
 | Question | Method | Kind | Status |
 |---|---|---|---|
-| Who is passed on less often, and by how much? | Gap in the share of qualified women and men passed on (TPR gap), bootstrap intervals, permutation test | Bias metric | Done |
-| Which words drive one decision? | Word-level Shapley values (permutation sampling) | Local | Done |
+| Who is shortlisted less often, and by how much? | Gap in the share of qualified women and men shortlisted (TPR gap), bootstrap intervals, permutation test | Bias metric | Done |
+| Which words drive one decision? | Word-level SHAP: Shapley values with a permutation estimator | Local | Done |
 | Which words make up the gap between women and men? | Exact decomposition of the score gap into word contributions | Global | Done |
 | Does the decision change if only the gender changes? | Counterfactual pronoun swaps, with a deletion control | Local and global | Done |
 | Can the explanations be trusted? | Deletion curves, seed and method stability | Explanation check | Done |
-| Where does the model store gender? | Probing and activation patching | Mechanistic | Done |
+| Where does the model store gender? | Linear probing for gender, layer by layer, and activation patching | Mechanistic | Done |
 | Does removing the cues close the gap, and at what cost? | Retraining on scrubbed text, masking proxy words | Mitigation | Done |
 | Does a general-purpose LLM do the same with names? | Black-box audit with names from five origin groups | Audit | Done |
 
@@ -50,11 +67,11 @@ Tested on 99,069 bios the models never saw, with 95% bootstrap intervals.
 | Word counts + logistic regression (baseline) | 79.5 [79.3, 79.8] | 0.728 [0.724, 0.733] | 0.167 [0.151, 0.190] |
 | DeBERTa-v3-small, fine-tuned (main model) | **83.7** [83.5, 83.9] | **0.783** [0.779, 0.788] | 0.148 [0.134, 0.172] |
 
-Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones. The gender gap sums up, over all 28 jobs, how far the share of qualified women passed on is from the share of qualified men: 0 would be equal treatment, and shuffling the genders at random gives about 0.04.
+Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones. The gender gap sums up, over all 28 jobs, how far the share of qualified women shortlisted is from the share of qualified men: 0 would be equal treatment, and shuffling the genders at random gives about 0.04. It is 0.148 on the full test set, and 0.143 on the test bios outside the showcase subset, which the mitigation uses.
 
 ## Data and models
 
-- **Data**: [Bias in Bios](https://huggingface.co/datasets/LabHC/bias_in_bios) (De-Arteaga et al., 2019, MIT licence): English biographies labelled with one of 28 occupations and a binary gender inferred from pronouns. Details in the [data card](docs/data_card.md).
+- **Data**: [Bias in Bios](https://huggingface.co/datasets/LabHC/bias_in_bios) (De-Arteaga et al., 2019, MIT licence): English short biographies (text) labelled with one of 28 occupations and a binary gender inferred from pronouns. Details in the [data card](docs/data_card.md).
 - **Models**: a TF-IDF plus logistic regression baseline, and DeBERTa-v3-small fine-tuned on a 60,000-bio subsample (the main model). Explanations run on a fixed showcase subset of 1,721 test bios from six occupations: surgeon, software engineer and composer (mostly men), dietitian, nurse and model (mostly women).
 - **Decisions** are recorded in [docs/decisions/](docs/decisions/); terms are defined in the [glossary](GLOSSARY.md).
 
@@ -108,7 +125,8 @@ The arguments of each script and the order inside a step are in [docs/results.md
 ## Cite
 
 - **Data.** De-Arteaga, M. et al. (2019). Bias in Bios: A Case Study of Semantic Representation Bias in a High-Stakes Setting. FAT*. Version of Ravfogel et al. (2020) on Hugging Face: `LabHC/bias_in_bios`.
-- **Model.** He, P., Gao, J. and Chen, W. (2021). DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training with Gradient-Disentangled Embedding Sharing. arXiv:2111.09543.
+- **Model.** He, P., Gao, J. and Chen, W. (2023). DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training with Gradient-Disentangled Embedding Sharing. ICLR 2023.
+- **Libraries.** PyTorch (Paszke et al., 2019), Hugging Face Transformers (Wolf et al., 2020) and Datasets (Lhoest et al., 2021), scikit-learn (Pedregosa et al., 2011), spaCy (Honnibal et al., 2020), SciPy (Virtanen et al., 2020), NumPy (Harris et al., 2020), pandas (McKinney, 2010) and Matplotlib (Hunter, 2007). The Shapley attribution follows SHAP (Lundberg and Lee, 2017) but is my own word-level code.
 - **Name lists.** Instituto Nacional de Estadística (INE): Padrón Continuo, 01/01/2022, and Censos de población anuales, 01/01/2025 (CC BY 4.0). Elaboración propia con datos extraídos del sitio web del INE: www.ine.es.
 - **LLM audited in F8.** Prism ML, Ternary Bonsai 2 9B (`prism-ml/Ternary-Bonsai-2-9B-gguf`, Apache-2.0), a 2-bit ternary version of Qwen3.5-9B.
 

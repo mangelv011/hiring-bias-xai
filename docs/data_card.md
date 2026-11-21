@@ -45,7 +45,7 @@ Full counts per split, occupation and gender, and the share of women per occupat
 
 ## First-name list
 
-Used by the counterfactual swap (#8, [ADR 0005](decisions/0005-counterfactual-gender-swap.md)) to flag bios that contain a first name. It is not part of Bias in Bios.
+Used by the counterfactual swap ([ADR 0005](decisions/0005-counterfactual-gender-swap.md)) to flag bios that contain a first name. It is not part of Bias in Bios.
 
 - Source: US Social Security Administration, national baby names, 1880 to 2025 (`names.zip`, files `yobYYYY.txt` with `name,sex,count`). Licence: public domain as a work of the US federal government; the SSA page refused automated access, so this was not re-read there. Attribution: Social Security Administration, "Beyond the Top 1000 Names" national data.
 - The SSA server returns HTTP 403 to scripts, so the pinned copy is an Internet Archive capture of the same URL (`url` and `sha256` in `results/first_names.json`). `scripts/fetch_first_names.py` downloads it, checks the sha256 before reading anything, parses the `yobYYYY.txt` members as text in memory and writes the names with at least 10,000 births over all years and both sexes (2,808 names) to `HBX_ARTIFACTS/names/first_names.txt`. A different hash stops the script.
