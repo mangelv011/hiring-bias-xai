@@ -1,0 +1,16 @@
+{
+  "hardest": {
+    "composer": "software_engineer",
+    "dietitian": "nurse",
+    "model": "software_engineer",
+    "nurse": "dietitian",
+    "software_engineer": "composer",
+    "surgeon": "nurse"
+  },
+  "n_match": 70,
+  "n_nonmatch": 30,
+  "n_profiles": 600,
+  "n_showcase_bios": 1721,
+  "n_with_first_name": 631,
+  "n_without_first_name": 1090
+}
