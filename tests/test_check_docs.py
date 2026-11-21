@@ -377,3 +377,54 @@ def test_main_prints_each_problem_and_returns_one(tmp_path, capsys):
 def test_ci_runs_the_docs_check():
     ci = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "- run: python scripts/check_docs.py\n" in ci
+
+
+def test_an_indented_hash_line_of_four_spaces_is_not_a_heading(tmp_path):
+    text = "[a](#code)\n\n    # code\n"
+    assert len(_errors(tmp_path, {"README.md": text})) == 1
+
+
+def test_a_tilde_fence_hides_headings_and_links(tmp_path):
+    text = "[a](#hidden)\n\n~~~\n# hidden\n[b](gone.md)\n~~~\n"
+    errors = _errors(tmp_path, {"README.md": text})
+    assert len(errors) == 1 and "#hidden" in errors[0]
+
+
+def test_a_link_that_leaves_the_repository_is_reported(tmp_path):
+    root = tmp_path / "repo"
+    (tmp_path / "outside.md").write_text("x", encoding="utf-8")
+    errors = _errors(root, {"README.md": "[a](../outside.md)\n"})
+    assert len(errors) == 1 and "../outside.md" in errors[0]
+
+
+def test_a_percent_encoded_anchor_is_decoded(tmp_path):
+    files = {"README.md": "[a](#%C3%A9tica-2)\n\n# Ética 2\n"}
+    assert _errors(tmp_path, files) == []
+
+
+def test_a_broken_link_with_a_title_is_still_reported(tmp_path):
+    errors = _errors(tmp_path, {"README.md": '[a](gone.md "the title")\n'})
+    assert len(errors) == 1 and "gone.md" in errors[0]
+
+
+def test_an_uncovered_number_with_a_thousands_separator_is_one_error(tmp_path):
+    errors = _numbers(tmp_path, "I read 1,721 bios\n", [])
+    assert len(errors) == 1 and "1,721" in errors[0]
+
+
+def test_only_the_group_of_a_row_is_covered_not_the_rest_of_the_match(tmp_path):
+    cells = [("README.md", r"right on ([\d.]+)% of 100", "m.json", "test.accuracy.value", "pct1")]
+    errors = _numbers(tmp_path, "right on 83.7% of 100\n", cells, results={"m.json": ACCURACY})
+    assert len(errors) == 1 and "number 100" in errors[0]
+
+
+def test_a_missing_document_is_reported_by_name(tmp_path):
+    root = _repo(tmp_path, {"README.md": "x\n"})
+    errors = _load().check_numbers(root, [], [], ("README.md", "docs/model_card.md"))
+    assert errors == ["docs/model_card.md: document is missing"]
+
+
+def test_both_documents_are_checked_and_every_row_belongs_to_one_of_them():
+    module = _load()
+    assert module.NUMBER_DOCUMENTS == ("README.md", "docs/model_card.md")
+    assert {cell.document for cell in module.CELLS} == set(module.NUMBER_DOCUMENTS)
