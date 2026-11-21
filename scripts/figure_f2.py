@@ -101,9 +101,9 @@ LINE_PT = 10
 MARGIN_PT = 4
 LABEL_PT = 70
 VALUE_ROOM_PT = 16
-BAR_PT = 11
-AXIS_PT = 30
-GAP_PT = 8
+BAR_PT = 10
+AXIS_PT = 28
+GAP_PT = 6
 LABEL_CHARS = 14
 
 
@@ -223,7 +223,21 @@ def _title(woman: Case | None, man: Case | None) -> str:
     return "No misclassified woman or man met the rules, so there is no case to show."
 
 
-def build(woman: Case | None, man: Case | None):
+def _totals(woman: Case | None, man: Case | None, wrong: tuple[int, int] | None) -> str:
+    """The gender words total of each case, and how extreme the cases are among the wrong calls."""
+    parts = []
+    for case, who, first in ((woman, "woman", True), (man, "man", False)):
+        if case:
+            units = int(_gendered_mask(case).sum())
+            tail = f" units for the {who}" if first else f" for the {who}"
+            parts.append(f"{gendered_push(case):+.1f} from {units}{tail}")
+    text = "Gender words: " + ", ".join(parts)
+    if wrong and woman and man:
+        text += f"; the largest of {wrong[0]} and {wrong[1]} wrong decisions"
+    return text + ". "
+
+
+def build(woman: Case | None, man: Case | None, wrong: tuple[int, int] | None = None):
     """For each group, the bio with its eight largest words underlined and a bar for each.
 
     A group without a case gets a one-line panel that says so.
@@ -238,7 +252,7 @@ def build(woman: Case | None, man: Case | None):
     text_width = width - 2 * MARGIN_PT
     capacity = int(text_width // char_pt)
     title = _title(woman, man)
-    note = (
+    note = _totals(woman, man, wrong) + (
         "A score point is one unit of the model's score for a job. Per-word values carry sampling "
         "noise; no per-word interval is shown."
     )
@@ -251,11 +265,10 @@ def build(woman: Case | None, man: Case | None):
             header = f"{label} in a {kind}-dominated occupation: no bio met the rules."
             panels.append((header, _text_height_pt(fig, header), None, None, 0))
             continue
-        units = int(_gendered_mask(case).sum())
         header = (
             f"{label}, true {plotting.job_name(case.true)}, "
             f"predicted {plotting.job_name(case.predicted)} "
-            f"({case.bio_id}). Gender words: {gendered_push(case):+.1f} over {units} units."
+            f"({case.bio_id})."
         )
         order = np.argsort(-np.abs(case.values), kind="stable")[:TOP_WORDS]
         sentence_pt = (_layout(case.words, capacity)[-1][0] + 1) * LINE_PT + 2
@@ -302,7 +315,7 @@ def main(results_dir: Path = RESULTS_DIR):
     predicted = results.load_predictions(SCREENER, subset)
     cases, skipped = load_cases(subset, list(predicted))
     showcase = json.loads((results_dir / "showcase_occupations.json").read_text())
-    picks, record = [], {}
+    picks, record, wrong = [], {}, []
     for _, key, gender, side in GROUPS:
         group = [row["occupation"] for row in showcase[side]]
         n_wrong = sum(
@@ -310,11 +323,12 @@ def main(results_dir: Path = RESULTS_DIR):
         )
         picked = pick(cases, gender, group)
         picks.append(picked)
+        wrong.append(n_wrong)
         record[key] = {
             "n_wrong": n_wrong,
             "pick": _record(picked) if picked else None,
         }
-    fig = build(*picks)
+    fig = build(*picks, wrong=(wrong[0], wrong[1]))
     plotting.save(fig, FIGURE_NAME, results_dir / "figures")
     results.write_json(
         results_dir / "f2_cases.json",
