@@ -69,12 +69,12 @@ The \emph{gap decomposition} adds Shapley values over bios: the score gap of a j
 \toprule
 Method & Kind & Why it fits here \\
 \midrule
-Shapley (SHAP) & local & Model-agnostic and exactly additive, so word parts can be summed over bios. \\
-Gap decomposition & global & Turns per-bio values into the part of the women--men gap each word makes. \\
-Swaps & local & Tests what an edit does, which attributions cannot; the deletion control separates gender from editing. \\
-Deletion curves, scrambling & check & Check that high values point at words the model needs and follow what it learned. \\
+Shapley (SHAP) & local & Model-agnostic and additive, so bios can be summed. \\
+Gap decomposition & global & Splits the women--men gap into one part per word. \\
+Swaps & local & Tests what an edit does; the deletion control separates gender from editing. \\
+Deletion curves, scrambling & check & Check that values point at words the model needs. \\
 Probing & global & Asks if gender is still readable after scrubbing. \\
-Patching & local & Asks where in the bio the swap's effect sits, layer by layer. \\
+Patching & local & Where the swap's effect sits, layer by layer. \\
 Name audit & global & The only option for an LLM seen as a black box. \\
 \bottomrule
 \end{tabular}
@@ -92,7 +92,7 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=0.85\columnwidth]{f1_gap_vs_share.pdf}
+\includegraphics[width=0.95\columnwidth]{f1_gap_vs_share.pdf}
 \caption{Each dot is a job, with its 95\% interval. Above 0 the model shortlists more qualified women than men, per 100 of each.}
 \label{fig:f1}
 \end{figure}
@@ -101,7 +101,7 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=0.74\columnwidth]{f2_shapley_cases.pdf}
+\includegraphics[width=\columnwidth]{f2_shapley_cases.pdf}
 \caption{Two wrong decisions of the main model and the words that moved them: the bio of a woman whose job is mostly held by men and of a man whose job is mostly held by women, chosen by a rule fixed before looking. Bars show how many score points each word added to the score of the wrong job; gender words are highlighted.}
 \label{fig:f2}
 \end{figure}
@@ -110,8 +110,8 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=0.74\columnwidth]{f3_gap_words.pdf}
-\caption{The ten words that make up most of the score gap between women's and men's bios, in a job mostly held by men (surgeon) and one mostly held by women (fashion model), with 95\% intervals. Gender words are highlighted.}
+\includegraphics[width=\columnwidth]{f3_gap_words.pdf}
+\caption{The ten words with the largest contribution to the score gap between women's and men's bios, in a job mostly held by men (surgeon) and one mostly held by women (fashion model), with 95\% intervals. Gender words are highlighted. The ten words make up 61\% of the fashion model gap; no share is given for surgeon, whose gap interval includes 0.}
 \label{fig:f3}
 \end{figure}
 
@@ -119,7 +119,7 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=0.85\columnwidth]{f4_flip_rates.pdf}
+\includegraphics[width=0.95\columnwidth]{f4_flip_rates.pdf}
 \caption{Share of the main model's decisions that change when gender words are swapped (highlight) or deleted (grey), by job and over the six showcase jobs, with 95\% intervals.}
 \label{fig:f4}
 \end{figure}
@@ -128,8 +128,8 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=0.74\columnwidth]{f5_explanation_checks.pdf}
-\caption{(a) Fall in the true job's score, in score points, as words are removed in three orders. (b) Agreement of the main Shapley ranking with a rerun under another seed, with a blank instead of deletion, with leave-one-out and after scrambling every weight of the model.}
+\includegraphics[width=\columnwidth]{f5_explanation_checks.pdf}
+\caption{(a) Fall in the true job's score, in score points, as words are removed in three orders. (b) Agreement of the main Shapley ranking with a rerun under another seed, with a blank instead of deletion, with leave-one-out and after scrambling every weight of the model (orange: rank correlation; grey: shared top 10 words; intervals narrower than the marker are hidden).}
 \label{fig:f5}
 \end{figure}
 
@@ -137,8 +137,8 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=0.74\columnwidth]{f6_probing_patching.pdf}
-\caption{(a) Share of bios whose gender a linear probe guesses, on bios without pronouns, by layer, against guesses from the job alone and from word counts. (b) Share of the swap's effect restored by patching the states of the swapped words or of all the other words.}
+\includegraphics[width=\columnwidth]{f6_probing_patching.pdf}
+\caption{(a) Share of bios whose gender a linear probe guesses, on bios without pronouns, by layer, against guesses from the job alone and from word counts (emb.\ is the input layer; pretrained is the same network before fine-tuning). (b) Share of the swap's effect restored by patching the states of the swapped words or of all the other words.}
 \label{fig:f6}
 \end{figure}
 
@@ -148,7 +148,7 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=0.85\columnwidth]{f7_mitigation.pdf}
+\includegraphics[width=0.95\columnwidth]{f7_mitigation.pdf}
 \caption{Macro-F1 and overall shortlist gap of the five mitigation conditions of Table~\ref{tab:mitigation}, on the test bios outside the showcase subset, with 95\% intervals; arrows start at the original model, and the grey band is the gap that shuffled genders give.}
 \label{fig:f7}
 \end{figure}
@@ -172,7 +172,7 @@ e. proxy words out & 0.782 & 0.141 & $-0.002$ \\
 \label{tab:mitigation}
 \end{table}
 
-\paragraph{What removing the cues achieves (\fig{f7}, Table~\ref{tab:mitigation}).} \fig{f3} shows that gender words make up a large part of the surgeon and nurse score gaps, which is why I scrub them. Training and scoring on bios without pronouns (d) lowers the overall shortlist gap from 0.143 to 0.115, a 20\% cut (8\% to 30\%), for 0.5 points of macro-F1. Each model has a single training run. I choose (d) over (c), the scrubbed model on raw bios: their gaps differ by less than their intervals, and 99\% of the bios hold a gender word, which in (c) reaches a model that never saw one. Scrubbing only the bios at scoring time (b) cuts the gap by 17\% (8\% to 25\%) with no retraining. Deleting the six proxy words leaves the gap where it was: this tests the explanation's next hypothesis, that a few words carry the rest, and it does not hold. The remaining gap is still more than twice the 95th percentile of what chance gives (0.050). By job, the shortlist gap in fashion model moves from 44 to 40 more qualified women than men shortlisted per 100, and in surgeon from 22 to 18 fewer women; these per-job intervals overlap, so only the overall cut is established.
+\paragraph{What removing the cues achieves (\fig{f7}, Table~\ref{tab:mitigation}).} \fig{f3} shows that gender words make up a large part of the surgeon and nurse score gaps, which is why I scrub them. Training and scoring on bios without pronouns (d) lowers the overall shortlist gap from 0.143 to 0.115, a 20\% cut (8\% to 30\%), for 0.5 points of macro-F1. I choose (d) over (c), the scrubbed model on raw bios: their gaps differ by less than their intervals, and 99\% of the bios hold a gender word, which in (c) reaches a model that never saw one. Scrubbing only the bios at scoring time (b) cuts the gap by 17\% (8\% to 25\%) with no retraining. Deleting the six proxy words leaves the gap where it was: this tests the explanation's next hypothesis, that a few words carry the rest, and it does not hold. The remaining gap is still more than twice the 95th percentile of what chance gives (0.050). By job, the shortlist gap in fashion model moves from 44 to 40 more qualified women than men shortlisted per 100, and in surgeon from 22 to 18 fewer women; these per-job intervals overlap, so only the overall cut is established.
 
 \paragraph{A gendered shortcut found with the explanations.} The explanations point at \texttt{freeones}, a website name that appears in 54 of 150 women's and in none of 150 men's fashion model bios, and that adds +0.95 to the score gap there. The site lists adult performers and the job is fashion model, so the word may reflect the work or where the bio was published; I cannot tell which. Either way the model uses it as a gendered shortcut. Deleting it and the five other proxy words (condition e) moves the shortlist gap in fashion model from 44 to 42 points, and the overall shortlist gap from 0.143 to 0.141: the model reads gender from far more than these words.
 
@@ -182,8 +182,8 @@ e. proxy words out & 0.782 & 0.141 & $-0.002$ \\
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=0.74\columnwidth]{f8_llm_screener.pdf}
-\caption{Change in the yes-rate of the LLM screener for qualified candidates, against a bio with no name, for each presentation, with 95\% intervals. The top dot is a woman's name minus a man's name; the grey band is the change that an identical rerun and a whitespace edit produce.}
+\includegraphics[width=0.95\columnwidth]{f8_llm_screener.pdf}
+\caption{Change in the yes-rate of the LLM screener for qualified candidates, against a bio with no name, for each presentation, with 95\% intervals. The top dot is a woman's name minus a man's name; the 5 points of the text are the outer bound of its interval, not a margin fixed in advance; the grey band is the change that an identical rerun and a whitespace edit produce.}
 \label{fig:f8}
 \end{figure}
 
@@ -201,6 +201,6 @@ e. proxy words out & 0.782 & 0.141 & $-0.002$ \\
 \section*{Reproducibility}
 Code, pinned data revision, results, figures and a notebook that reads every number are at \url{https://github.com/mangelv011/hiring-bias-xai}. I used an AI coding assistant for implementation and editing; I designed the audit, chose the methods and checked every result. All experiments ran on one laptop with a 4 GB RTX 3050 GPU, with PyTorch, Hugging Face Transformers and Datasets, scikit-learn, spaCy, SciPy, NumPy, pandas and Matplotlib; the repository pins their versions and its README cites them.
 
-\bibliography{references}
+{\footnotesize \bibliography{references}}
 
 \end{document}

@@ -1608,7 +1608,7 @@ ALLOWED: list[Allowed] = [
         r"the 5 points of the text",
         "the bound of the interval of statistics.primary, as in the allowed 'gaps of 5 points'",
     ),
-    Allowed(REPORT, r"interval includes 0\)", "the interval of the surgeon score gap spans zero"),
+    Allowed(REPORT, r"interval includes 0[.)]", "the interval of the surgeon score gap spans zero"),
     Allowed(
         REPORT,
         r"gap averages 27 jobs",
