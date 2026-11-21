@@ -1,6 +1,6 @@
 import pandas as pd
 
-from hiring_bias_xai import llm_plan
+from hiring_bias_xai import llm_audit, llm_plan
 
 POOLS = {
     "A": {
@@ -74,3 +74,21 @@ def test_the_paraphrase_rows_use_the_none_arm_with_the_other_two_versions():
     plan = llm_plan.build(_profiles(), POOLS, noise_pids=[])
     para = plan[plan["part"] == "paraphrase"]
     assert set(para["arm"]) == {"none"} and set(para["version"]) == {"v2", "v3"}
+
+
+def test_every_call_asks_for_the_job_of_the_profile_in_the_version_of_its_row():
+    plan = llm_plan.build(_profiles(), POOLS, noise_pids=[])
+    main = (plan["pid"] == "surgeon|test-1") & (plan["part"] == "main")
+    (row,) = plan[main & (plan["arm"] == "none")].to_dict("records")
+    assert row["bio_gender"] == "female" and row["job"] == "surgeon"  # the bio is a nurse's
+    assert row["messages"] == llm_audit.screening_messages(
+        "surgeon", "She is a nurse. Her work is good."
+    )
+    for version in ("v2", "v3"):
+        paraphrase = plan[(plan["pid"] == "surgeon|test-1") & (plan["version"] == version)]
+        (paraphrase,) = paraphrase.to_dict("records")
+        assert paraphrase["messages"] == llm_audit.screening_messages(
+            "surgeon", "She is a nurse. Her work is good.", version=version
+        )
+    male = plan[(plan["pid"] == "nurse|test-2") & (plan["part"] == "main")].iloc[0]
+    assert male["bio_gender"] == "male"
