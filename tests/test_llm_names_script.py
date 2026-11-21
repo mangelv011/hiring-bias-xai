@@ -16,9 +16,9 @@ def _load_script():
     return module
 
 
-def _run(monkeypatch, tmp_path):
+def _run(monkeypatch, tmp_path, sheets=None):
     monkeypatch.setenv("HBX_ARTIFACTS", str(tmp_path / "artifacts"))
-    sheets = _files()
+    sheets = sheets or _files()
     seen = []
 
     def fake_download(url, sha256, target, **kwargs):
@@ -64,3 +64,12 @@ def test_names_json_holds_the_groups_the_source_the_licence_and_the_dropped_surn
     }
     assert source["files"]["surnames"]["date"] == "01/01/2025"
     assert record["shared_surnames"] == {}
+
+
+def test_names_json_lists_each_surname_found_in_more_than_one_group_with_those_groups(
+    monkeypatch, tmp_path
+):
+    files = _files()
+    files["surnames"]["ÁFRICA"][6][1] = "POPESCU"  # Morocco's second surname is Romania's first
+    _, record = _run(monkeypatch, tmp_path, sheets=files)
+    assert record["shared_surnames"] == {"Popescu": ["Morocco", "Romania"]}
