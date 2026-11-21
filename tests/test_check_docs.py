@@ -1047,6 +1047,7 @@ ALLOWED_PHRASES = [
     ("about 7 to 8 points either side", "about 7 to 9 points either side"),
     ("interval includes 0)", "interval includes 1)"),
     ("gap averages 27 jobs", "gap averages 26 jobs"),
+    ("the 5 points of the text", "the 6 points of the text"),
     ("at least 500 test bios", "at least 501 test bios"),
     ("her 11 gender words", "her 12 gender words"),
     ("his 2 gender words", "his 3 gender words"),

@@ -361,3 +361,27 @@ def test_the_readme_cite_section_states_the_ai_assistance():
         "I designed the audit, chose the methods and checked every result."
     )
     assert sentence in _readme_section("Cite")
+
+
+def test_the_report_prints_the_figures_wide_enough_to_keep_their_text_legible():
+    report = _read("report/main.tex")
+    by_figure = {figure: width for width, figure in re.findall(r"width=([^\]]+)\]\{f(\d)_", report)}
+    for figure in "2356":
+        assert by_figure[figure] == r"\columnwidth", figure
+    for figure in "1478":
+        assert by_figure[figure] == r"0.95\columnwidth", figure
+
+
+def test_the_figure_captions_explain_what_a_reader_needs():
+    report = _report()
+    for phrase in (
+        "The ten words with the largest contribution to the score gap",
+        "gender words make up 61\% of the fashion model gap",
+        "no share is given for surgeon, whose gap interval includes 0",
+        "emb.\ is the input layer",
+        "pretrained is the same network before fine-tuning",
+        "orange: rank correlation; grey: shared top 10 words",
+        "intervals narrower than the marker are hidden",
+        "the 5 points of the text are the outer bound of its interval, not a margin fixed in advance",
+    ):
+        assert phrase in report, phrase

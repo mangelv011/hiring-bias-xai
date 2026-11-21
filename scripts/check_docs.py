@@ -1098,6 +1098,13 @@ CELLS: list[Cell] = [
     ),
     Cell(
         REPORT,
+        r"make up (\d+)% of the fashion model gap",
+        EXPLAINED,
+        "screeners.deberta.model.top_share.value",
+        "per100",
+    ),
+    Cell(
+        REPORT,
         r"make up only (\d+)%",
         EXPLAINED,
         "screeners.deberta.model.gendered_share.value",
@@ -1596,6 +1603,11 @@ ALLOWED: list[Allowed] = [
     Allowed(REPORT, r"yes to 53\b", "the mean of the four female and the four male tpr of arms"),
     Allowed(REPORT, r"gaps of 5 points", "the bounds of the interval of statistics.primary"),
     Allowed(REPORT, r"\b4 GB RTX 3050 GPU", "the laptop"),
+    Allowed(
+        REPORT,
+        r"the 5 points of the text",
+        "the bound of the interval of statistics.primary, as in the allowed 'gaps of 5 points'",
+    ),
     Allowed(REPORT, r"interval includes 0\)", "the interval of the surgeon score gap spans zero"),
     Allowed(
         REPORT,
