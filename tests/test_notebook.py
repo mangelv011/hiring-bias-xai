@@ -14,8 +14,8 @@ SECTIONS = [
     "Data",
     "Models and training",
     "The bias (F1)",
-    "Global explanation: which words make the gap (F3)",
     "Local explanation: single decisions (F2)",
+    "Global explanation: which words make the gap (F3)",
     "Checking the explanations (F4, F5)",
     "Inside the model (F6)",
     "Mitigation (F7)",
@@ -164,3 +164,25 @@ def test_the_limits_are_five_bullets(nb):
     assert limits.startswith("## Limits")
     bullets = [line for line in limits.splitlines() if line.startswith("- ")]
     assert len(bullets) == 5
+
+
+def _text(nb, title):
+    return "\n".join(source(c) for c in _sections(nb)[title])
+
+
+def test_the_f4_text_reads_the_direction_of_the_flips_from_the_results(nb):
+    text = _text(nb, "Checking the explanations (F4, F5)")
+    assert "toward_share" in text
+    assert "no extra reaction" not in text
+
+
+def test_the_pooled_name_contrast_is_called_a_lead_and_its_limit_is_stated(nb):
+    text = _text(nb, "LLM screener (F8)") + source(nb["cells"][-1])
+    assert "lead" in text
+    assert "cancel" in text
+
+
+def test_the_training_plot_has_a_title_and_labels_the_epochs(nb):
+    text = _text(nb, "Models and training")
+    assert "suptitle(" in text
+    assert 'xlabel="epoch"' in text
