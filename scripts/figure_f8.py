@@ -17,7 +17,7 @@ from hiring_bias_xai.config import RESULTS_DIR
 
 FIGURE_NAME = "f8_llm_screener"
 DARK = "#333333"
-HEIGHT_INCHES = 4.6
+HEIGHT_INCHES = 5.0
 
 
 def _points(stat: dict) -> tuple[float, float, float]:
@@ -90,9 +90,9 @@ def build(report: dict):
     high_edge = max([row[2][2] for row in rows] + [band_high])
     pad = 0.08 * (high_edge - low_edge)
     ax.set_xlim(low_edge - pad, high_edge + pad)
-    ax.set_ylim(-3.6, primary_y + 0.8)
-    ax.text(band_high, -0.8, "noise: rerun and\nwhitespace edit", color=DARK, va="top", ha="left")
-    ax.text(ax.get_xlim()[0], -2.2, _note(report), color=DARK, va="top", ha="left")
+    ax.set_ylim(-5.2, primary_y + 1.4)
+    ax.text((band_low + band_high) / 2, primary_y + 0.55, "noise floor", color=DARK, ha="center")
+    ax.text(ax.get_xlim()[0], -1.6, _note(report), color=DARK, va="top", ha="left")
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
     ax.set_xlabel("Yes-rate change, qualified\ncandidates (points)")
