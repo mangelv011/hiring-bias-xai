@@ -853,12 +853,10 @@ CELLS: list[Cell] = [
     Cell(CARD, r"calls in ([\d.]+) hours", AUDIT, "run_cost.seconds_total", "hours2"),
     Cell(CARD, r"(\d+) profiles that are not qualified", AUDIT, "arms.none.n_nonmatch", "count"),
     # Report: abstract and method
-    Cell(REPORT, r"it passes on (\d+) men but", MAIN, f"{SURGEON}.tpr_male.value", "per100"),
+    Cell(REPORT, r"it shortlists (\d+) men but", MAIN, f"{SURGEON}.tpr_male.value", "per100"),
     Cell(REPORT, r"men but (\d+) women", MAIN, f"{SURGEON}.tpr_female.value", "per100"),
     Cell(REPORT, r"r = ([\d.]+)", GAPS, "main_model.pearson.value", "dec2"),
-    Cell(
-        REPORT, r"surgeons ([\d.]+) log-odds below", EXPLAINED, f"{DEBERTA_SURGEON}.value", "abs1"
-    ),
+    Cell(REPORT, r"surgeons ([\d.]+) points below", EXPLAINED, f"{DEBERTA_SURGEON}.value", "abs1"),
     Cell(REPORT, r"subsample of ([\d,]+) bios", "data_summary.json", "bios.train", "count"),
     Cell(REPORT, r"select on ([\d,]+) and", "data_summary.json", "bios.dev", "count"),
     Cell(REPORT, r"test on all ([\d,]+) test bios", "data_summary.json", "bios.test", "count"),
@@ -919,7 +917,7 @@ CELLS: list[Cell] = [
     Cell(REPORT, r"against ([\d.]+)\) but", BASE, "test.rms_tpr_gap.value", "dec3"),
     Cell(
         REPORT,
-        r"passes on (\d+) women and \d+ men; of",
+        r"shortlists (\d+) women and \d+ men; of",
         MAIN,
         f"{SURGEON}.tpr_female.value",
         "per100",
@@ -952,9 +950,71 @@ CELLS: list[Cell] = [
     ),
     Cell(REPORT, r"and ([\d.]+) when any", GAPS, "main_model.leave_one_out.max.r", "dec2"),
     Cell(REPORT, r"\(p +([\d.]+)\)", GAPS, "main_model.rms_tpr_gap.p_value", "dec3"),
+    # Report: fit to the training bios, the size of the gap, the explanation checks
+    Cell(
+        REPORT,
+        r"is ([\d.]+) on the training bios",
+        MAIN,
+        "overfitting_check.train_macro_f1",
+        "dec3",
+    ),
+    Cell(REPORT, r"([\d.]+) on the dev bios", MAIN, "runs.1.best_dev_macro_f1", "dec3"),
+    Cell(REPORT, r"and ([\d.]+) on the test bios\.", MAIN, "test.macro_f1.value", "dec3"),
+    Cell(REPORT, r"so ([\d.]+) means about", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(REPORT, r"means about (\d+) points", MAIN, "test.rms_tpr_gap.value", "per100"),
+    Cell(REPORT, r"It is ([\d.]+) on the full test set", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(
+        REPORT,
+        r"and ([\d.]+) on the test bios outside",
+        MITIGATION,
+        f"{CONDITION_A}.rms_tpr_gap.value",
+        "dec3",
+    ),
+    Cell(
+        REPORT,
+        r"a lot \(rank correlation ([\d.]+),",
+        STABILITY,
+        "checks.removal.spearman.median",
+        "dec2",
+    ),
+    Cell(
+        REPORT,
+        r"In ([\d,]+) random reshuffles",
+        GAPS,
+        "main_model.rms_tpr_gap.n_permutations",
+        "count",
+    ),
+    Cell(
+        REPORT,
+        r"correlation falls to ([\d.]+) and",
+        STABILITY,
+        "randomisation.spearman.median",
+        "dec2",
+    ),
+    Cell(
+        REPORT,
+        r"top 10 share (\d) words",
+        STABILITY,
+        "randomisation.top10_overlap.median",
+        "of10",
+    ),
+    Cell(
+        REPORT,
+        r"against ([\d.]+) and \d between two seeds",
+        STABILITY,
+        "checks.seed.spearman.median",
+        "dec2",
+    ),
+    Cell(
+        REPORT,
+        r"and (\d) between two seeds",
+        STABILITY,
+        "checks.seed.top10_overlap.median",
+        "of10",
+    ),
     # Report: single decisions and what makes up the gap
     Cell(
-        REPORT, r"add (\+[\d.]+) log-odds to ``rapper''", F2, f"{F2_WOMAN}.gendered_push", "signed1"
+        REPORT, r"add (\+[\d.]+) points to ``rapper''", F2, f"{F2_WOMAN}.gendered_push", "signed1"
     ),
     Cell(REPORT, r"add (\+[\d.]+) to ``poet''", F2, f"{F2_MAN}.gendered_push", "signed1"),
     Cell(
@@ -1037,9 +1097,7 @@ CELLS: list[Cell] = [
     Cell(REPORT, r"Reading (\d+) swapped bios", FLIPS_JSON, "hand_check.n", "count"),
     Cell(REPORT, r", (\d+) read wrongly", FLIPS_JSON, "hand_check.n_incoherent", "count"),
     # Report: can the explanations be trusted, and gender inside the model
-    Cell(
-        REPORT, r"by ([\d.]+) log-odds on average", DELETION, f"{DELETION_MAIN}.morf.value", "dec1"
-    ),
+    Cell(REPORT, r"by ([\d.]+) points on average", DELETION, f"{DELETION_MAIN}.morf.value", "dec1"),
     Cell(REPORT, r"against ([\d.]+) at random", DELETION, f"{DELETION_MAIN}.random.value", "dec1"),
     Cell(REPORT, r"a rise of ([\d.]+) for", DELETION, f"{DELETION_MAIN}.lerf.value", "abs1"),
     Cell(REPORT, r"correlation ([\d.]+), \d of", STABILITY, "checks.seed.spearman.median", "dec2"),
@@ -1089,10 +1147,52 @@ CELLS: list[Cell] = [
             (r"(\d+)% at layer 5", 5, "differing"),
             (r"restore (\d+)%, \d+% and", 1, "others"),
             (r"restore \d+%, (\d+)% and", 4, "others"),
-            (r"and (\d+)%\. Attention", 5, "others"),
+            (r"and (\d+)%\. The effect moves", 5, "others"),
         ]
     ],
-    # Report: mitigation
+    # Report: mitigation, and the website name found with the explanations
+    Cell(
+        REPORT,
+        r"(\d+)% of the bios hold a gender word",
+        MITIGATION,
+        "bios_changed.gendered_word_share",
+        "per100",
+    ),
+    Cell(
+        REPORT,
+        r"adds (\+[\d.]+) to the score gap",
+        "gap_decomposition.csv",
+        "screener=deberta,occupation=model,word=freeones:contribution",
+        "signed2",
+    ),
+    Cell(
+        REPORT,
+        r"in fashion model from (\d+) to \d+ points",
+        MITIGATION,
+        f"{CONDITION_A}.tpr_gap.model.value",
+        "abs_per100",
+    ),
+    Cell(
+        REPORT,
+        r"in fashion model from \d+ to (\d+) points",
+        MITIGATION,
+        "conditions.e.outside_showcase.tpr_gap.model.value",
+        "abs_per100",
+    ),
+    Cell(
+        REPORT,
+        r"overall gap from ([\d.]+) to [\d.]+:",
+        MITIGATION,
+        f"{CONDITION_A}.rms_tpr_gap.value",
+        "dec3",
+    ),
+    Cell(
+        REPORT,
+        r"overall gap from [\d.]+ to ([\d.]+):",
+        MITIGATION,
+        "conditions.e.outside_showcase.rms_tpr_gap.value",
+        "dec3",
+    ),
     Cell(
         REPORT,
         r"Mitigation on ([\d,]+) test bios",
@@ -1178,14 +1278,14 @@ CELLS: list[Cell] = [
     ),
     Cell(
         REPORT,
-        r"\[(-[\d.]+), \+[\d.]+\], so gaps",
+        r"\[(-[\d.]+), \+[\d.]+\], so there is no gap",
         AUDIT,
         "statistics.primary.ci_low",
         "signed_points1",
     ),
     Cell(
         REPORT,
-        r"\[-[\d.]+, (\+[\d.]+)\], so gaps",
+        r"\[-[\d.]+, (\+[\d.]+)\], so there is no gap",
         AUDIT,
         "statistics.primary.ci_high",
         "signed_points1",
