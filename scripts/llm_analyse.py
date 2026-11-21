@@ -99,9 +99,6 @@ def main(
     results_dir: Path = RESULTS_DIR,
     client: llm_audit.Client | None = None,
     n_boot: int = llm_metrics.N_BOOT,
-    n_match: int = 70,
-    n_nonmatch: int = 30,
-    n_noise: int = 200,
 ) -> dict:
     client = client or llm_audit.Client(results_dir / "llm" / "main.jsonl")
     llm_dir = results_dir / "llm"
@@ -129,7 +126,7 @@ def main(
             "model_card": MODEL_CARD,
             "settings": llm_audit.SETTINGS,
             "profiles": profile_info,
-            "n_noise_profiles": n_noise,
+            "n_noise_profiles": len(noise_pids),
             "manipulation_check": check,
             "arms": llm_metrics.arm_rates(main_calls),
             "fpr_by_hardness": {"none": llm_metrics.fpr_by_hardness(main_calls, "none")},
