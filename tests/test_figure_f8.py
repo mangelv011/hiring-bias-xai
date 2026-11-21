@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 
 import matplotlib
@@ -190,3 +191,54 @@ def test_nothing_is_drawn_outside_the_figure(figure):
             extent = t.get_window_extent()
             assert extent.x0 >= box.x0 - 1 and extent.x1 <= box.x1 + 1, t.get_text()
             assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
+
+
+def test_a_gap_is_claimed_only_when_the_interval_excludes_zero_not_when_it_touches_it(f8, report):
+    report["statistics"]["primary"] = _stat(0.01, 0.01)
+    assert f8.title(report) == (
+        "No clear gap between women's and men's names: +1.0 points (95% CI +0.0 to +2.0)"
+    )
+    report["statistics"]["primary"] = _stat(-0.01, 0.01)
+    assert f8.title(report) == (
+        "No clear gap between women's and men's names: -1.0 points (95% CI -2.0 to +0.0)"
+    )
+
+
+def test_each_row_is_labelled_with_the_origin_and_gender_of_its_arm(figure):
+    ax = _ax(figure)
+    dots = _dots(ax)
+    labels = {t.get_text(): y for y, t in zip(ax.get_yticks(), ax.get_yticklabels(), strict=True)}
+    for label, arm in (
+        ("Morocco, woman", "name|Morocco|female"),
+        ("Morocco, man", "name|Morocco|male"),
+        ("Spain + Hispanic America, woman", "name|Spain + Hispanic America|female"),
+        ("Spain + Hispanic America, man", "name|Spain + Hispanic America|male"),
+        ("neutral ID header", "neutral"),
+        ("pronouns swapped", "swap"),
+    ):
+        (x,) = [d[0] for d in dots if d[1] == labels[label]]
+        assert x == pytest.approx(100 * ARMS[arm]), label
+
+
+def test_the_axis_shows_the_whole_noise_band_and_every_interval_even_when_the_band_is_wider(
+    f8, report
+):
+    report["noise_floor"]["rerun"]["tpr_diff"] = _stat(0.0, 0.08)
+    fig = f8.build(report)
+    fig.canvas.draw()
+    low, high = _ax(fig).get_xlim()
+    assert low <= -8.0 and high >= 8.0
+    plt.close(fig)
+
+
+def test_the_noise_floor_label_is_centred_over_the_band(figure):
+    (label,) = [t for t in _ax(figure).texts if t.get_text() == "noise floor"]
+    assert label.get_position()[0] == pytest.approx(-0.4)  # the band runs from -1.0 to 0.2
+
+
+def test_main_reads_the_report_and_saves_the_figure_as_pdf_and_png(f8, report, tmp_path):
+    (tmp_path / "llm_audit.json").write_text(json.dumps(report))
+    fig = f8.main(tmp_path)
+    plt.close(fig)
+    assert (tmp_path / "figures" / "f8_llm_screener.pdf").is_file()
+    assert (tmp_path / "figures" / "f8_llm_screener.png").is_file()
