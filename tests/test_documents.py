@@ -96,3 +96,41 @@ def test_no_decision_record_still_talks_about_work_as_planned():
 def test_decision_records_do_not_point_to_numbers_the_readme_no_longer_holds():
     assert "in the README" not in _read("docs/decisions/0005-counterfactual-gender-swap.md")
     assert "Four results hold" not in _read("docs/decisions/0006-probing-and-patching.md")
+
+
+def _glossary():
+    """The terms of GLOSSARY.md with their Avoid words: {term: [avoided words]}."""
+    entries = re.findall(r"(?m)^\*\*(.+?)\*\*:\n(?:.*\n)*?_Avoid_: (.*)$", _read("GLOSSARY.md"))
+    return {term: [w.strip() for w in avoid.split(",")] for term, avoid in entries}
+
+
+def _corpus():
+    paths = [ROOT / name for name in WRITTEN if name != "GLOSSARY.md"]
+    paths += sorted((ROOT / "src").rglob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))
+    return "\n".join(p.read_text(encoding="utf-8").lower() for p in paths)
+
+
+def test_every_glossary_term_has_an_avoid_line():
+    terms = re.findall(r"(?m)^\*\*(.+?)\*\*:$", _read("GLOSSARY.md"))
+    assert len(terms) == len(_glossary())
+
+
+def test_every_glossary_term_is_used_in_the_docs_or_the_code():
+    corpus = _corpus()
+    assert [term for term in _glossary() if term.lower() not in corpus] == []
+
+
+def test_the_glossary_defines_the_terms_the_docs_rely_on():
+    required = {"Gender gap", "Profile", "Yes-rate", "Merge rule", "Eligible bio"}
+    assert required <= set(_glossary())
+
+
+def test_a_defined_term_is_not_listed_as_one_to_avoid():
+    terms = {term.lower() for term in _glossary()}
+    avoided = {word.lower() for words in _glossary().values() for word in words}
+    assert terms & avoided == set()
+
+
+def test_the_terms_the_docs_use_for_the_gap_are_not_avoided():
+    avoided = {word.lower() for words in _glossary().values() for word in words}
+    assert "gender gap" not in avoided
