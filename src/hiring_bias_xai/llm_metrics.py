@@ -110,6 +110,10 @@ def _statistics(design: _Design, reference: str) -> dict:
                 _share(design, w, (calls["group"] == g).to_numpy(), True)
                 - _share(design, w, (calls["group"] == reference).to_numpy(), True)
             )
+    named = (calls["kind"] == "name").to_numpy()
+    stats["pooled_names_vs_none"] = lambda w, c, p: (
+        _share(design, w, named, True) - _share(design, w, arm == "none", True)
+    )
     pairs = _pairs(design)
     if len(pairs[0]):
         stats["primary"] = lambda w, c, p: _paired_mean(design, w, c, p, pairs)
@@ -149,7 +153,8 @@ def contrasts(
     The bootstrap resamples profiles and, within each origin group and gender, first names. Keys
     of `statistics`: `tpr|<arm>`, `fpr|<arm>`, `diff_tpr|<arm>` and `diff_fpr|<arm>` (an arm minus
     `none`), `vs_uk|<group>` (the TPR of a group's name arms minus the reference group's) and
-    `primary` (women's names minus men's names, TPR, paired by profile and group). `p` is twice
+    `pooled_names_vs_none` (the TPR of all name arms minus that of `none`) and `primary` (women's
+    names minus men's names, TPR, paired by profile and group). `p` is twice
     the smaller share of resamples on either side of zero, counting the observed value as one
     more resample. `holm` adjusts `vs_uk`, `diff_tpr|swap` and `diff_tpr|neutral` together.
     """
