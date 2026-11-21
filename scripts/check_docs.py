@@ -856,7 +856,13 @@ CELLS: list[Cell] = [
     Cell(REPORT, r"it shortlists (\d+) men but", MAIN, f"{SURGEON}.tpr_male.value", "per100"),
     Cell(REPORT, r"men but (\d+) women", MAIN, f"{SURGEON}.tpr_female.value", "per100"),
     Cell(REPORT, r"r = ([\d.]+)", GAPS, "main_model.pearson.value", "dec2"),
-    Cell(REPORT, r"surgeons ([\d.]+) points below", EXPLAINED, f"{DEBERTA_SURGEON}.value", "abs1"),
+    Cell(
+        REPORT,
+        r"surgeons ([\d.]+) score points below",
+        EXPLAINED,
+        f"{DEBERTA_SURGEON}.value",
+        "abs1",
+    ),
     Cell(REPORT, r"subsample of ([\d,]+) bios", "data_summary.json", "bios.train", "count"),
     Cell(REPORT, r"select on ([\d,]+) and", "data_summary.json", "bios.dev", "count"),
     Cell(REPORT, r"test on all ([\d,]+) test bios", "data_summary.json", "bios.test", "count"),
@@ -1012,9 +1018,15 @@ CELLS: list[Cell] = [
         "checks.seed.top10_overlap.median",
         "of10",
     ),
+    Cell(REPORT, r"epoch \(([\d.]+) to", TRAINING_LOG, f"{LOSS_LOW}:dev_loss", "dec2"),
+    Cell(REPORT, r"epoch \([\d.]+ to ([\d.]+)\)", TRAINING_LOG, f"{LOSS_LAST}:dev_loss", "dec2"),
     # Report: single decisions and what makes up the gap
     Cell(
-        REPORT, r"add (\+[\d.]+) points to ``rapper''", F2, f"{F2_WOMAN}.gendered_push", "signed1"
+        REPORT,
+        r"add (\+[\d.]+) score points to ``rapper''",
+        F2,
+        f"{F2_WOMAN}.gendered_push",
+        "signed1",
     ),
     Cell(REPORT, r"add (\+[\d.]+) to ``poet''", F2, f"{F2_MAN}.gendered_push", "signed1"),
     Cell(
@@ -1035,14 +1047,14 @@ CELLS: list[Cell] = [
     ),
     Cell(
         REPORT,
-        r"women by ([\d.]+)\.",
+        r"women by ([\d.]+) score points\.",
         EXPLAINED,
         "screeners.deberta.nurse.gendered_sum.value",
         "dec2",
     ),
     Cell(
         REPORT,
-        r"women score ([\d.]+) higher",
+        r"scores are ([\d.]+) score points higher",
         EXPLAINED,
         "screeners.deberta.model.score_gap.value",
         "dec2",
@@ -1097,7 +1109,13 @@ CELLS: list[Cell] = [
     Cell(REPORT, r"Reading (\d+) swapped bios", FLIPS_JSON, "hand_check.n", "count"),
     Cell(REPORT, r", (\d+) read wrongly", FLIPS_JSON, "hand_check.n_incoherent", "count"),
     # Report: can the explanations be trusted, and gender inside the model
-    Cell(REPORT, r"by ([\d.]+) points on average", DELETION, f"{DELETION_MAIN}.morf.value", "dec1"),
+    Cell(
+        REPORT,
+        r"by ([\d.]+) score points on average",
+        DELETION,
+        f"{DELETION_MAIN}.morf.value",
+        "dec1",
+    ),
     Cell(REPORT, r"against ([\d.]+) at random", DELETION, f"{DELETION_MAIN}.random.value", "dec1"),
     Cell(REPORT, r"a rise of ([\d.]+) for", DELETION, f"{DELETION_MAIN}.lerf.value", "abs1"),
     Cell(REPORT, r"correlation ([\d.]+), \d of", STABILITY, "checks.seed.spearman.median", "dec2"),

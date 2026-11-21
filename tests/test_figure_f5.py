@@ -100,7 +100,11 @@ def stability():
             "seed": _check(0.89, 0.80, False, (0.9, 0.7)),
             "removal": _check(0.70, 0.60, False, (0.8, 0.5)),
             "method": _check(0.95, 0.90, True, (0.7, 0.5)),
-        }
+        },
+        "randomisation": {
+            "spearman": {"median": 0.06, "median_ci": [0.02, 0.09]},
+            "top10_overlap": {"median": 0.20, "median_ci": [0.20, 0.20]},
+        },
     }
 
 
@@ -223,7 +227,7 @@ def test_curves_are_named_next_to_their_ends_and_there_is_no_legend(figure):
 
 def test_the_deletion_axes_name_the_quantities_and_stop_at_half_of_the_words(figure):
     top, _ = _axes(figure)
-    assert "log-odds" not in top.get_ylabel() and "score" in top.get_ylabel()
+    assert "log-odds" not in top.get_ylabel() and "score points" in top.get_ylabel()
     assert "words removed" in top.get_xlabel().lower()
     assert [t for t in top.get_xticks() if 0 <= t <= 0.5][-1] == 0.5
     assert top.get_xlim()[0] == 0
@@ -238,6 +242,7 @@ def test_checks_are_rows_sorted_by_the_median_correlation_and_say_what_changed(f
         "leave-one-out, not Shapley",
         "same method, another seed",
         "a blank instead of deleting",
+        "every weight scrambled",
     ]
     assert not any(word in " ".join(labels) for word in ("passed", "failed"))
     assert "main run" in bottom.get_xlabel()
@@ -248,16 +253,16 @@ def test_each_row_has_a_correlation_dot_in_the_highlight_and_an_overlap_dot_in_g
     _, bottom = _axes(figure)
     dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
     correlation, overlap = dots
-    assert correlation.get_offsets()[:, 0].tolist() == pytest.approx([0.95, 0.89, 0.70])
-    assert overlap.get_offsets()[:, 0].tolist() == pytest.approx([0.90, 0.80, 0.60])
+    assert correlation.get_offsets()[:, 0].tolist() == pytest.approx([0.95, 0.89, 0.70, 0.06])
+    assert overlap.get_offsets()[:, 0].tolist() == pytest.approx([0.90, 0.80, 0.60, 0.20])
     assert {_hex(c) for c in correlation.get_facecolor()} == {plotting.HIGHLIGHT}
     assert {_hex(c) for c in overlap.get_facecolor()} == {plotting.NEUTRAL}
     intervals = [
         c for c in bottom.collections if isinstance(c, matplotlib.collections.LineCollection)
     ]
     first = [seg.tolist() for seg in intervals[0].get_segments()]
-    assert [seg[0][0] for seg in first] == pytest.approx([0.90, 0.84, 0.65])
-    assert [seg[1][0] for seg in first] == pytest.approx([0.99, 0.93, 0.74])
+    assert [seg[0][0] for seg in first] == pytest.approx([0.90, 0.84, 0.65, 0.02])
+    assert [seg[1][0] for seg in first] == pytest.approx([0.99, 0.93, 0.74, 0.09])
 
 
 def test_the_two_measures_are_named_next_to_the_data_and_zero_is_marked(figure):

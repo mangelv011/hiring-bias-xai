@@ -167,7 +167,7 @@ def test_the_title_gives_the_summed_gendered_contribution_in_each_panel(figure):
     # bios. Both intervals exclude 0, so both are stated, whatever the total gap does.
     text, lines = _title_lines(figure)
     assert text == (
-        "Gender words put women 1.1 below men in surgeon and 0.8 above in fashion model."
+        "Gender words set women 1.1 score points below men in surgeon, 0.8 above in fashion model."
     )
     assert lines <= 2
 
@@ -187,7 +187,9 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
         f3.Panel("model", "female_dominated", MODEL_WORDS, _MODEL_SUMMARY),
     ]
     text, lines = _title_lines(f3.build(both_above))
-    assert text == ("Gender words put women 2.0 above men in nurse and 0.8 above in fashion model.")
+    assert text == (
+        "Gender words set women 2.0 score points above men in nurse, 0.8 above in fashion model."
+    )
     assert lines <= 2
     engineer = {**_SURGEON_SUMMARY, "gendered_sum": _shares(0.05, -0.06, 0.16)}
     one_clear = [
@@ -195,14 +197,16 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
         f3.Panel("composer", "male_dominated", SURGEON_WORDS, engineer),
     ]
     text, lines = _title_lines(f3.build(one_clear))
-    assert text == ("Gender words put women 1.1 below men in surgeon and within noise in composer.")
+    assert text == (
+        "Gender words set women 1.1 score points below men in surgeon, within noise in composer."
+    )
     assert lines <= 2
 
 
 def test_a_sum_whose_interval_ends_at_zero_is_within_noise(f3):
     touching = {**_MODEL_SUMMARY, "gendered_sum": _shares(0.3, 0.0, 0.6)}
     text = f3.title([f3.Panel("model", "female_dominated", MODEL_WORDS, touching)])
-    assert text == "Gender words put women within noise in fashion model."
+    assert text == "Gender words set women within noise in fashion model."
 
 
 def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_there_are_none(figure):
@@ -222,7 +226,7 @@ def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_ther
 
 def test_the_x_axis_names_the_quantity_and_its_unit(figure):
     for ax in _data_axes(figure):
-        assert ax.get_xlabel() == "Contribution to the women-minus-men gap (points)"
+        assert ax.get_xlabel() == "Contribution to the women-minus-men gap (score points)"
 
 
 def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
