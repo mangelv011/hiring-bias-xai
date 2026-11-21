@@ -389,30 +389,6 @@ def cut_rows(condition, value, low, high):
     ]
 
 
-def origin_rows(label, group, sign):
-    """The change, low and high cells of one origin row of the report's LLM table."""
-    number = r"\+[\d.]+" if sign else r"[\d.]+"
-    start = rf"^\s*{label} & "
-    path = f"statistics.vs_uk|{group}"
-    return [
-        Cell(
-            REPORT,
-            start + f"({number})" + r" \[",
-            AUDIT,
-            f"{path}.value",
-            "signed_points1" if sign else "abs_points1",
-        ),
-        Cell(REPORT, start + number + r" \[(-[\d.]+),", AUDIT, f"{path}.ci_low", "signed_points1"),
-        Cell(
-            REPORT,
-            start + number + r" \[-[\d.]+, (\+[\d.]+)\]",
-            AUDIT,
-            f"{path}.ci_high",
-            "signed_points1",
-        ),
-    ]
-
-
 # One row per number the two documents state: the document, a pattern with one group around the
 # number as written, the results file, the path to the value in it and the format.
 CELLS: list[Cell] = [
@@ -1468,25 +1444,8 @@ CELLS: list[Cell] = [
         "rationalization.beyond_noise.share_no_mention.value",
         "per100",
     ),
-    Cell(REPORT, r"^No header & (\d+) \[", AUDIT, "statistics.tpr|none.value", "per100"),
-    Cell(REPORT, r"^No header & \d+ \[(\d+),", AUDIT, "statistics.tpr|none.ci_low", "per100"),
-    Cell(
-        REPORT, r"^No header & \d+ \[\d+, (\d+)\]", AUDIT, "statistics.tpr|none.ci_high", "per100"
-    ),
-    Cell(REPORT, r"^Neutral ID line & (\d+)", AUDIT, "statistics.tpr|neutral.value", "per100"),
-    Cell(REPORT, r"^Pronouns swapped & (\d+)", AUDIT, "statistics.tpr|swap.value", "per100"),
-    *[
-        row
-        for label, group, sign in [
-            ("Morocco", "Morocco", "+"),
-            ("Romania", "Romania", ""),
-            (r"Spain \+ Hispanic America", "Spain + Hispanic America", "+"),
-        ]
-        for row in origin_rows(label, group, sign)
-    ],
-    Cell(REPORT, r"LLM screener on ([\d,]+) profiles", AUDIT, "profiles.n_profiles", "count"),
-    Cell(REPORT, r"\(([\d,]+) calls", AUDIT, "run_cost.n_calls", "count"),
-    Cell(REPORT, r"calls, ([\d.]+) hours", AUDIT, "run_cost.seconds_total", "hours1"),
+    Cell(REPORT, r"I ran ([\d,]+) calls in", AUDIT, "run_cost.n_calls", "count"),
+    Cell(REPORT, r"calls in ([\d.]+) hours", AUDIT, "run_cost.seconds_total", "hours1"),
 ]
 
 # Numbers that are not results: names, units, years, counts in the descriptions and times that
@@ -1545,7 +1504,6 @@ ALLOWED: list[Allowed] = [
         REPORT, r"gender of 372\b", "375 names minus the 3 of manipulation_check.gender_confusion"
     ),
     Allowed(REPORT, r"yes to 53\b", "the mean of the four female and the four male tpr of arms"),
-    Allowed(REPORT, r"^(?:Woman's|Man's) name \(four groups\) & 53", "the same mean, as the table"),
     Allowed(REPORT, r"gaps of 5 points", "the bounds of the interval of statistics.primary"),
     Allowed(REPORT, r"\b4 GB RTX 3050 GPU", "the laptop"),
 ]
