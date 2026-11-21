@@ -18,7 +18,7 @@ from hiring_bias_xai import plotting
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "figure_f8.py"
 
 
-NO_GAP = "Women's and men's names show no gap of {} points or more in the yes-rate."
+SAME = "Women's and men's names get about the same yes-rate; any name lowers it."
 
 
 def _load_script():
@@ -53,6 +53,7 @@ HALF = 0.012
 def report():
     statistics = {f"diff_tpr|{arm}": _stat(v, HALF) for arm, v in ARMS.items()}
     statistics["primary"] = _stat(0.012, 0.015)
+    statistics["pooled_names_vs_none"] = _stat(-0.06, 0.04)
     return {
         "statistics": statistics,
         "noise_floor": {
@@ -92,15 +93,28 @@ def _dots(ax):
 def test_the_title_says_in_plain_words_whether_women_s_and_men_s_names_get_the_same_answers(
     f8, report
 ):
-    assert f8.title(report) == NO_GAP.format(3)  # the interval runs from -0.3 to +2.7 points
+    assert f8.title(report) == SAME  # the interval runs from -0.3 to +2.7 points
     report["statistics"]["primary"] = _stat(0.03, 0.01)
     assert f8.title(report) == (
-        "With a woman's name, 3 more qualified candidates per 100 get yes than with a man's."
+        "With a woman's name, 3 more qualified candidates per 100 get yes than with a man's; "
+        "any name lowers it."
     )
     report["statistics"]["primary"] = _stat(-0.03, 0.01)
     assert f8.title(report) == (
-        "With a woman's name, 3 fewer qualified candidates per 100 get yes than with a man's."
+        "With a woman's name, 3 fewer qualified candidates per 100 get yes than with a man's; "
+        "any name lowers it."
     )
+
+
+def test_the_title_says_any_name_raises_or_lowers_the_yes_rate_only_when_the_interval_excludes_zero(
+    f8, report
+):
+    report["statistics"]["pooled_names_vs_none"] = _stat(0.06, 0.04)
+    assert f8.title(report) == (
+        "Women's and men's names get about the same yes-rate; any name raises it."
+    )
+    report["statistics"]["pooled_names_vs_none"] = _stat(-0.02, 0.04)
+    assert f8.title(report) == "Women's and men's names get about the same yes-rate."
 
 
 def test_the_title_fits_in_two_lines(figure):
@@ -158,7 +172,7 @@ def test_the_annotation_gives_the_share_without_a_mention_when_arms_are_above_no
     fig = f8.build(report)
     fig.canvas.draw()
     text = " ".join(" ".join(t.get_text().split()) for t in fig.texts)
-    assert "Of 40 changed decisions, 90% (80 to 95) give a reason that does not mention" in text
+    assert "Of 40 changed decisions, a keyword rule finds that 90% (80 to 95) give a reason" in text
     plt.close(fig)
 
 
@@ -185,7 +199,7 @@ def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qua
         assert any(name in label for label in labels)
     assert ax.get_legend() is None
     assert " ".join(ax.get_xlabel().split()) == (
-        "Change in yes per 100 qualified candidates, against no name"
+        "Change in yes-rate for qualified candidates (points), against no name"
     )
 
 
@@ -213,9 +227,9 @@ def test_nothing_is_drawn_outside_the_figure(figure):
 
 def test_a_gap_is_claimed_only_when_the_interval_excludes_zero_not_when_it_touches_it(f8, report):
     report["statistics"]["primary"] = _stat(0.01, 0.01)
-    assert f8.title(report) == NO_GAP.format(2)
+    assert f8.title(report) == SAME
     report["statistics"]["primary"] = _stat(-0.01, 0.01)
-    assert f8.title(report) == NO_GAP.format(2)
+    assert f8.title(report) == SAME
 
 
 def test_each_row_is_labelled_with_the_origin_and_gender_of_its_arm(figure):
