@@ -12,7 +12,8 @@ ALLOWED = re.compile(
     r"[\w./-]+\.(?:py|csv|json|jsonl|png|pdf|ipynb|md)\b"  # file names such as figure_f3.py
     r"|(?<![\w-])F[1-8]\b"  # figure names
     r"|\bADR \d{4}\b"  # decision record numbers
-    r"|\bmacro-F1\b"  # the metric
+    r"|\b[Mm]acro-F1\b"  # the metric
+    r"|\bDeBERTa-v3-small\b"  # the main model
     r"|(?:(?<=\()|(?<=, ))(?:19|20)\d{2}(?=[);])"  # a year in a citation
 )
 SCALES = {0, 1, 100}
