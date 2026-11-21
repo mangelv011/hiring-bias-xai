@@ -353,3 +353,27 @@ def test_the_other_formats_the_documents_use():
     assert formats["seconds0"](32.4) == "32"
     assert formats["minutes1"](144.7) == "2.4"
     assert formats["of150"](0.36) == "54"
+
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def test_the_numbers_of_the_readme_and_the_model_card_match_results():
+    assert _load().check_numbers(REPO) == []
+
+
+def test_main_returns_zero_on_this_repository():
+    assert _load().main(REPO) == 0
+
+
+def test_main_prints_each_problem_and_returns_one(tmp_path, capsys):
+    root = _repo(tmp_path, {"README.md": "[a](gone.md) 12\n", "docs/model_card.md": "x\n"})
+    assert _load().main(root) == 1
+    lines = capsys.readouterr().out.splitlines()
+    assert any("gone.md" in line for line in lines)
+    assert any("number 12" in line for line in lines)
+
+
+def test_ci_runs_the_docs_check():
+    ci = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "- run: python scripts/check_docs.py\n" in ci
