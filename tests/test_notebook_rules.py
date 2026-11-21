@@ -1,5 +1,5 @@
 import pytest
-from notebook_rules import hand_typed_numbers, loose_numbers, prints, result_reads
+from notebook_rules import hand_typed_numbers, loose_numbers, prints, result_literals, result_reads
 
 
 def _nb(*cells):
@@ -206,3 +206,22 @@ def test_a_cell_with_two_prints_is_listed_once():
 def test_numbers_keep_reading_order_when_a_literal_is_shallower_than_an_expression():
     nb = _nb(code('Markdown(f"{share + 5}" + " and 7 more")'))
     assert hand_typed_numbers(nb) == [(0, "5"), (0, "7")]
+
+
+def test_a_digit_in_a_string_given_to_markdown_is_found_without_spaces():
+    nb = _nb(code('say("42%")\nMarkdown("7")\nkey = data["v2"]'))
+    assert hand_typed_numbers(nb) == [(0, "42%"), (0, "7")]
+
+
+@pytest.mark.parametrize("word", ["half", "twice", "double", "triple", "quarter"])
+def test_quantity_words_count_as_numbers(word):
+    assert loose_numbers(f"It fell by {word} that.") == [word]
+
+
+def test_result_literals_lists_every_file_like_string_in_the_code():
+    nb = _nb(
+        md("prose about a.json"),
+        code('x = read_json("one.json")\ny = open("two.csv")\nz = "figures"'),
+        code('f"plot_{n}.png"'),
+    )
+    assert result_literals(nb) == ["one.json", "two.csv"]
