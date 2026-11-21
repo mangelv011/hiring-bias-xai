@@ -8,6 +8,10 @@ only when the median Spearman correlation and the median top-10 overlap both rea
 - removal: the saved values (`delete`) against a run with `unk` and the same orders, same sample;
 - method: the saved values against leave-one-out occlusion, on all showcase-subset bios.
 
+A fourth comparison, `randomisation`, has no threshold and no verdict: the saved values against a
+run of the same model with every weight redrawn (`deberta-random`), same sample. Its expectation
+is written before the run; the numbers are reported as they are.
+
 Per bio, the Spearman correlation is over all words and the overlap is the share of the 10 words
 with the largest absolute value in one vector that are among the largest in the other. Values are
 for the true occupation. Means and medians over bios come with 95% bootstrap intervals over bios;
@@ -77,6 +81,19 @@ EXPECTED = {
 }
 
 
+RANDOM_COMPARISON = (
+    "Shapley values, delete removal, seed 42: the trained main model against the same model with "
+    "every weight redrawn by its initialiser (seed 42), same orders"
+)
+RANDOM_EXPECTED = (
+    "Median Spearman correlation and median top-10 overlap near 0, against 0.89 and 0.80 for seed "
+    "7 against seed 42. The scores of a random network do not depend on what the trained model "
+    "learned, so its ranking of the words should not follow the trained one. An overlap of a few "
+    "words in 10 can come from the bio's own structure (long words, repeated words), so the "
+    "overlap may sit a little above 0."
+)
+
+
 def _load(batch_size: int):
     model = DebertaModel.load(batch_size)
     model.network.to(DEVICE)
@@ -94,10 +111,23 @@ def _statistics(values: np.ndarray) -> dict:
     return out
 
 
-def _check(name: str, pairs: list[tuple[float, float]]) -> dict:
+def _summary(pairs: list[tuple[float, float]]) -> dict:
     spearman = np.array([pair[0] for pair in pairs])
     overlap = np.array([pair[1] for pair in pairs])
-    summary = {"spearman": _statistics(spearman), "top10_overlap": _statistics(overlap)}
+    return {"spearman": _statistics(spearman), "top10_overlap": _statistics(overlap)}
+
+
+def _randomisation(pairs: list[tuple[float, float]]) -> dict:
+    return {
+        "comparison": RANDOM_COMPARISON,
+        "n_bios": len(pairs),
+        "expected": RANDOM_EXPECTED,
+        **_summary(pairs),
+    }
+
+
+def _check(name: str, pairs: list[tuple[float, float]]) -> dict:
+    summary = _summary(pairs)
     thresholds = THRESHOLDS[name]
     return {
         "comparison": COMPARISON[name],
@@ -192,6 +222,7 @@ def main(results_dir: Path = RESULTS_DIR) -> None:
                 "removal": _check("removal", _run_pairs("deberta-unk", sample_ids)),
                 "method": _check("method", method),
             },
+            "randomisation": _randomisation(_run_pairs("deberta-random", sample_ids)),
             "disagreement_example": _explain(*example, model) if example else None,
         },
     )
