@@ -17,10 +17,6 @@ ALLOWED = re.compile(
     r"|(?:(?<=\()|(?<=, ))(?:19|20)\d{2}(?=[);])"  # a year in a citation
 )
 NUMBER_WORDS = (
-    r"(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty"
-    r"|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million)"
-)
-NUMBER_WORDS = (
     r"\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty"
     r"|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million)\b"
 )
@@ -63,11 +59,7 @@ def _fragments(tree):
 
 
 def _is_number(node):
-    return (
-        isinstance(node, ast.Constant)
-        and isinstance(node.value, int | float)
-        and not isinstance(node.value, bool)
-    )
+    return isinstance(node, ast.Constant) and isinstance(node.value, int | float)
 
 
 def hand_typed_numbers(nb):
@@ -78,7 +70,7 @@ def hand_typed_numbers(nb):
             found += [(index, t) for t in loose_numbers(source(cell))]
         elif cell["cell_type"] == "code":
             tree = ast.parse(source(cell))
-            found += [(index, t) for _, _, t in sorted(_fragments(tree))]
+            found += [(index, t) for _, _, t in sorted(_fragments(tree), key=lambda f: f[:2])]
     return found
 
 
@@ -98,7 +90,9 @@ def _calls(nb, names):
 def result_reads(nb):
     """The file names the notebook reads, in order; each must be written as a string literal."""
     names = []
-    for _, call in sorted(_calls(nb, READERS), key=lambda pair: (pair[0], pair[1].lineno)):
+    for _, call in sorted(
+        _calls(nb, READERS), key=lambda pair: (pair[0], pair[1].lineno, pair[1].col_offset)
+    ):
         first = call.args[0] if call.args else None
         if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
             raise ValueError(f"line {call.lineno}: the file name must be a string literal")
