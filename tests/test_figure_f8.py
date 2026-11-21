@@ -201,8 +201,8 @@ def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qua
     assert " ".join(ax.get_xlabel().split()) == ("Change in yes-rate (points), against no name")
 
 
-def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
-    assert figure.get_size_inches()[0] == 3.3
+def test_the_figure_is_3_03_inches_wide_and_no_text_is_below_7_pt(figure):
+    assert figure.get_size_inches()[0] == plotting.WIDTH_INCHES == 3.03
     texts = [t for t in figure.findobj(matplotlib.text.Text) if t.get_text().strip()]
     assert min(t.get_fontsize() for t in texts) >= 7
 
