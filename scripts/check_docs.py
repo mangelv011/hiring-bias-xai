@@ -1104,8 +1104,13 @@ CELLS: list[Cell] = [
                 "flip_rate_ci_high",
                 "pct1",
             ),
-            (r"(\d+)% of the new jobs", "swap", "toward_share", "per100"),
-            (r"it is (\d+)%\. The difference", "removal", "toward_share", "per100"),
+            (r"(\d+)% \[\d+, \d+\] of the new jobs", "swap", "toward_share", "per100"),
+            (r"% \[(\d+), \d+\] of the new jobs", "swap", "toward_share_ci_low", "per100"),
+            (r"% \[\d+, (\d+)\] of the new jobs", "swap", "toward_share_ci_high", "per100"),
+            (r"it is (\d+)% \[\d+, \d+\]\.", "removal", "toward_share", "per100"),
+            (r"it is \d+% \[(\d+), \d+\]\.", "removal", "toward_share_ci_low", "per100"),
+            (r"it is \d+% \[\d+, (\d+)\]\.", "removal", "toward_share_ci_high", "per100"),
+            (r"with ([\d,]+) bios a difference", "swap", "n", "count"),
         ]
     ],
     Cell(
@@ -1151,21 +1156,44 @@ CELLS: list[Cell] = [
         "model=deberta,layer=0,subset=all:accuracy",
         "per100",
     ),
-    Cell(
-        REPORT,
-        r"and (\d+)% from its last layer",
-        PROBING,
-        "model=deberta,layer=6,subset=all:accuracy",
-        "per100",
-    ),
-    Cell(
-        REPORT,
-        r"against ([\d.]+)% from the job alone",
-        PROBING,
-        "model=occupation_only,subset=all:accuracy",
-        "pct1",
-    ),
-    Cell(REPORT, r"and ([\d.]+)% from TF-IDF", PROBING, "model=tfidf,subset=all:accuracy", "pct1"),
+    *[
+        Cell(REPORT, pattern, PROBING, f"{keys}:{column}", "pct1")
+        for pattern, keys, column in [
+            (
+                r"and ([\d.]+)% \[[\d.]+, [\d.]+\] from its last layer",
+                "model=deberta,layer=6,subset=all",
+                "accuracy",
+            ),
+            (
+                r"and [\d.]+% \[([\d.]+), [\d.]+\] from its last layer",
+                "model=deberta,layer=6,subset=all",
+                "ci_low",
+            ),
+            (
+                r"and [\d.]+% \[[\d.]+, ([\d.]+)\] from its last layer",
+                "model=deberta,layer=6,subset=all",
+                "ci_high",
+            ),
+            (
+                r"against ([\d.]+)% \[[\d.]+, [\d.]+\] from the job alone",
+                "model=occupation_only,subset=all",
+                "accuracy",
+            ),
+            (
+                r"against [\d.]+% \[([\d.]+), [\d.]+\] from the job alone",
+                "model=occupation_only,subset=all",
+                "ci_low",
+            ),
+            (
+                r"against [\d.]+% \[[\d.]+, ([\d.]+)\] from the job alone",
+                "model=occupation_only,subset=all",
+                "ci_high",
+            ),
+            (r"and ([\d.]+)% \[[\d.]+, [\d.]+\] from TF-IDF", "model=tfidf,subset=all", "accuracy"),
+            (r"and [\d.]+% \[([\d.]+), [\d.]+\] from TF-IDF", "model=tfidf,subset=all", "ci_low"),
+            (r"and [\d.]+% \[[\d.]+, ([\d.]+)\] from TF-IDF", "model=tfidf,subset=all", "ci_high"),
+        ]
+    ],
     Cell(REPORT, r"Patching (\d+) bios", "patching.json", "n_patched", "count"),
     *[
         Cell(
@@ -1310,14 +1338,14 @@ CELLS: list[Cell] = [
     ),
     Cell(
         REPORT,
-        r"last layer holds about as much as word counts on the same text \((\d+)% against",
+        r"last layer holds about as much as word counts on the same text \(([\d.]+)% against",
         PROBING,
         "model=deberta,layer=6,subset=all:accuracy",
-        "per100",
+        "pct1",
     ),
     Cell(
         REPORT,
-        r"same text \(\d+% against ([\d.]+)%\)",
+        r"same text \([\d.]+% against ([\d.]+)%\)",
         PROBING,
         "model=tfidf,subset=all:accuracy",
         "pct1",
@@ -1520,6 +1548,11 @@ ALLOWED: list[Allowed] = [
     Allowed(REPORT, r"yes to 53\b", "the mean of the four female and the four male tpr of arms"),
     Allowed(REPORT, r"gaps of 5 points", "the bounds of the interval of statistics.primary"),
     Allowed(REPORT, r"\b4 GB RTX 3050 GPU", "the laptop"),
+    Allowed(
+        REPORT,
+        r"about 7 to 8 points either side",
+        "the half-widths of vs_uk|Morocco, Romania and Spain + Hispanic America, llm_audit.json",
+    ),
 ]
 
 

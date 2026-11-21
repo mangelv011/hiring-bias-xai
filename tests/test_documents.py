@@ -232,3 +232,20 @@ def test_the_readme_limits_say_the_task_is_a_proxy_for_screening():
     limits = _readme_section("Limits and intended use")
     assert "predicting an occupation" in limits
     assert "proxy for screening" in limits
+
+
+def _report():
+    return " ".join(_read("report/main.tex").split())
+
+
+def test_the_report_says_how_many_bios_each_stability_check_uses():
+    assert "different seeds (100 bios)" in _report()
+
+
+def test_the_report_says_the_intervals_are_too_wide_to_separate_what_it_compares():
+    report = _report()
+    assert "these per-job intervals overlap, so only the overall cut is established" in report
+    assert "but each interval reaches about 7 to 8 points either side of its estimate" in report
+    assert "so a smaller difference could not be seen" in report
+    assert "the intervals overlap, so I find no reaction to gender beyond the edit" in report
+    assert "would not show" in report
