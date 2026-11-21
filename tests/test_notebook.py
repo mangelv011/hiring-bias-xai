@@ -11,27 +11,27 @@ NOTEBOOK = ROOT / "notebooks" / "audit.ipynb"
 RESULTS = ROOT / "results"
 
 SECTIONS = [
-    "What the screener does, and the data",
-    "How good are the screeners?",
-    "Is it biased?",
-    "Why is it biased?",
-    "Does changing only the gender change the decision?",
-    "Can the explanations be trusted?",
-    "Where does gender live inside the model?",
-    "What fixes it, and at what cost?",
-    "Does an LLM screener behave the same?",
+    "Data",
+    "Models and training",
+    "The bias (F1)",
+    "Global explanation: which words make the gap (F3)",
+    "Local explanation: single decisions (F2)",
+    "Checking the explanations (F4, F5)",
+    "Inside the model (F6)",
+    "Mitigation (F7)",
+    "LLM screener (F8)",
+    "Limits",
 ]
 FIGURES = {
-    "Is it biased?": ["f1_gap_vs_share.png"],
-    "Why is it biased?": ["f2_shapley_cases.png", "f3_gap_words.png"],
-    "Does changing only the gender change the decision?": ["f4_flip_rates.png"],
-    "Can the explanations be trusted?": ["f5_explanation_checks.png"],
-    "Where does gender live inside the model?": ["f6_probing_patching.png"],
-    "What fixes it, and at what cost?": ["f7_mitigation.png"],
-    "Does an LLM screener behave the same?": ["f8_llm_screener.png"],
+    "The bias (F1)": ["f1_gap_vs_share.png"],
+    "Global explanation: which words make the gap (F3)": ["f3_gap_words.png"],
+    "Local explanation: single decisions (F2)": ["f2_shapley_cases.png"],
+    "Checking the explanations (F4, F5)": ["f4_flip_rates.png", "f5_explanation_checks.png"],
+    "Inside the model (F6)": ["f6_probing_patching.png"],
+    "Mitigation (F7)": ["f7_mitigation.png"],
+    "LLM screener (F8)": ["f8_llm_screener.png"],
 }
-MOVES = ["**Why I look at it.**", "**What I found.**", "**What it means.**"]
-IMPORTS = {"json", "pathlib", "pandas", "IPython"}
+IMPORTS = {"json", "pathlib", "pandas", "IPython", "matplotlib"}
 
 
 @pytest.fixture(scope="module")
@@ -89,21 +89,6 @@ def test_each_section_shows_its_figures_in_order(nb):
         assert shown == FIGURES.get(title, []), title
 
 
-def test_each_section_says_how_it_was_run(nb):
-    for title, cells in _sections(nb).items():
-        runs = [c for c in cells if "**How this was run.**" in source(c)]
-        assert len(runs) == 1, title
-        assert "scripts/" in source(runs[0]), title
-
-
-def test_each_section_gives_its_reason_findings_and_meaning_in_that_order(nb):
-    for title, cells in _sections(nb).items():
-        text = "\n".join(source(c) for c in cells)
-        positions = [text.find(move) for move in MOVES]
-        assert -1 not in positions, title
-        assert positions == sorted(positions), title
-
-
 def test_prose_goes_through_markdown_not_print(nb):
     assert prints(nb) == []
 
@@ -140,14 +125,6 @@ def test_every_result_file_the_notebook_names_is_opened_by_a_reader(nb):
     assert set(result_literals(nb)) <= set(result_reads(nb))
 
 
-def test_the_scripts_each_section_names_exist(nb):
-    for title, cells in _sections(nb).items():
-        run = next(source(c) for c in cells if "**How this was run.**" in source(c))
-        scripts = re.findall(r"scripts/\w+\.py", run)
-        assert scripts, title
-        assert [s for s in scripts if not (ROOT / s).is_file()] == [], title
-
-
 def test_no_cell_writes_to_stderr(nb):
     streams = [
         o["name"]
@@ -157,3 +134,32 @@ def test_no_cell_writes_to_stderr(nb):
         if o["output_type"] == "stream"
     ]
     assert "stderr" not in streams
+
+
+def test_it_is_a_short_tour(nb):
+    assert 20 <= len(nb["cells"]) <= 30
+
+
+def test_each_section_names_the_scripts_that_made_its_results_and_they_exist(nb):
+    for title, cells in _sections(nb).items():
+        if title == "Limits":
+            continue
+        scripts = re.findall(r"scripts/\w+\.py", "\n".join(source(c) for c in cells))
+        assert scripts, title
+        assert [s for s in scripts if not (ROOT / s).is_file()] == [], title
+
+
+def test_the_models_section_plots_the_training_log(nb):
+    cells = _sections(nb)["Models and training"]
+    assert "training_log.csv" in result_reads({"cells": cells})
+
+
+def test_the_weight_scrambling_result_is_read_from_stability(nb):
+    cells = _sections(nb)["Checking the explanations (F4, F5)"]
+    assert any('"randomisation"' in source(c) for c in cells)
+
+
+def test_the_limits_are_five_bullets(nb):
+    (cell,) = _sections(nb)["Limits"]
+    bullets = [line for line in source(cell).splitlines() if line.startswith("- ")]
+    assert len(bullets) == 5
