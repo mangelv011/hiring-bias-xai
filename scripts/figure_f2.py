@@ -5,11 +5,11 @@ for the occupation it predicted. The cases mirror the finding of F1 and are pick
 before looking at the bios:
 
 - Women whose true occupation is one of the three male-dominated showcase occupations and whom
-  the main model gets wrong: the bio where the gendered words add the most to the log-odds of the
+  the main model gets wrong: the bio where the gender words add the most to the log-odds of the
   predicted (wrong) occupation, that is, the largest sum of their Shapley values, which must be
   above zero.
 - Men in the three female-dominated showcase occupations whom it gets wrong: the same score.
-- A gendered word is a word unit whose core, without punctuation at its ends, is a scrubbed word.
+- A gender word is a word unit whose core, without punctuation at its ends, is a scrubbed word.
 - A tie goes to the bio that comes first in the subset. Bios under 15 word units, and bios with a
   run of 6 or more digits (they may hold an identifier such as a licence number), are never
   picked. A bio is also left out when the stored full-bio logits predict another occupation than
@@ -90,8 +90,8 @@ FIGURE_NAME = "f2_shapley_cases"
 RULE = (
     "Women whose true occupation is one of the three male-dominated showcase occupations, and "
     "men whose true occupation is one of the three female-dominated ones, whom the main model "
-    "gets wrong: in each group, the bio where the gendered words add the most to the log-odds of "
-    "the predicted occupation (largest sum of their Shapley values, above zero). A gendered word "
+    "gets wrong: in each group, the bio where the gender words add the most to the log-odds of "
+    "the predicted occupation (largest sum of their Shapley values, above zero). A gender word "
     "is a word unit whose core is a scrubbed word. Bios under 15 word units or with six or more "
     "digits in a row are never picked. A group with no qualifying bio is shown as empty."
 )
@@ -105,10 +105,6 @@ BAR_PT = 11
 AXIS_PT = 30
 GAP_PT = 8
 LABEL_CHARS = 14
-
-
-def _name(occupation: str) -> str:
-    return occupation.replace("_", " ")
 
 
 def _text_height_pt(fig, text: str, **kwargs) -> float:
@@ -203,7 +199,7 @@ def _bars(fig, case: Case, order: np.ndarray, rect) -> None:
             ha="left" if value >= 0 else "right",
             va="center",
         )
-    ax.set_xlabel(f"Shapley value for {_name(case.predicted)} (log-odds)")
+    ax.set_xlabel(f"Shapley value for {plotting.job_name(case.predicted)} (score points)")
 
 
 GROUPS = (
@@ -215,14 +211,14 @@ GROUPS = (
 def _title(woman: Case | None, man: Case | None) -> str:
     if woman and man:
         return (
-            f"Gendered words added {gendered_push(woman):+.1f} log-odds to a wrong call for a "
-            f"woman and {gendered_push(man):+.1f} for a man."
+            f"Gender words raised the score of a wrong job by {gendered_push(woman):.1f} points "
+            f"for a woman and {gendered_push(man):.1f} for a man."
         )
     for case, who, other in ((woman, "a woman", "man"), (man, "a man", "woman")):
         if case:
             return (
-                f"Gendered words added {gendered_push(case):+.1f} log-odds to a wrong call for "
-                f"{who}; no misclassified {other} qualified."
+                f"Gender words raised the score of a wrong job by {gendered_push(case):.1f} "
+                f"points for {who}; no misclassified {other} qualified."
             )
     return "No misclassified woman or man met the rules, so there is no case to show."
 
@@ -242,7 +238,10 @@ def build(woman: Case | None, man: Case | None):
     text_width = width - 2 * MARGIN_PT
     capacity = int(text_width // char_pt)
     title = _title(woman, man)
-    note = "Per-word values carry sampling noise; no per-word interval is shown."
+    note = (
+        "A point is one unit of the model's score for a job. Per-word values carry sampling "
+        "noise; no per-word interval is shown."
+    )
     title_pt = _text_height_pt(fig, title, fontweight="bold")
     note_pt = _text_height_pt(fig, note)
     panels = []
@@ -254,8 +253,9 @@ def build(woman: Case | None, man: Case | None):
             continue
         units = int(_gendered_mask(case).sum())
         header = (
-            f"{label}, true {_name(case.true)}, predicted {_name(case.predicted)} "
-            f"({case.bio_id}). Gendered words: {gendered_push(case):+.1f} over {units} units."
+            f"{label}, true {plotting.job_name(case.true)}, "
+            f"predicted {plotting.job_name(case.predicted)} "
+            f"({case.bio_id}). Gender words: {gendered_push(case):+.1f} over {units} units."
         )
         order = np.argsort(-np.abs(case.values), kind="stable")[:TOP_WORDS]
         sentence_pt = (_layout(case.words, capacity)[-1][0] + 1) * LINE_PT + 2

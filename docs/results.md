@@ -52,7 +52,7 @@ The intervals here are wider than in the first table because the units are the 2
 
 **In short:** in two wrong decisions, gender words pushed the model towards the wrong job, though words about the work itself weighed more.
 
-<p align="center"><img src="../results/figures/f2_shapley_cases.png" width="520" alt="Gender words added 3.2 log-odds to a wrong decision for a woman and 2.0 for a man."></p>
+<p align="center"><img src="../results/figures/f2_shapley_cases.png" width="520" alt="Gender words raised the score of a wrong job by 3.2 points for a woman and 2.0 for a man."></p>
 
 To see which words drive a decision, I use Shapley values. This is SHAP at the level of words: the same Shapley values that the SHAP library estimates, with the permutation estimator its PermutationExplainer uses. I did not use the library because its text masker hides a word with a mask token, while I delete it, and [F5](#f5-can-the-explanations-be-trusted) shows that hiding a word with `[UNK]` changes the ranking a lot (rank correlation 0.47). A bio's score is split among its words: each word gets the amount it adds to or takes from the score, averaged over many orders in which the words could be revealed. The parts add up exactly to the score. Here a word "absent" means deleted from the text, and each bio uses 40 random orders, each also read backwards.
 
@@ -97,7 +97,7 @@ Both models list the pronouns among the ten strongest words in every job, and ti
 
 **In short:** swapping *he* and *she* changes the main model's decisions about as often as simply deleting them. When a swap does change a decision, it usually moves it towards a job typical of the new gender. The baseline model reacts more.
 
-<p align="center"><img src="../results/figures/f4_flip_rates.png" width="520" alt="Swapping pronouns changes the main model's decisions no more often than deleting them."></p>
+<p align="center"><img src="../results/figures/f4_flip_rates.png" width="520" alt="Swapping pronouns changes the main model's decisions about as often as deleting them."></p>
 
 F3 shows how the scores split; this tests what happens when the gender in a bio changes. The two fit together: gender words push the scores (F3), but swapping them changes few final decisions, and the decisions that do change lean towards the job that the new gender typically holds. For each of the 1,721 bios I make a copy with the gender swapped (he and she, him and her, his and hers, Mr and Ms) and ask both models again. A changed decision is a flip. But any edit can flip a borderline decision, so I also make a second copy with the same words deleted instead of swapped. If the swap flips more decisions than the deletion, the model reacts to the gender itself, not just to the edit. F4 shows the main model: the share of flips per job, swap in the highlight colour, deletion in grey, with 95% intervals. Design and alternatives are in [ADR 0005](decisions/0005-counterfactual-gender-swap.md); every number is in `results/counterfactual_gender.csv` and `.json`.
 

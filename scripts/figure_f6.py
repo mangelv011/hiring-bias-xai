@@ -3,7 +3,7 @@
 Panel a: the accuracy of linear probes that read gender from scrubbed bios, for the pretrained
 encoder and the main model, with 95% bootstrap intervals, from `results/probing.csv` (all bios),
 and the three references on the same split as horizontal lines: the majority class, the
-occupation alone and TF-IDF. Panel b: the share of the swap's effect on the true-class log-odds
+occupation alone and TF-IDF. Panel b: the share of the swap's effect on the true occupation's score
 that patching clean states into the corrupted run restores, at the positions where the tokens
 differ and at all positions, with 95% bootstrap intervals, from `results/patching.csv`, with
 reference lines at 0 and 1.
@@ -30,7 +30,9 @@ REFERENCES = (
 OCCUPATION_ONLY = "occupation_only"
 LABEL_GAP = 0.07  # least distance between the labels of panel a, as a share of its y range
 LABEL_ROOM = 2.0  # room right of the last layer for the labels, in layers
-LAST_LAYER_NOTE = "Last layer:\nthe classifier\nreads only [CLS],\nso edited words\ngive 0%."
+LAST_LAYER_NOTE = (
+    "Last layer:\nthe classifier\nreads only the\nfirst position,\nso edited words\ngive 0%."
+)
 HALF = 0.5  # the share of the effect that marks where it has left the edited words
 
 

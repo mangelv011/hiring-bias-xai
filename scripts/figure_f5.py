@@ -1,8 +1,8 @@
 """F5: do the Shapley explanations hold up? Deletion curves and stability of the main model.
 
 Panel a: the main model's deletion curves from `results/deletion_curves.csv`: the fall in the
-log-odds of the true occupation as words are removed most important first (MoRF, highlight), at
-random (grey, with its 95% interval over bios) and least important first (LeRF). Panel b: the
+score of the true occupation as words are removed most important first (highlight), at
+random (grey, with its 95% interval over bios) and least important first. Panel b: the
 median Spearman correlation and the median top-10 overlap, with 95% bootstrap intervals, of the
 three checks in `results/stability.json`, sorted by the correlation. Each row says what changed
 from the main run (Shapley, delete removal, seed 42).
@@ -32,13 +32,13 @@ NAME_OFFSET_PT = 30  # the measure names sit this far right of the last row's in
 LABEL_OFFSET_PT = 8  # gap between a dot and its value, in points
 OFFSET = 0.18  # distance of each dot from the row's centre line
 CURVES = (
-    ("morf", HIGHLIGHT, "-", "highest first\n(MoRF)"),
+    ("morf", HIGHLIGHT, "-", "highest value\nfirst"),
     ("random", NEUTRAL, "-", "random"),
-    ("lerf", LERF, "--", "lowest first\n(LeRF)"),
+    ("lerf", LERF, "--", "lowest value\nfirst"),
 )
 CHECK_NAMES = {
     "seed": "same method,\nanother seed",
-    "removal": "[UNK] instead\nof deleting",
+    "removal": "a blank instead\nof deleting",
     "method": "leave-one-out,\nnot Shapley",
 }
 OTHER_WAYS = ("removal", "method")  # compared with the seed check, the noise of a rerun
@@ -88,7 +88,7 @@ def _deletion_panel(ax, curves: pd.DataFrame) -> None:
     ax.spines["bottom"].set_bounds(0, LAST_STEP)
     ax.xaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
     ax.set_xlabel("Words removed (share of the bio)")
-    ax.set_ylabel("Fall in true-class log-odds")
+    ax.set_ylabel("Fall in the true job's\nscore (points)")
     ax.set_title("a  Deletion curves, main model", loc="left", fontweight="bold")
 
 

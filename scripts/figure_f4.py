@@ -32,7 +32,7 @@ def _main_model(table: pd.DataFrame) -> pd.DataFrame:
 def title(table: pd.DataFrame) -> str:
     """The finding: how the pooled flip rate of the swap compares with the removal control.
 
-    "More" or "less" only when the 95% intervals do not overlap; otherwise "no more".
+    "More" or "less" only when the 95% intervals do not overlap; otherwise "about as often".
     """
     by_condition = _main_model(table)
     swap = by_condition["swap"].loc[POOLED]
@@ -42,7 +42,7 @@ def title(table: pd.DataFrame) -> str:
     elif swap["flip_rate_ci_high"] < removal["flip_rate_ci_low"]:
         comparison = "less often than"
     else:
-        comparison = "no more often than"
+        comparison = "about as often as"
     return f"Swapping pronouns changes the main model's decisions {comparison} deleting them."
 
 
@@ -81,7 +81,7 @@ def build(table: pd.DataFrame):
             ha="left",
         )
     ax.set_yticks(rows)
-    ax.set_yticklabels(["all six" if name == POOLED else name.replace("_", " ") for name in order])
+    ax.set_yticklabels(["all six" if name == POOLED else plotting.job_name(name) for name in order])
     ax.set_ylim(rows[-1] + 0.6, -0.6)
     ax.set_xlim(0, max(swap["flip_rate_ci_high"].max(), removal["flip_rate_ci_high"].max()) * 1.9)
     ax.set_xlabel("Share of bios whose prediction changes")

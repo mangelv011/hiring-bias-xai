@@ -118,7 +118,12 @@ def test_the_pooled_rates_are_written_next_to_their_dots(figure):
 
 def test_occupations_are_sorted_by_the_swap_flip_rate_with_the_pooled_row_last(figure):
     ax = _ax(figure)
-    assert [t.get_text() for t in ax.get_yticklabels()] == ["nurse", "fashion model", "surgeon", "all six"]
+    assert [t.get_text() for t in ax.get_yticklabels()] == [
+        "nurse",
+        "fashion model",
+        "surgeon",
+        "all six",
+    ]
     assert ax.yaxis_inverted()
 
 

@@ -4,12 +4,13 @@ Reads `results/llm_audit.json`. Each dot is the change in the yes-rate of qualif
 from the arm with no header, in points, with its 95% interval (bootstrap over bios and first
 names). The grey band is the range of changes that nothing meaningful produces: an identical
 rerun and a whitespace edit. The top dot, in the highlight colour, is the primary contrast:
-women's names minus men's names. The note under the dots gives the share of decision changes
+women's names minus men's names. The note under the axis gives the share of decision changes
 whose reason does not mention name, origin, nationality or gender, or says the decision barely
 depends on the name when no name arm changes decisions more than the noise does.
 """
 
 import json
+import math
 from pathlib import Path
 
 from hiring_bias_xai import plotting
@@ -17,7 +18,8 @@ from hiring_bias_xai.config import RESULTS_DIR
 
 FIGURE_NAME = "f8_llm_screener"
 DARK = "#333333"
-HEIGHT_INCHES = 5.0
+HEIGHT_INCHES = 4.6
+NOTE_SHARE = 0.11  # share of the figure height kept free under the axis label for the note
 
 
 def _points(stat: dict) -> tuple[float, float, float]:
@@ -25,7 +27,8 @@ def _points(stat: dict) -> tuple[float, float, float]:
 
 
 def title(report: dict) -> str:
-    """The primary contrast in plain words; a gap only when its interval excludes 0."""
+    """The primary contrast in plain words: a gap when its interval excludes 0, otherwise the size
+    of the gap the interval rules out."""
     value, low, high = _points(report["statistics"]["primary"])
     if low > 0 or high < 0:
         more = "more" if value > 0 else "fewer"
@@ -33,7 +36,8 @@ def title(report: dict) -> str:
             f"With a woman's name, {abs(value):.0f} {more} qualified candidates per 100 get yes "
             "than with a man's."
         )
-    return "With a woman's or a man's name, qualified candidates get yes about equally often."
+    bound = math.ceil(round(max(abs(low), abs(high)), 6))
+    return f"Women's and men's names show no gap of {bound} points or more in the yes-rate."
 
 
 def _label(arm: str) -> str:
@@ -49,26 +53,21 @@ def _note(report: dict) -> str:
     stated = report["rationalization"]["beyond_noise"]
     if stated is None:
         return (
-            "No name arm changes\n"
-            "decisions more than\n"
-            "the noise does: the\n"
-            "decision barely\n"
-            "depends on the name."
+            "No name arm changes decisions more than the noise does: "
+            "the decision barely depends on the name."
         )
     share = stated["share_no_mention"]
     low, high = 100 * share["ci_low"], 100 * share["ci_high"]
     return (
-        f"Of {stated['n_flips']} changed decisions,\n"
-        f"{100 * share['value']:.0f}% ({low:.0f} to {high:.0f}) give a\n"
-        "reason that does not\n"
-        "mention name, origin\n"
-        "or gender."
+        f"Of {stated['n_flips']} changed decisions, {100 * share['value']:.0f}% "
+        f"({low:.0f} to {high:.0f}) give a reason that does not mention name, origin or gender."
     )
 
 
 def build(report: dict):
     fig, ax = plotting.new_figure(HEIGHT_INCHES)
     fig.suptitle(title(report), fontweight="bold", wrap=True, x=0, ha="left")
+    fig.get_layout_engine().set(rect=(0, NOTE_SHARE, 1, 1 - NOTE_SHARE))  # the note goes below
     arms = {
         key.split("|", 1)[1]: _points(stat)
         for key, stat in report["statistics"].items()
@@ -91,9 +90,9 @@ def build(report: dict):
     high_edge = max([row[2][2] for row in rows] + [band_high])
     pad = 0.08 * (high_edge - low_edge)
     ax.set_xlim(low_edge - pad, high_edge + pad)
-    ax.set_ylim(-5.2, primary_y + 1.4)
+    ax.set_ylim(-0.8, primary_y + 1.4)
     ax.text((band_low + band_high) / 2, primary_y + 0.55, "noise floor", color=DARK, ha="center")
-    ax.text(ax.get_xlim()[0], -1.6, _note(report), color=DARK, va="top", ha="left")
+    fig.text(0.01, 0.01, _note(report), color=DARK, va="bottom", ha="left", wrap=True)
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
     ax.set_xlabel("Change in yes per 100 qualified\ncandidates, against no name")

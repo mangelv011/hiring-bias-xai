@@ -18,7 +18,7 @@ from hiring_bias_xai import plotting
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "figure_f8.py"
 
 
-NO_GAP = "A woman's and a man's name show no gap of {} points or more in how often qualified candidates get yes."
+NO_GAP = "Women's and men's names show no gap of {} points or more in the yes-rate."
 
 
 def _load_script():

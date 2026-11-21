@@ -118,7 +118,7 @@ def build(report: dict):
         arrowprops={"arrowstyle": "->", "color": DARK, "lw": 0.8},
     )
     ax.set_xlabel("Macro-F1 (higher is better)")
-    ax.set_ylabel("Gender gap: RMS TPR gap (lower is better)")
+    ax.set_ylabel("Gender gap, test bios outside the\nshowcase subset (lower is better)")
     return fig
 
 

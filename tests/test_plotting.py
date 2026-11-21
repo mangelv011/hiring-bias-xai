@@ -24,24 +24,6 @@ def test_job_names_have_spaces_and_the_model_job_is_called_a_fashion_model():
     assert plotting.job_name("surgeon") == "surgeon"
 
 
-def test_job_names_have_spaces_and_the_model_job_is_called_a_fashion_model():
-    assert plotting.job_name("software_engineer") == "software engineer"
-    assert plotting.job_name("model") == "fashion model"
-    assert plotting.job_name("surgeon") == "surgeon"
-
-
-def test_job_names_have_spaces_and_the_model_job_is_called_a_fashion_model():
-    assert plotting.job_name("software_engineer") == "software engineer"
-    assert plotting.job_name("model") == "fashion model"
-    assert plotting.job_name("surgeon") == "surgeon"
-
-
-def test_job_names_have_spaces_and_the_model_job_is_called_a_fashion_model():
-    assert plotting.job_name("software_engineer") == "software engineer"
-    assert plotting.job_name("model") == "fashion model"
-    assert plotting.job_name("surgeon") == "surgeon"
-
-
 def test_save_writes_a_pdf_and_a_png_named_after_the_figure(fig, tmp_path):
     plotting.save(fig, "demo", tmp_path)
     assert sorted(path.name for path in tmp_path.iterdir()) == ["demo.pdf", "demo.png"]
