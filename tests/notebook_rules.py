@@ -16,6 +16,14 @@ ALLOWED = re.compile(
     r"|\bDeBERTa-v3-small\b"  # the main model
     r"|(?:(?<=\()|(?<=, ))(?:19|20)\d{2}(?=[);])"  # a year in a citation
 )
+NUMBER_WORDS = (
+    r"(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty"
+    r"|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million)"
+)
+NUMBER_WORDS = (
+    r"\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty"
+    r"|sixty|seventy|eighty|ninety|dozen|hundred|thousand|million)\b"
+)
 SCALES = {0, 1, 100}
 READERS = {"read_json", "read_csv", "show_figure"}
 
@@ -26,8 +34,8 @@ def source(cell):
 
 
 def loose_numbers(text):
-    """The words of `text` that hold a digit, once the allowed tokens are taken out."""
-    return re.findall(r"\S*\d\S*", ALLOWED.sub(" ", text))
+    """The words of `text` that hold a digit or are a number in words, bar the allowed tokens."""
+    return re.findall(rf"\S*\d\S*|{NUMBER_WORDS}", ALLOWED.sub(" ", text), re.IGNORECASE)
 
 
 def _fragments(tree):
