@@ -176,6 +176,37 @@
     "true_occupation": "surgeon",
     "word": "practice"
   },
+  "randomisation": {
+    "comparison": "Shapley values, delete removal, seed 42: the trained main model against the same model with every weight redrawn by its initialiser (seed 42), same orders",
+    "expected": "Median Spearman correlation and median top-10 overlap near 0, against 0.89 and 0.80 for seed 7 against seed 42. The scores of a random network do not depend on what the trained model learned, so its ranking of the words should not follow the trained one. An overlap of a few words in 10 can come from the bio's own structure (long words, repeated words), so the overlap may sit a little above 0.",
+    "n_bios": 100,
+    "spearman": {
+      "mean": 0.04801199585235679,
+      "mean_ci": [
+        0.015352809481499512,
+        0.07672678742027914
+      ],
+      "median": 0.061593763509910526,
+      "median_ci": [
+        0.021345660823531742,
+        0.09415231331447882
+      ],
+      "n_undefined": 0
+    },
+    "top10_overlap": {
+      "mean": 0.22000000000000003,
+      "mean_ci": [
+        0.188,
+        0.252
+      ],
+      "median": 0.2,
+      "median_ci": [
+        0.2,
+        0.2
+      ],
+      "n_undefined": 0
+    }
+  },
   "sample": {
     "ids_file": "stability_sample_ids.csv",
     "n_bios": 100,
