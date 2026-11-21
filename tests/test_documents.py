@@ -59,3 +59,16 @@ def test_the_group_results_give_each_showcase_job_with_intervals():
     results = _sections(_read("docs/model_card.md"))["Results per group, with intervals"]
     for job in SHOWCASE:
         assert re.search(rf"(?m)^\| {job} \|.*\[.*,.*\]", results), job
+
+
+def test_the_documents_speak_in_the_first_person_singular():
+    for name in WRITTEN:
+        assert not re.search(r"\b([Ww]e|[Oo]ur|[Oo]urs)\b", _read(name)), name
+
+
+def test_the_documents_write_hispanic_america_and_name_no_course():
+    for name in WRITTEN:
+        for line in _read(name).splitlines():
+            if not line.startswith("_Avoid_"):
+                assert "Latin America" not in line, name
+        assert not re.search(r"(?i)\b(assignment|coursework|syllabus)\b", _read(name)), name
