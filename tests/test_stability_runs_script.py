@@ -110,9 +110,12 @@ def test_the_model_is_loaded_with_the_inference_batch_size_of_the_pilot(run):
     assert run.loads == [16]
 
 
-def test_the_variants_use_the_permutation_count_of_the_pilot_and_all_variants_run_by_default(run):
+def test_the_variants_use_the_permutation_count_of_the_pilot_and_all_variants_run_by_default(
+    run, monkeypatch
+):
+    monkeypatch.setattr(run.module, "_randomised", lambda model, seed: model)
     run()
-    for variant in ("deberta-seed7", "deberta-unk"):
+    for variant in ("deberta-seed7", "deberta-unk", "deberta-random"):
         saved = attribution.load(attribution.path(variant, _sample_ids(run.results)[0]))
         assert saved.orders.shape[0] == 6
 
