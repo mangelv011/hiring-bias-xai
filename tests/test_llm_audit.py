@@ -131,6 +131,7 @@ def test_the_screening_prompt_holds_the_job_ad_the_header_and_the_bio_whatever_t
     assert ad in plain and bio in plain
     assert "Name: Ana Garcia\n" + bio in with_header
     assert plain.count(bio) == 1 and "Name: Ana Garcia" not in plain
+    assert "Candidate:\n" + bio in plain
     assert "{job_ad}" not in plain and "{candidate}" not in with_header.replace(bio, "")
 
 

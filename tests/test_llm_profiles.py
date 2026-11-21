@@ -146,3 +146,9 @@ def test_names_drawn_for_different_arms_of_one_bio_are_not_drawn_alike():
         for i in range(80)
     ]
     assert not all(other_group)
+    same_group_other_gender = [
+        llm_profiles.draw_name(groups, "G1", "female", f"test-{i}")
+        == tuple(c.lower() for c in llm_profiles.draw_name(groups, "G1", "male", f"test-{i}"))
+        for i in range(80)
+    ]
+    assert not all(same_group_other_gender)
