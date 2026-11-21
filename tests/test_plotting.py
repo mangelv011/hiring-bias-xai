@@ -140,3 +140,9 @@ def test_deuteranopia_simulation_of_very_dark_colours_uses_the_linear_srgb_segme
     # below 0.0031 and encode with it. Expected values worked out in plain Python.
     image = np.array([[[10, 10, 2], [8, 10, 6]]], dtype=np.uint8)
     assert plotting.simulate_deuteranopia(image).tolist() == [[[12, 10, 2], [10, 9, 6]]]
+
+
+def test_spread_moves_labels_up_to_the_gap_and_keeps_their_order():
+    assert plotting.spread([0.5, 0.51, 0.52], 0.1) == pytest.approx([0.5, 0.6, 0.7])
+    assert plotting.spread([0.52, 0.5], 0.1) == pytest.approx([0.6, 0.5])
+    assert plotting.spread([0.1, 0.9], 0.1) == [0.1, 0.9]
