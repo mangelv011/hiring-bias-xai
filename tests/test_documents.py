@@ -420,7 +420,6 @@ def test_the_readme_defines_rms_and_tpr_once_under_the_results_table():
 
 
 def test_the_readme_layout_lists_the_report_and_the_prompts_and_the_run_note_is_there():
-    readme = _read("README.md")
     layout = _readme_section("Repository layout")
     assert "report/" in layout and "prompts/" in layout
     assert "uv run python scripts/<name>.py" in _readme_section("How to run")
