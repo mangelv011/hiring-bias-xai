@@ -70,7 +70,7 @@ Two statements above were wrong, and the run showed it. The expectations are lef
 ## Alternatives considered
 
 - **LEACE and INLP.** Methods that remove a concept from the representation: LEACE (Belrose et al. 2023) in closed form, INLP (Ravfogel et al. 2020) by repeated projections. They answer a different question, what happens to the decision when gender is erased. Not run; they belong to the mitigation work.
-- **Control task instead of a permutation test.** A probe on random labels (Hewitt and Liang 2019) measures how much the probe can memorise. The permutation within occupation tests the claim we make, gender beyond occupation, and costs the same.
+- **Control task instead of a permutation test.** A probe on random labels (Hewitt and Liang 2019) measures how much the probe can memorise. The permutation within occupation tests the claim I make, gender beyond occupation, and costs the same.
 - **A nonlinear probe.** Higher accuracy, but it can compute the answer itself. Not run.
 - **[CLS] pooling.** The pretrained model's [CLS] state is untrained. Not run.
 - **Choosing C again for each shuffle.** 100 times the cost for a small change in the null. C is fixed at the value chosen on the real labels.
