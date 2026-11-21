@@ -3,11 +3,21 @@ import itertools
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 from fakes import FakeLLMServer
 
-from hiring_bias_xai import counterfactual, data, first_names, llm_audit, results
+from hiring_bias_xai import (
+    counterfactual,
+    data,
+    first_names,
+    llm_audit,
+    llm_plan,
+    llm_profiles,
+    results,
+)
+from hiring_bias_xai.config import SEED
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "llm_run.py"
 JOBS = ["dietitian", "nurse", "model", "surgeon", "software_engineer", "composer"]
@@ -98,3 +108,70 @@ def test_the_run_stops_at_the_time_limit_and_resumes_from_the_log(setup):
         assert third["asked"] == 0
     assert len(server.requests) == 174
     assert len((setup / "llm" / "main.jsonl").read_text().splitlines()) == 174
+
+
+def test_the_sizes_are_the_ones_fixed_in_the_adr():
+    module = _load_script()
+    assert (module.N_MATCH, module.N_NONMATCH, module.N_NOISE) == (70, 30, 200)
+
+
+def test_the_saved_profiles_keep_the_job_order_the_hardest_confusions_and_a_seeded_noise_sample(
+    setup,
+):
+    with FakeLLMServer(_answer) as server:
+        _run(setup, server, max_minutes=0)
+    profiles = pd.read_csv(setup / "llm" / "profiles.csv")
+    assert list(dict.fromkeys(profiles["job"])) == JOBS
+    info = json.loads((setup / "llm" / "profiles.json").read_text())
+    assert (info["n_match"], info["n_nonmatch"], info["n_profiles"]) == (2, 2, 24)
+    assert info["hardest"] == {job: JOBS[(i + 1) % 6] for i, job in enumerate(JOBS)}
+    chosen = np.random.default_rng(SEED).choice(24, size=3, replace=False)
+    assert list(profiles.index[profiles["noise_sample"]]) == sorted(chosen)
+
+
+def test_a_later_chunk_reads_the_saved_profiles_and_does_not_sample_again(setup, monkeypatch):
+    with FakeLLMServer(_answer) as server:
+        first = _run(setup, server, max_minutes=0)
+        monkeypatch.setattr(
+            data,
+            "load_showcase_subset",
+            lambda path: pytest.fail("the profiles were sampled again"),
+        )
+        second = _run(setup, server, max_minutes=60)
+    assert first["total"] == second["total"] == 174 and second["done"] == 174
+
+
+def test_the_run_stops_when_the_time_limit_is_reached_exactly(setup):
+    ticks = itertools.count(0, 60)
+    with FakeLLMServer(_answer) as server:
+        state = _run(setup, server, max_minutes=2, clock=lambda: next(ticks))
+    assert state["asked"] == 1  # asked at 60 s, stopped at 120 s
+
+
+def test_an_identical_rerun_is_asked_although_the_same_request_was_answered_with_run_0(setup):
+    with FakeLLMServer(_answer) as server:
+        _run(setup, server, max_minutes=0)
+        profiles = pd.read_csv(setup / "llm" / "profiles.csv")
+        names = json.loads((setup / "llm" / "names.json").read_text())["groups"]
+        merge = json.loads((setup / "llm" / "name_check.json").read_text())["merge"]
+        pools = llm_profiles.analysis_groups(names, merge)
+        noise = list((profiles["job"] + "|" + profiles["id"])[profiles["noise_sample"]])
+        plan = llm_plan.build(profiles, pools, noise)
+        (none,) = plan[
+            (plan["pid"] == noise[0]) & (plan["arm"] == "none") & (plan["part"] == "main")
+        ]["messages"]
+        client = llm_audit.Client(setup / "llm" / "main.jsonl", server.base_url, "m")
+        client.ask(none)  # the none arm of a noise profile, answered with run index 0
+        again = _run(setup, server, max_minutes=0)
+        assert (again["asked"], again["done"]) == (0, 1)  # the rerun is not answered yet
+        rest = _run(setup, server, max_minutes=60)
+    assert rest["asked"] == 173 and rest["done"] == 174
+
+
+def test_the_profile_counts_of_the_sizes_asked_are_saved_with_the_profiles(setup):
+    with FakeLLMServer(_answer) as server:
+        client = llm_audit.Client(setup / "llm" / "main.jsonl", server.base_url, "m")
+        _load_script().main(setup, client=client, max_minutes=0, n_match=3, n_nonmatch=2, n_noise=4)
+    info = json.loads((setup / "llm" / "profiles.json").read_text())
+    assert (info["n_match"], info["n_nonmatch"], info["n_profiles"]) == (3, 2, 30)
+    assert pd.read_csv(setup / "llm" / "profiles.csv")["noise_sample"].sum() == 4
