@@ -1043,7 +1043,10 @@ def test_the_rows_of_the_mitigation_table_match_their_own_line_and_label_only():
 
 
 ALLOWED_PHRASES = [
-    ("1--2 grams", "1--3 grams"),
+    ("257,478 train, 39,642 dev", "257,479 train, 39,642 dev"),
+    ("about 7 to 8 points either side", "about 7 to 9 points either side"),
+    ("interval includes 0)", "interval includes 1)"),
+    ("gap averages 27 jobs", "gap averages 26 jobs"),
     ("at least 500 test bios", "at least 501 test bios"),
     ("her 11 gender words", "her 12 gender words"),
     ("his 2 gender words", "his 3 gender words"),
