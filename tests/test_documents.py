@@ -389,9 +389,11 @@ def test_the_readme_links_the_report_near_the_top_and_in_how_to_read_this():
 
 def test_the_readme_answers_why_in_its_first_screen():
     top = "\n".join(_read("README.md").splitlines()[:30])
-    assert "pronouns push scores towards the gender that usually holds a job" in top
-    assert "a website name found only in women's bios" in top
-    assert "still readable inside the model after the pronouns are removed" in top
+    assert "Pronouns push scores towards the gender that usually holds a job" in top
+    assert (
+        "Other words that go with gender, such as a website name found only in women's bios" in top
+    )
+    assert "Gender is also still readable inside the model after the pronouns are removed" in top
     assert "uses explainable-AI methods to find out why" not in top
 
 

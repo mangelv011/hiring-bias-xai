@@ -1,6 +1,6 @@
 # hiring-bias-xai
 
-**Does an AI that screens CVs treat women and men differently, and why?**
+**Does an AI that screens CVs treat women and men differently, and why?** The whole audit is in the [report](report/main.pdf); this page is the short version.
 
 A hospital needs a surgeon and receives thousands of applications. An AI model reads each candidate's short professional bio first and decides which of 28 jobs it describes (surgeon, nurse, lawyer and so on). Bios it labels "surgeon" go on to the recruiter; the rest are set aside and never seen by a person. A fair screener shortlists the same share of real surgeons whether they are women or men.
 
@@ -10,13 +10,16 @@ I trained such a model on 60,000 real professional bios and checked who it short
   <img src="results/figures/f1_gap_vs_share.png" width="520" alt="Each dot is a job. The more women hold a job, the more the model favours women in it; surgeon: 56 of 100 qualified women shortlisted against 76 of 100 men; nurse: 84 of 100 women against 73 of 100 men.">
 </p>
 
-This project uses explainable-AI methods to find out why: which words drive these decisions, whether those explanations can be trusted, and what reduces the gap.
+## Why it matters
+
+A job platform that ranks candidates with a model is a high-risk AI system under the EU AI Act (Annex III). The provider has to examine possible bias, mitigate it and document it. Accuracy alone cannot show where a bias comes from; explanations can point at the words responsible and test whether removing them helps.
+
+Explainable-AI methods answer why. Pronouns push scores towards the gender that usually holds a job. Other words that go with gender, such as a website name found only in women's bios, do the same. Gender is also still readable inside the model after the pronouns are removed, so removing them narrows the gap by about a fifth, not more.
 
 **How to read this.**
 
-- Each finding starts with the result in one sentence. The numbers behind it, with 95% intervals, are in [docs/results.md](docs/results.md).
+- The [report](report/main.pdf) has the full argument. Each finding here starts with the result in one sentence. The numbers behind it, with 95% intervals, are in [docs/results.md](docs/results.md).
 - A candidate is *qualified* when the bio belongs to someone who really does the job. The model *shortlists* a bio when it labels it with the job of the search, so the recruiter sees it.
-- The shortlist gap is 0.148, about 15 points on a typical job: the share of qualified women the model shortlists differs from the share of qualified men by that much.
 
 ## Key findings
 
@@ -39,22 +42,18 @@ This is a research audit. Do not use these models to screen, rank or reject real
 
 More in the [model card](docs/model_card.md#caveats-and-limitations).
 
-## Why it matters
-
-A job platform that ranks candidates with a model is a high-risk AI system under the EU AI Act (Annex III). The provider has to examine possible bias, mitigate it and document it. Accuracy alone cannot show where a bias comes from; explanations can point at the words responsible and test whether removing them helps.
-
 ## What the audit does
 
-| Question | Method | Kind | Status |
-|---|---|---|---|
-| Who is shortlisted less often, and by how much? | Gap in the share of qualified women and men shortlisted (TPR gap), bootstrap intervals, permutation test | Bias metric | Done |
-| Which words drive one decision? | Word-level SHAP: Shapley values with a permutation estimator | Local | Done |
-| Which words make up the gap between women and men? | Exact decomposition of the score gap into word contributions | Global | Done |
-| Does the decision change if only the gender changes? | Counterfactual pronoun swaps, with a deletion control | Local and global | Done |
-| Can the explanations be trusted? | Deletion curves, seed and method stability | Explanation check | Done |
-| Where does the model store gender? | Linear probing for gender, layer by layer, and activation patching | Mechanistic | Done |
-| Does removing the cues close the gap, and at what cost? | Retraining on scrubbed text, masking proxy words | Mitigation | Done |
-| Does a general-purpose LLM do the same with names? | Black-box audit with names from four origin groups (Spain and Hispanic America merged, because the model could not tell their names apart) | Audit | Done |
+| Question | Method | Kind |
+|---|---|---|
+| Who is shortlisted less often, and by how much? | Compare the share of qualified women and men shortlisted, with bootstrap intervals and a shuffle test | Bias metric |
+| Which words drive one decision? | Word-level SHAP: how much each word adds to the score | Local (one decision) |
+| Which words make up the gap between women and men? | Split the score gap exactly into one part per word | Global (many bios) |
+| Does the decision change if only the gender changes? | Swap he and she, with deleting the pronouns as a control | Local and global |
+| Can the explanations be trusted? | Delete words in order of importance; rerun with another seed or method | Explanation check |
+| Where does the model store gender? | Read gender from each layer with a linear probe; copy states between runs (activation patching) | Mechanistic |
+| Does removing the cues close the gap, and at what cost? | Retrain on text without pronouns; delete proxy words | Mitigation |
+| Does a general-purpose LLM do the same with names? | Black-box audit with names from four origin groups (Spain and Hispanic America merged, because the model could not tell their names apart) | Audit |
 
 Every result, figure and the reasoning behind each number are in **[docs/results.md](docs/results.md)**, which also lists the script that makes each figure. Each technique has an entry in **[docs/methods.md](docs/methods.md)**, and the models and their limits are in the **[model card](docs/model_card.md)**.
 
@@ -62,12 +61,12 @@ Every result, figure and the reasoning behind each number are in **[docs/results
 
 Tested on 99,069 bios the models never saw, with 95% bootstrap intervals.
 
-| Model | Right job, out of 100 bios | Macro-F1 | Shortlist gap (RMS TPR gap) |
+| Model | Right job, out of 100 bios | Macro-F1 | Shortlist gap |
 |---|---|---|---|
 | Word counts + logistic regression (baseline) | 79.5 [79.3, 79.8] | 0.728 [0.724, 0.733] | 0.167 [0.151, 0.190] |
 | DeBERTa-v3-small, fine-tuned (main model) | **83.7** [83.5, 83.9] | **0.783** [0.779, 0.788] | 0.148 [0.134, 0.172] |
 
-Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones. The shortlist gap sums up, over all 28 jobs, how far the share of qualified women shortlisted is from the share of qualified men: 0 would be equal treatment, and shuffling the genders at random gives about 0.04. It is 0.148 on the full test set, and 0.143 on the test bios outside the showcase subset, which the mitigation uses.
+Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones. The true positive rate (TPR) is the share of qualified candidates the model shortlists. The shortlist gap is the root mean square (RMS) over the 28 jobs of the TPR difference between women and men: 0 would be equal treatment, and shuffling the genders at random gives about 0.04. It is 0.148 on the full test set, and 0.143 on the test bios outside the showcase subset, which the mitigation uses.
 
 ## Data and models
 
@@ -79,10 +78,11 @@ Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as l
 
 ```text
 src/hiring_bias_xai/   library: data, models, fairness metrics, attribution, plotting
+report/                the report (main.pdf, LaTeX source and bibliography)
+prompts/               the job ads and the prompt of the LLM audit
 scripts/               one entry point per experiment; each writes to results/
 results/               metrics (JSON, CSV) and figures (PDF, PNG)
 notebooks/audit.ipynb  results viewer: the audit told from the saved results; CI runs it
-docs/                  results, model card, methods, data card, decision records
 docs/model_card.md     the three screeners and the LLM: recipe, metrics, limits
 docs/methods.md        one entry per technique: what it does, how to read it, pitfalls
 tests/                 pytest suite, run by CI on every pull request
@@ -90,7 +90,7 @@ tests/                 pytest suite, run by CI on every pull request
 
 ## How to run
 
-Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build. Run the steps in this order; times are measured on the RTX 3050 Laptop GPU (4 GB). Data and model weights live outside the repository, in `HBX_ARTIFACTS` (default `~/.cache/hiring-bias-xai`). Without `uv`: `pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128`, then `pip install -e . --no-deps`.
+Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build. Run the steps in this order; times are measured on the RTX 3050 Laptop GPU (4 GB). Data and model weights live outside the repository, in `HBX_ARTIFACTS` (default `~/.cache/hiring-bias-xai`). Each command is `uv run python scripts/<name>.py`, with the arguments listed in [docs/results.md](docs/results.md#reproduce-every-result). Without `uv`: `pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128`, then `pip install -e . --no-deps`.
 
 | Step | Commands, in order | Time |
 |---|---|---|
