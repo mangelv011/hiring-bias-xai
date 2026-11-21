@@ -164,10 +164,11 @@ def test_the_band_of_the_gap_that_chance_gives_runs_from_the_null_mean_to_its_95
     assert any(t.get_text() == "chance alone: 0.04 to 0.05" for t in ax.texts)
 
 
-def test_the_better_corner_is_marked_and_the_conditions_are_named_without_a_legend(figure):
+def test_the_conditions_are_named_without_a_legend_and_the_axes_say_which_way_is_better(figure):
     ax = _ax(figure)
     texts = " ".join(t.get_text() for t in ax.texts)
-    assert "better" in texts
+    assert "better" not in texts
+    assert "higher is better" in ax.get_xlabel() and "lower is better" in ax.get_ylabel()
     for name in ("original", "scrubbed"):
         assert name in texts
     assert ax.get_legend() is None
@@ -177,9 +178,8 @@ def test_the_axes_name_the_quantities_and_the_vertical_axis_starts_at_zero(figur
     ax = _ax(figure)
     assert ax.get_xlabel() == "Macro-F1 (higher is better)"
     assert " ".join(ax.get_ylabel().split()) == (
-        "Shortlist gap, test bios outside the showcase subset (lower is better)"
+        "Overall shortlist gap (RMS over jobs, lower is better)"
     )
-    assert "RMS" not in ax.get_ylabel()
     assert ax.get_ylim()[0] == 0
 
 
@@ -245,11 +245,11 @@ def _annotation(fig, text):
 def test_each_condition_has_its_label_beside_its_dot(figure):
     # text offset in points from the dot, horizontal alignment
     labels = {
-        "a original": ((6, 0), "left"),
+        "a original": ((6, 12), "left"),
         "b scrubbed bios": ((-6, 3), "right"),
         "c scrubbed model": ((7, -4), "left"),
-        "d scrubbed both": ((-7, -8), "right"),
-        "e proxy words deleted": ((-3, 9), "right"),
+        "d scrubbed both": ((-7, -10), "right"),
+        "e proxy words deleted": ((-12, 26), "right"),
     }
     for text, (offset, align) in labels.items():
         note = _annotation(figure, text)
@@ -257,20 +257,29 @@ def test_each_condition_has_its_label_beside_its_dot(figure):
         assert (note.get_ha(), note.get_va(), note.anncoords) == (align, "center", "offset points")
 
 
+def test_the_label_of_e_hangs_off_a_leader_line_and_no_other_label_has_one(figure):
+    for text in ("a original", "b scrubbed bios", "c scrubbed model", "d scrubbed both"):
+        assert _annotation(figure, text).arrow_patch is None
+    leader = _annotation(figure, "e proxy words deleted").arrow_patch
+    assert leader is not None
+    assert isinstance(leader.get_arrowstyle(), matplotlib.patches.ArrowStyle.Curve)
+    assert tuple(_annotation(figure, "e proxy words deleted").xy) == CONDITIONS["e"]
+
+
+def test_every_label_is_inside_the_axes(figure):
+    ax = _ax(figure)
+    box = ax.get_window_extent()
+    for note in ax.texts:
+        if note.get_text():
+            extent = note.get_window_extent()
+            assert extent.x0 >= box.x0 and extent.x1 <= box.x1, note.get_text()
+            assert extent.y0 >= box.y0 and extent.y1 <= box.y1, note.get_text()
+
+
 def test_only_the_label_of_d_has_the_highlight_colour(figure):
     assert _hex([_annotation(figure, "d scrubbed both").get_color()]) == [plotting.HIGHLIGHT]
     for text in ("a original", "b scrubbed bios", "c scrubbed model", "e proxy words deleted"):
         assert _hex([_annotation(figure, text).get_color()]) == ["#333333"]
-
-
-def test_the_better_arrow_points_to_the_corner_of_high_macro_f1_and_low_gap(figure):
-    note = _annotation(figure, "better")
-    assert (note.xycoords, note.anncoords) == ("axes fraction", "axes fraction")
-    assert (tuple(note.xy), tuple(note.xyann), note.get_ha()) == (
-        (0.97, 0.03),
-        (0.80, 0.12),
-        "center",
-    )
 
 
 def test_the_arrows_have_a_head_the_colour_of_their_dot_and_stop_short_of_the_dots(figure):
@@ -294,13 +303,13 @@ def test_the_dots_are_drawn_above_the_interval_lines(figure):
 
 
 def test_the_axes_leave_room_for_the_labels_beyond_the_intervals(figure):
-    # Left 30% and right 50% of the span of the macro-F1 intervals, 12% above the highest gap.
+    # Left 45% and right 50% of the span of the macro-F1 intervals, 12% above the highest gap.
     x_low = min(f1 for f1, _ in CONDITIONS.values()) - F1_HALF
     x_high = max(f1 for f1, _ in CONDITIONS.values()) + F1_HALF
     y_high = max(gap for _, gap in CONDITIONS.values()) + GAP_HALF
     span = x_high - x_low
     ax = _ax(figure)
-    assert ax.get_xlim() == pytest.approx((x_low - 0.3 * span, x_high + 0.5 * span))
+    assert ax.get_xlim() == pytest.approx((x_low - 0.45 * span, x_high + 0.5 * span))
     assert ax.get_ylim() == pytest.approx((0, y_high * 1.12))
 
 
@@ -308,7 +317,7 @@ def test_the_chance_label_sits_in_the_middle_of_the_band_left_of_the_intervals(f
     x_low = min(f1 for f1, _ in CONDITIONS.values()) - F1_HALF
     x_high = max(f1 for f1, _ in CONDITIONS.values()) + F1_HALF
     note = _annotation(figure, "chance alone: 0.04 to 0.05")
-    assert note.get_position() == pytest.approx((x_low - 0.22 * (x_high - x_low), 0.045))
+    assert note.get_position() == pytest.approx((x_low - 0.4 * (x_high - x_low), 0.045))
     assert (note.get_ha(), note.get_va()) == ("left", "center")
     assert _hex([note.get_color()]) == ["#333333"]
 
@@ -323,6 +332,6 @@ def test_the_band_is_that_of_the_original_model_and_has_no_edge(f7, report):
     plt.close(fig)
 
 
-def test_the_title_is_bold_and_the_figure_four_inches_high(figure):
+def test_the_title_is_bold_and_the_figure_3_4_inches_high(figure):
     assert figure._suptitle.get_fontweight() == "bold"
-    assert figure.get_size_inches()[1] == 4.0
+    assert figure.get_size_inches()[1] == 3.4
