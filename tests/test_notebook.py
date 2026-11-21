@@ -206,6 +206,12 @@ def _all_text(nb):
     return "\n".join(source(c) for c in nb["cells"])
 
 
+def _titled(nb, title):
+    """The text of a section, with the Markdown cell that carries its title."""
+    head = next(c for c in nb["cells"] if source(c).startswith(f"## {title}"))
+    return source(head) + "\n" + _text(nb, title)
+
+
 def test_the_first_cell_gives_a_short_answer_in_three_sentences(nb):
     intro = source(nb["cells"][0])
     answer = intro.split("**Short answer.**")[1].split("\n\n")[0]
@@ -214,18 +220,18 @@ def test_the_first_cell_gives_a_short_answer_in_three_sentences(nb):
 
 
 def test_the_notebook_says_what_i_would_do_before_the_limits(nb):
-    text = _text(nb, "What I would do")
+    text = _titled(nb, "What I would do")
     for who in ("model team", "compliance team"):
         assert who in text
     assert "LEACE" in text and "never word by word" in text
 
 
 def test_the_notebook_defines_its_terms_where_it_first_uses_them(nb):
-    assert "Macro-F1 is" in _text(nb, "Models and training")
-    bias = _text(nb, "The bias (F1)")
+    assert "Macro-F1 is" in _titled(nb, "Models and training")
+    bias = _titled(nb, "The bias (F1)")
     assert "overall shortlist gap" in bias and "root mean square" in bias
-    assert "`[UNK]` is" in _text(nb, "Checking the explanations (F4, F5)")
-    llm = _text(nb, "LLM screener (F8)")
+    assert "`[UNK]` is" in _titled(nb, "Checking the explanations (F4, F5)")
+    llm = _titled(nb, "LLM screener (F8)")
     assert "origin groups" in llm and "no name" in llm and "Spain" in llm
 
 
