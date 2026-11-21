@@ -223,3 +223,10 @@ def test_the_false_positive_rate_is_split_between_hard_and_other_non_matches():
     assert rates["hard"]["value"] == 0.5 and rates["hard"]["n"] == 2
     assert rates["other"]["value"] == 0.0 and rates["other"]["n"] == 2
     assert 0 < rates["hard"]["ci_low"] < 0.5 < rates["hard"]["ci_high"] < 1
+
+
+def test_any_name_against_no_header_pools_every_name_arm_and_is_outside_the_holm_family():
+    report = llm_metrics.contrasts(_scenario(_one_male_a_name_says_no), n_boot=50)
+    pooled = report["statistics"]["pooled_names_vs_none"]
+    assert pooled["value"] == -0.0625  # 15 of 16 names say yes against 4 of 4 with no header
+    assert "pooled_names_vs_none" not in report["holm"]
