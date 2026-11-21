@@ -66,7 +66,7 @@ Tested on 99,069 bios the models never saw, with 95% bootstrap intervals.
 | Word counts + logistic regression (baseline) | 79.5 [79.3, 79.8] | 0.728 [0.724, 0.733] | 0.167 [0.151, 0.190] |
 | DeBERTa-v3-small, fine-tuned (main model) | **83.7** [83.5, 83.9] | **0.783** [0.779, 0.788] | 0.148 [0.134, 0.172] |
 
-Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones. The true positive rate (TPR) is the share of qualified candidates the model shortlists. The shortlist gap is the root mean square (RMS) over the 28 jobs of the TPR difference between women and men: 0 would be equal treatment, and shuffling the genders at random gives about 0.04. It is 0.148 on the full test set, and 0.143 on the test bios outside the showcase subset, which the mitigation uses.
+Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones. The true positive rate (TPR) is the share of qualified candidates the model shortlists. The shortlist gap is the root mean square (RMS) over the 28 jobs of the TPR difference between women and men: 0 would be equal treatment, and shuffling the genders at random gives about 0.04. It is 0.148 on the full test set, about 15 points on a typical job, and 0.143 on the test bios outside the showcase subset, which the mitigation uses.
 
 ## Data and models
 
