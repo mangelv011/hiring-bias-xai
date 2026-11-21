@@ -36,14 +36,20 @@ def documents(root: Path) -> list[Path]:
     return [path for path in found if path.is_file()]
 
 
-def prose_lines(text: str):
-    """Yield (line number, line) for the lines outside fenced code, inline code removed."""
+def unfenced_lines(text: str):
+    """Yield (line number, line) for the lines outside fenced code."""
     fenced = False
     for number, line in enumerate(text.splitlines(), start=1):
         if FENCE.match(line):
             fenced = not fenced
         elif not fenced:
-            yield number, INLINE_CODE.sub("", line)
+            yield number, line
+
+
+def prose_lines(text: str):
+    """Yield (line number, line) for the lines outside fenced code, inline code removed."""
+    for number, line in unfenced_lines(text):
+        yield number, INLINE_CODE.sub("", line)
 
 
 def references(text: str):
@@ -64,12 +70,8 @@ def anchors(text: str) -> set[str]:
     """The anchors of the headings of a document; a repeated heading gets -1, -2 and so on."""
     seen: dict[str, int] = {}
     found = set()
-    fenced = False
-    for line in text.splitlines():
-        if FENCE.match(line):
-            fenced = not fenced
-            continue
-        match = None if fenced else HEADING.match(line)
+    for _, line in unfenced_lines(text):
+        match = HEADING.match(line)
         if match:
             base = slug(match.group(1))
             count = seen.get(base, 0)
