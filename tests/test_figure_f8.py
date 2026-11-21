@@ -18,6 +18,9 @@ from hiring_bias_xai import plotting
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "figure_f8.py"
 
 
+SAME = "With a woman's or a man's name, qualified candidates get yes about equally often."
+
+
 def _load_script():
     spec = importlib.util.spec_from_file_location("figure_f8", SCRIPT)
     module = importlib.util.module_from_spec(spec)
@@ -86,19 +89,17 @@ def _dots(ax):
     ]
 
 
-def test_the_title_gives_the_primary_contrast_in_points_and_says_no_clear_gap_when_it_includes_zero(
+def test_the_title_says_in_plain_words_whether_women_s_and_men_s_names_get_the_same_answers(
     f8, report
 ):
-    assert f8.title(report) == (
-        "No clear gap between women's and men's names: +1.2 points (95% CI -0.3 to +2.7)"
-    )
+    assert f8.title(report) == SAME
     report["statistics"]["primary"] = _stat(0.03, 0.01)
     assert f8.title(report) == (
-        "Women's names get 3.0 points more yes than men's names (95% CI +2.0 to +4.0)"
+        "With a woman's name, 3 more qualified candidates per 100 get yes than with a man's."
     )
     report["statistics"]["primary"] = _stat(-0.03, 0.01)
     assert f8.title(report) == (
-        "Women's names get 3.0 points fewer yes than men's names (95% CI -4.0 to -2.0)"
+        "With a woman's name, 3 fewer qualified candidates per 100 get yes than with a man's."
     )
 
 
@@ -157,18 +158,19 @@ def test_the_annotation_gives_the_share_without_a_mention_when_arms_are_above_no
     fig = f8.build(report)
     fig.canvas.draw()
     text = " ".join(" ".join(t.get_text().split()) for t in _ax(fig).texts)
-    assert "40 decision changes beyond noise" in text
-    assert "90% (80 to 95)" in text and "does not mention" in text
+    assert "Of 40 changed decisions, 90% (80 to 95) give a reason that does not mention" in text
     plt.close(fig)
 
 
-def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_in_points(figure):
+def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qualified(figure):
     ax = _ax(figure)
     labels = [t.get_text() for t in ax.get_yticklabels()]
     for name in ("neutral", "pronouns", "Morocco", "woman", "man"):
         assert any(name in label for label in labels)
     assert ax.get_legend() is None
-    assert "points" in ax.get_xlabel()
+    assert " ".join(ax.get_xlabel().split()) == (
+        "Change in yes per 100 qualified candidates, against no name"
+    )
 
 
 def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
@@ -195,13 +197,9 @@ def test_nothing_is_drawn_outside_the_figure(figure):
 
 def test_a_gap_is_claimed_only_when_the_interval_excludes_zero_not_when_it_touches_it(f8, report):
     report["statistics"]["primary"] = _stat(0.01, 0.01)
-    assert f8.title(report) == (
-        "No clear gap between women's and men's names: +1.0 points (95% CI +0.0 to +2.0)"
-    )
+    assert f8.title(report) == SAME
     report["statistics"]["primary"] = _stat(-0.01, 0.01)
-    assert f8.title(report) == (
-        "No clear gap between women's and men's names: -1.0 points (95% CI -2.0 to +0.0)"
-    )
+    assert f8.title(report) == SAME
 
 
 def test_each_row_is_labelled_with_the_origin_and_gender_of_its_arm(figure):
