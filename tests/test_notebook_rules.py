@@ -201,3 +201,8 @@ def test_result_reads_rejects_a_number_as_a_name():
 def test_a_cell_with_two_prints_is_listed_once():
     nb = _nb(code('print("a")\nprint("b")'))
     assert prints(nb) == [0]
+
+
+def test_numbers_keep_reading_order_when_a_literal_is_shallower_than_an_expression():
+    nb = _nb(code('Markdown(f"{share + 5}" + " and 7 more")'))
+    assert hand_typed_numbers(nb) == [(0, "5"), (0, "7")]
