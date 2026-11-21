@@ -18,7 +18,7 @@ from hiring_bias_xai import plotting
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "figure_f8.py"
 
 
-SAME = "With a woman's or a man's name, qualified candidates get yes about equally often."
+NO_GAP = "A woman's and a man's name show no gap of {} points or more in how often qualified candidates get yes."
 
 
 def _load_script():
@@ -92,7 +92,7 @@ def _dots(ax):
 def test_the_title_says_in_plain_words_whether_women_s_and_men_s_names_get_the_same_answers(
     f8, report
 ):
-    assert f8.title(report) == SAME
+    assert f8.title(report) == NO_GAP.format(3)  # the interval runs from -0.3 to +2.7 points
     report["statistics"]["primary"] = _stat(0.03, 0.01)
     assert f8.title(report) == (
         "With a woman's name, 3 more qualified candidates per 100 get yes than with a man's."
@@ -147,7 +147,7 @@ def test_the_band_is_the_range_of_the_noise_floor_intervals_in_points(figure):
 def test_the_annotation_says_the_decision_barely_depends_on_the_name_when_no_arm_is_above_noise(
     figure,
 ):
-    text = " ".join(" ".join(t.get_text().split()) for t in _ax(figure).texts)
+    text = " ".join(" ".join(t.get_text().split()) for t in figure.texts)
     assert "barely depends on the name" in text
 
 
@@ -157,9 +157,17 @@ def test_the_annotation_gives_the_share_without_a_mention_when_arms_are_above_no
     report["rationalization"]["name_arms_above_noise"] = 2
     fig = f8.build(report)
     fig.canvas.draw()
-    text = " ".join(" ".join(t.get_text().split()) for t in _ax(fig).texts)
+    text = " ".join(" ".join(t.get_text().split()) for t in fig.texts)
     assert "Of 40 changed decisions, 90% (80 to 95) give a reason that does not mention" in text
     plt.close(fig)
+
+
+def test_the_note_sits_below_the_axes_and_does_not_cover_the_noise_band(figure):
+    (note,) = [t for t in figure.texts if "barely depends" in " ".join(t.get_text().split())]
+    ax = _ax(figure)
+    assert note.get_window_extent().y1 <= ax.get_window_extent().y0
+    (band,) = [p for p in ax.patches if p.get_alpha() == 0.3]
+    assert not note.get_window_extent().overlaps(band.get_window_extent())
 
 
 def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qualified(figure):
@@ -197,9 +205,9 @@ def test_nothing_is_drawn_outside_the_figure(figure):
 
 def test_a_gap_is_claimed_only_when_the_interval_excludes_zero_not_when_it_touches_it(f8, report):
     report["statistics"]["primary"] = _stat(0.01, 0.01)
-    assert f8.title(report) == SAME
+    assert f8.title(report) == NO_GAP.format(2)
     report["statistics"]["primary"] = _stat(-0.01, 0.01)
-    assert f8.title(report) == SAME
+    assert f8.title(report) == NO_GAP.format(2)
 
 
 def test_each_row_is_labelled_with_the_origin_and_gender_of_its_arm(figure):

@@ -208,8 +208,8 @@ def test_panel_b_labels_the_lines_and_explains_the_zero_at_the_last_layer(figure
     _, bottom = _panels(figure)
     texts = {t.get_text() for t in bottom.texts}
     assert {"edited words only", "all other words"} <= texts
-    note = next(t for t in texts if "[CLS]" in t)
-    assert "last layer" in note.lower() and "0%" in note
+    note = next(t for t in texts if "last layer" in t.lower())
+    assert "0%" in note and "[CLS]" not in note
     assert bottom.get_legend() is None
 
 
@@ -385,7 +385,7 @@ def test_the_note_on_the_last_layer_does_not_cover_a_curve_of_panel_b_with_seven
     figure = f6.build(pd.DataFrame(rows), patching)
     figure.canvas.draw()
     _, bottom = _panels(figure)
-    note = next(t for t in bottom.texts if "[CLS]" in t.get_text())
+    note = next(t for t in bottom.texts if "last layer" in t.get_text().lower())
     box = note.get_window_extent()
     for line in bottom.lines:
         xs, ys = line.get_data()

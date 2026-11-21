@@ -176,7 +176,10 @@ def test_the_better_corner_is_marked_and_the_conditions_are_named_without_a_lege
 def test_the_axes_name_the_quantities_and_the_vertical_axis_starts_at_zero(figure):
     ax = _ax(figure)
     assert ax.get_xlabel() == "Macro-F1 (higher is better)"
-    assert ax.get_ylabel() == "Gender gap: RMS TPR gap (lower is better)"
+    assert " ".join(ax.get_ylabel().split()) == (
+        "Gender gap, test bios outside the showcase subset (lower is better)"
+    )
+    assert "RMS" not in ax.get_ylabel()
     assert ax.get_ylim()[0] == 0
 
 

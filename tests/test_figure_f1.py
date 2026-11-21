@@ -206,11 +206,11 @@ def test_the_title_says_there_is_no_clear_link_when_the_interval_of_r_includes_0
         plt.close(fig)
 
 
-def test_the_axes_speak_of_jobs_and_candidates_passed_on(figure):
+def test_the_axes_speak_of_jobs_and_candidates_shortlisted(figure):
     (ax,) = figure.axes
     figure.canvas.draw()
     assert ax.get_xlabel() == "Share of women in the job"
-    assert "per 100" in ax.get_ylabel() and "passed on" in ax.get_ylabel()
+    assert "per 100" in ax.get_ylabel() and "shortlisted" in ax.get_ylabel()
     assert "TPR" not in ax.get_ylabel()
     xticks = {t.get_text() for t in ax.get_xticklabels() if t.get_text()}
     assert {"20%", "60%", "100%"} <= xticks
@@ -239,7 +239,7 @@ def test_two_example_jobs_carry_their_numbers_per_100(results):
         (ax,) = fig.axes
         texts = [t.get_text() for t in ax.texts]
         women_o1, men_o1 = round(100 * (0.7 + GAPS["o1"] / 2)), round(100 * (0.7 - GAPS["o1"] / 2))
-        assert f"o1: {women_o1} of 100 women,\n{men_o1} of 100 men passed on" in texts
+        assert f"o1: {women_o1} of 100 women,\n{men_o1} of 100 men shortlisted" in texts
         assert any(t.startswith("o8: ") for t in texts)
         assert "o2" in texts  # the other showcase jobs keep plain names
         _assert_labels_are_clear(fig)

@@ -87,12 +87,12 @@ def _hex(colours):
     return [matplotlib.colors.to_hex(c).upper() for c in colours]
 
 
-def test_the_title_states_that_the_swap_flips_no_more_than_the_removal_when_intervals_overlap(
+def test_the_title_states_that_the_swap_flips_about_as_often_as_the_removal_when_intervals_overlap(
     f4, table
 ):
     # Pooled: swap 6.9% [5.7, 8.1] and removal 6.3% [5.2, 7.5] overlap.
     assert f4.title(table) == (
-        "Swapping pronouns changes the main model's decisions no more often than deleting them."
+        "Swapping pronouns changes the main model's decisions about as often as deleting them."
     )
 
 
@@ -118,7 +118,7 @@ def test_the_pooled_rates_are_written_next_to_their_dots(figure):
 
 def test_occupations_are_sorted_by_the_swap_flip_rate_with_the_pooled_row_last(figure):
     ax = _ax(figure)
-    assert [t.get_text() for t in ax.get_yticklabels()] == ["nurse", "model", "surgeon", "all six"]
+    assert [t.get_text() for t in ax.get_yticklabels()] == ["nurse", "fashion model", "surgeon", "all six"]
     assert ax.yaxis_inverted()
 
 

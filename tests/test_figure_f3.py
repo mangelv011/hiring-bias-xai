@@ -167,9 +167,17 @@ def test_the_title_gives_the_summed_gendered_contribution_in_each_panel(figure):
     # bios. Both intervals exclude 0, so both are stated, whatever the total gap does.
     text, lines = _title_lines(figure)
     assert text == (
-        "Gendered words put women's bios 1.1 below men's in surgeon and 0.8 above in model."
+        "Gender words put women's bios 1.1 below men's in surgeon and 0.8 above in fashion model."
     )
     assert lines <= 2
+
+
+def test_the_title_ends_above_the_first_panel_header(figure):
+    figure.canvas.draw()
+    first = _data_axes(figure)[0]
+    header = first._left_title.get_window_extent()
+    title = figure._suptitle.get_window_extent()
+    assert title.y0 > header.y1
 
 
 def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
@@ -180,7 +188,7 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
     ]
     text, lines = _title_lines(f3.build(both_above))
     assert text == (
-        "Gendered words put women's bios 2.0 above men's in nurse and 0.8 above in model."
+        "Gender words put women's bios 2.0 above men's in nurse and 0.8 above in fashion model."
     )
     assert lines <= 2
     engineer = {**_SURGEON_SUMMARY, "gendered_sum": _shares(0.05, -0.06, 0.16)}
@@ -190,7 +198,7 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
     ]
     text, lines = _title_lines(f3.build(one_clear))
     assert text == (
-        "Gendered words put women's bios 1.1 below men's in surgeon and within noise in composer."
+        "Gender words put women's bios 1.1 below men's in surgeon and within noise in composer."
     )
     assert lines <= 2
 
@@ -198,27 +206,27 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
 def test_a_sum_whose_interval_ends_at_zero_is_within_noise(f3):
     touching = {**_MODEL_SUMMARY, "gendered_sum": _shares(0.3, 0.0, 0.6)}
     text = f3.title([f3.Panel("model", "female_dominated", MODEL_WORDS, touching)])
-    assert text == "Gendered words put women's bios within noise in model."
+    assert text == "Gender words put women's bios within noise in fashion model."
 
 
 def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_there_are_none(figure):
     surgeon, model = _data_axes(figure)
     assert surgeon.get_title(loc="left") == (
         "Surgeon (male-dominated), gap -0.8 [-1.5, +0.1]\n"
-        "gendered words: -1.12 [-1.24, -1.02]\n"
+        "gender words: -1.12 [-1.24, -1.02]\n"
         "gap interval includes 0: no shares given"
     )
     assert model.get_title(loc="left") == (
-        "Model (female-dominated), gap +5.4 [+4.4, +6.4]\n"
-        "gendered words: +0.80 [+0.68, +0.91]\n"
+        "Fashion model (female-dominated), gap +5.4 [+4.4, +6.4]\n"
+        "gender words: +0.80 [+0.68, +0.91]\n"
         "top 10 words: 61% [51%, 77%]\n"
-        "gendered share: 15% [12%, 19%]"
+        "gender share: 15% [12%, 19%]"
     )
 
 
 def test_the_x_axis_names_the_quantity_and_its_unit(figure):
     for ax in _data_axes(figure):
-        assert ax.get_xlabel() == "Contribution to the women-minus-men gap (log-odds)"
+        assert ax.get_xlabel() == "Contribution to the women-minus-men gap (score points)"
 
 
 def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
