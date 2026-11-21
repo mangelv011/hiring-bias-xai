@@ -334,3 +334,22 @@ def test_each_checked_document_is_read_in_order(tmp_path):
     root = _repo(tmp_path, {"README.md": "a 5\n", "docs/model_card.md": "b 6\n"})
     errors = _load().check_numbers(root, [], [], ("README.md", "docs/model_card.md"))
     assert [error.split(":")[0] for error in errors] == ["README.md", "docs/model_card.md"]
+
+
+def test_count_rounds_half_up_and_keeps_separators():
+    count = _load().FORMATS["count"]
+    assert count(12410.9) == "12,411"
+    assert count(6167.4) == "6,167"
+    assert count(0.5) == "1"
+    assert count(1721) == "1,721"
+
+
+def test_the_other_formats_the_documents_use():
+    formats = _load().FORMATS
+    assert formats["abs_per100"](-0.0601) == "6"
+    assert formats["abs_points1"](-0.1012) == "10.1"
+    assert formats["learning_rate"](3e-05) == "3e-5"
+    assert formats["learning_rate"](5e-05) == "5e-5"
+    assert formats["seconds0"](32.4) == "32"
+    assert formats["minutes1"](144.7) == "2.4"
+    assert formats["of150"](0.36) == "54"
