@@ -84,7 +84,7 @@ def exists_with_case(root: Path, relative: Path) -> bool:
     """True when every part of `relative` exists under `root` with exactly this spelling."""
     here = root
     for part in relative.parts:
-        if part not in {entry.name for entry in here.iterdir()}:
+        if not here.is_dir() or part not in {entry.name for entry in here.iterdir()}:
             return False
         here = here / part
     return True
@@ -787,7 +787,7 @@ def check_numbers(
                 spans.setdefault(number, []).append(match.span(1))
             try:
                 expected = FORMATS[cell.fmt](read_value(root / "results", cell.file, cell.path))
-            except (OSError, KeyError, ValueError, IndexError) as exc:
+            except (OSError, KeyError, ValueError, IndexError, TypeError) as exc:
                 errors.append(f"{name}: cannot read {cell.file} {cell.path}: {exc!r}")
                 continue
             for number, match in found:
