@@ -40,7 +40,7 @@ The references have no p-value.
 
 **Restored share**, per bio: (patched − corrupted) / (clean − corrupted) of the true-class log-odds. Mean and median over the eligible bios, each with a 95% percentile interval of 1,000 bootstrap resamples of the bios. A share can leave [0, 1]; the median is reported because the ratio has heavy tails when the effect is small.
 
-**Four results hold by construction.** They check the hook; they are not findings.
+**Three results hold by construction.** They check the hook; they are not findings.
 
 1. At the embeddings, a position's state depends only on its token. Patching the differing positions gives 100%, and patching the other words gives 0%, since their clean and corrupted states are equal.
 2. Patching all positions at any layer replaces everything the later layers read, so the clean run is reproduced and the share is 100% at every layer. This is a test and a recorded check (`max_all_positions_error`), not a curve.
@@ -59,7 +59,11 @@ Written before the probes and the patching ran. Whatever comes out is reported, 
 5. Patching the differing positions restores most of the effect in the early layers (above 50% at the embeddings and the first two layers) and less in later ones, falling to 0% at the last layer, as the information spreads to positions that were not edited.
 6. Patching all positions gives 100% at every layer.
 
-## Notes after the run
+## Outcomes
+
+Probes. Gender is still readable from text without pronouns in every layer of both encoders: 58% to 63% for the main model and up to 67% for the pretrained one, against 52% for the occupation alone and 60% for word counts, with a permutation p-value of 1/101 at every layer. Patching. On the 168 bios the swap moves most, the swapped words alone restore at least 75% of the effect up to layer 3, the effect is split at layer 4 and sits mostly in the other words by layer 5.
+
+Against the expectations: 1 held. 2 held in part: the embeddings read gender about as well as word counts, and the pretrained model's middle layers read 4 to 8 points more. 3 held. 4 held for the pretrained model, which loses up to 3.5 points without first names, and for the main model, which loses less than one point. 5 held: 100% at the embeddings, falling to 0% at the last layer. 6 held.
 
 Two statements above were wrong, and the run showed it. The expectations are left as written.
 

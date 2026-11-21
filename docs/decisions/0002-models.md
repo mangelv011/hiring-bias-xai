@@ -47,3 +47,7 @@ Numbers are in `results/metrics_deberta.json` and `results/training_log.csv`.
 ## Update: attribution moved to Shapley values (issue #6)
 
 The context and the alternatives above name Integrated Gradients as the explanation that needs gradients. Issue #6 replaced it with word-level Shapley values. The reasons and the alternatives are in [ADR 0003](0003-shapley-attribution.md). The choice of models stands.
+
+## Outcomes
+
+All three screeners were built and audited. The baseline model reaches a test macro-F1 of 0.7282 and the main model 0.7832; the intervals do not overlap. The RMS TPR gap is 0.1666 for the baseline model and 0.1476 for the main model, and those intervals overlap, so the data does not show that either is fairer. The two learning-rate runs of the main model took 12,411 s together on the laptop GPU, and the baseline model took 297 s on the CPU. The LLM was queried only through counterfactual headers and swaps, as written (ADR 0008). A fourth screener, the scrubbed model, was added for the mitigation (ADR 0007). Integrated Gradients was replaced by Shapley values (ADR 0003). The model card in [model_card.md](../model_card.md) holds the current recipes.

@@ -116,3 +116,7 @@ Picks (`results/f2_cases.json`): among 114 misclassified women in the male-domin
 ## Update from #9: checks not run
 
 Weight randomization (Adebayo et al. 2018) is not run: a perturbation method reads only the model's outputs, so it passes by construction. Retraining-based evaluation (ROAR; Hooker et al. 2019) is not run: it needs one fine-tuning run for each fraction of removed words, and the two learning-rate runs of the main model took about 3.5 hours (README, "How to run").
+
+## Outcomes
+
+The run finished for both screeners on all 1,721 showcase bios, with `delete` as the removal and 40 random orders per bio (each also read backwards). The main model took 7,076 s and the baseline model 272 s. The agreement rule of 0.9 between two seeds was not met (0.889 for the main model), and the record above says what that costs: values of single words are indications, and the findings rest on totals over many bios. The values fed the gap decomposition (ADR 0004), F2 and the checks of F5. Those checks found that the words ranked highest drive the main model's decisions, and that the exact order of the words depends on the seed (rank correlation 0.89), on how a word is removed (0.47) and on the method (0.42 against leave-one-out). Retraining-based evaluation and weight randomization were not run.
