@@ -248,3 +248,170 @@ def test_the_keyword_list_is_the_one_fixed_in_the_adr():
     for word in llm_metrics.ATTRIBUTE_WORDS:
         assert llm_metrics.mentions(f"It says {word.upper()} here.")
         assert not llm_metrics.mentions(f"It says {word}x or x{word} here.")
+
+
+def test_the_none_arm_has_no_difference_from_itself_and_the_reference_group_no_contrast():
+    stats = llm_metrics.contrasts(_scenario(lambda arm, n: 1), n_boot=20)["statistics"]
+    assert "diff_tpr|none" not in stats and "diff_fpr|none" not in stats
+    assert "vs_uk|United Kingdom" not in stats
+    assert {"diff_tpr|neutral", "diff_fpr|swap", "vs_uk|A", "primary"} <= set(stats)
+
+
+def test_every_difference_is_taken_from_the_none_arm_and_the_same_share_of_it():
+    def yes(arm, number):
+        qualified = number < 4
+        if arm == "neutral":
+            return 0
+        if arm == "swap":
+            return 1
+        return 1 if qualified else 0
+
+    stats = llm_metrics.contrasts(_scenario(yes), n_boot=20)["statistics"]
+    assert stats["diff_tpr|swap"]["value"] == 0.0  # 1 against 1
+    assert stats["diff_fpr|swap"]["value"] == 1.0  # 1 against 0
+    assert stats["diff_tpr|neutral"]["value"] == -1.0
+    assert stats["diff_fpr|neutral"]["value"] == 0.0
+    assert stats["pooled_names_vs_none"]["value"] == 0.0  # TPR of names 1 against TPR of none 1
+
+
+def test_invalid_answers_leave_out_their_row_and_their_pair_and_are_not_counted_as_no():
+    def yes(arm, number):
+        if (arm, number) == ("name|A|male", 0):
+            return 0
+        if (arm, number) in (("name|A|female", 1), ("name|A|male", 2)):
+            return np.nan
+        return 1
+
+    stats = llm_metrics.contrasts(_scenario(yes), n_boot=20)["statistics"]
+    # pairs with two valid answers: A with bios 0 and 3 (1 - 0, 1 - 1) and the four of the UK
+    assert stats["primary"]["value"] == pytest.approx(1 / 6)
+    assert stats["tpr|name|A|female"]["value"] == 1.0
+    assert stats["diff_tpr|name|A|male"]["value"] == pytest.approx(-1 / 3)  # 2 of 3 valid say yes
+    assert stats["vs_uk|A"]["value"] == pytest.approx(-1 / 6)  # 5 of 6 valid against 8 of 8
+
+
+def test_a_resample_without_a_qualified_bio_is_left_out_and_not_counted_as_zero():
+    def yes(arm, number):
+        return 0 if arm == "name|United Kingdom|male" else 1
+
+    calls = _scenario(yes, n_match=1, n_nonmatch=3, groups=("United Kingdom",))
+    stats = llm_metrics.contrasts(calls, n_boot=100)["statistics"]
+    for name, value in (
+        ("tpr|none", 1.0),
+        ("primary", 1.0),
+        ("diff_tpr|name|United Kingdom|male", -1.0),
+    ):
+        assert (stats[name]["value"], stats[name]["ci_low"], stats[name]["ci_high"]) == (
+            value, value, value,
+        ), name  # fmt: skip
+
+
+def test_a_single_bio_is_resampled_as_itself():
+    calls = _scenario(lambda arm, n: 1, n_match=1, n_nonmatch=0, groups=("United Kingdom",))
+    stat = llm_metrics.contrasts(calls, n_boot=20)["statistics"]["tpr|none"]
+    assert (stat["value"], stat["ci_low"], stat["ci_high"]) == (1.0, 1.0, 1.0)
+
+
+def test_the_interval_is_wider_when_the_bios_differ():
+    stat = llm_metrics.contrasts(_scenario(_one_male_a_name_says_no), n_boot=200)["statistics"][
+        "diff_tpr|name|A|male"
+    ]
+    assert stat["ci_low"] < stat["value"] < stat["ci_high"]
+
+
+def test_the_interval_resamples_first_names_in_each_cell_as_well_as_bios():
+    """Every woman's name says yes, and so does no header. Of the two first names in the men's
+    cell, Juan always says yes and Luis always says no, on every other bio."""
+    rows = []
+    for i in range(40):
+        man, said = ("Juan", 1.0) if i % 2 else ("Luis", 0.0)
+        rows.append((f"p{i}", True, "none", None, None, None, 1.0, ""))
+        rows.append((f"p{i}", True, "name|A|female", "A", "female", "Ana", 1.0, ""))
+        rows.append((f"p{i}", True, "name|A|male", "A", "male", man, said, ""))
+    stats = llm_metrics.contrasts(_calls(rows), n_boot=400)["statistics"]
+    male = stats["diff_tpr|name|A|male"]
+    assert male["value"] == pytest.approx(-0.5)
+    # with two first names, one of them is missing from a quarter of the resamples
+    assert male["ci_low"] < -0.9 and male["ci_high"] > -0.1
+    primary = stats["primary"]
+    assert primary["value"] == pytest.approx(0.5)
+    assert primary["ci_low"] < 0.1 and primary["ci_high"] > 0.9
+
+
+def test_the_interval_is_the_2_5th_to_the_97_5th_percentile_of_the_resamples():
+    calls = _scenario(lambda arm, n: n % 2, n_match=200, n_nonmatch=0, groups=("United Kingdom",))
+    stat = llm_metrics.contrasts(calls, n_boot=1000)["statistics"]["tpr|none"]
+    # the mean of 200 answers, half yes, resampled: 0.5 plus or minus 1.96 x 0.035, a width of
+    # 0.139; the 5th to the 95th percentile would be 0.116 wide
+    assert stat["value"] == 0.5
+    assert stat["ci_high"] - stat["ci_low"] > 0.128
+
+
+def test_the_default_seed_is_the_project_seed():
+    from hiring_bias_xai.config import SEED
+
+    calls = _scenario(_one_male_a_name_says_no)
+    assert llm_metrics.contrasts(calls, n_boot=30) == llm_metrics.contrasts(
+        calls, n_boot=30, seed=SEED
+    )
+    frames = _noise_frames()
+    assert llm_metrics.noise_floor(*frames, n_boot=30) == llm_metrics.noise_floor(
+        *frames, n_boot=30, seed=SEED
+    )
+
+
+def _ranged(rows):
+    return _calls([(f"p{i}", *row) for i, row in enumerate(rows)])
+
+
+def test_the_range_across_first_names_uses_valid_answers_on_qualified_bios_of_names_with_10():
+    rows = [(True, "name|A|female", "A", "female", "Ana", 1.0, "")] * 10
+    rows += [(True, "name|A|female", "A", "female", "Eva", 0.0, "")] * 10
+    rows += [(True, "name|A|female", "A", "female", "Zoe", 1.0, "")] * 9  # one short of 10
+    rows += [(False, "name|A|female", "A", "female", "Ana", 0.0, "")] * 10  # not qualified
+    rows += [(True, "name|A|female", "A", "female", "Eva", np.nan, "")] * 5  # invalid
+    rows += [(True, "name|B|female", "B", "female", "Ana", 1.0, "")] * 12  # one name only
+    ranges = llm_metrics.name_ranges(_ranged(rows), n_shuffle=20)
+    assert list(ranges) == ["A|female"]
+    assert ranges["A|female"]["range"] == 1.0 and ranges["A|female"]["n_names"] == 2
+
+
+def test_the_shuffled_range_is_summarised_by_its_mean_and_its_95th_percentile():
+    # one yes among 14 answers, 1 for the name Ana and 13 for Eva: a shuffle puts it with Ana
+    # one time in 14 (range 1), and otherwise gives Eva a share of 1/13 (range 1/13)
+    rows = [(True, "name|A|female", "A", "female", "Ana", 1.0, "")]
+    rows += [(True, "name|A|female", "A", "female", "Eva", 0.0, "")] * 13
+    cell = llm_metrics.name_ranges(_ranged(rows), n_shuffle=1000, min_cells=1)["A|female"]
+    assert cell["range"] == 1.0
+    assert cell["shuffled_p95"] == pytest.approx(1.0)  # the top 1/14 is above 5%
+    assert cell["shuffled_mean"] == pytest.approx(1 / 14 + 13 / 14 / 13, abs=0.03)
+
+
+def test_the_interval_of_a_noise_flip_rate_is_the_2_5th_to_the_97_5th_percentile():
+    calls, noise = _noise_frames()
+    arm = llm_metrics.noise_floor(calls, noise, n_boot=2000)["arms"]["name|A|female"]
+    # 30 flips in 100 profiles: 0.3 plus or minus 1.96 x 0.046, a width of 0.18 (0.15 for 5-95)
+    assert arm["flip_rate"]["ci_high"] - arm["flip_rate"]["ci_low"] > 0.17
+
+
+def test_a_profile_with_an_invalid_answer_is_left_out_of_the_noise_flip_rate():
+    calls, noise = _noise_frames()
+    edit = (noise["part"] == "edit") & (noise["pid"] == "p0")
+    noise = noise.assign(yes=noise["yes"].mask(edit))  # the edit of p0 is invalid
+    none = (calls["arm"] == "none") & (calls["pid"] == "p1")
+    calls = calls.assign(yes=calls["yes"].mask(none))  # and so is the none answer of p1
+    floor = llm_metrics.noise_floor(calls, noise, n_boot=30)
+    # the edit flips p0 to p4; p0 and p1 are left out, so 3 of 98 are flips
+    assert floor["edit"]["flip_rate"]["value"] == pytest.approx(3 / 98)
+    assert floor["rerun"]["flip_rate"]["value"] == 0.0
+
+
+def test_an_invalid_answer_in_an_arm_is_not_a_flip():
+    rows = [
+        ("p1", True, "none", None, None, None, 1.0, "r0"),
+        ("p1", True, "swap", None, None, None, np.nan, "r1"),
+        ("p2", True, "none", None, None, None, 1.0, "r2"),
+        ("p2", True, "swap", None, None, None, 0.0, "r3"),
+    ]
+    flips = llm_metrics.flips(_calls(rows))
+    assert flips[["pid", "flip"]].to_dict("records") == [{"pid": "p2", "flip": True}]
