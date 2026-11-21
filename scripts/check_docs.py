@@ -378,13 +378,13 @@ def condition_rows(label, key):
     return rows
 
 
-def cut_rows(condition, value, low, high):
+def cut_rows(condition, value, low, high, document=REPORT):
     """The cells of a cut in the gap, written `20% (8% to 30%)`: the paired change of a condition
     divided by the gap of (a). The low end of the cut is the change that is closest to 0."""
     change = f"conditions.{condition}.outside_showcase.change_from_a.rms_tpr_gap"
     gap = f"{CONDITION_A}.rms_tpr_gap.value"
     return [
-        Cell(REPORT, pattern, MITIGATION, f"{change}.{key} over {gap}", "abs_per100")
+        Cell(document, pattern, MITIGATION, f"{change}.{key} over {gap}", "abs_per100")
         for pattern, key in ((value, "value"), (low, "ci_high"), (high, "ci_low"))
     ]
 
@@ -512,7 +512,7 @@ CELLS: list[Cell] = [
     ),
     Cell(
         README,
-        r"gender gap from ([\d.]+) to",
+        r"shortlist gap from ([\d.]+) to",
         MITIGATION,
         f"{CONDITION_A}.rms_tpr_gap.value",
         "dec3",
@@ -564,7 +564,7 @@ CELLS: list[Cell] = [
     Cell(README, r"\(\d+ against (\d+) of every 100 bios\)", BASE, "test.accuracy.value", "per100"),
     # README: results and data
     Cell(README, r"Tested on ([\d,]+) bios", "data_summary.json", "bios.test", "count"),
-    Cell(README, r"gender gap is ([\d.]+), about", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(README, r"shortlist gap is ([\d.]+), about", MAIN, "test.rms_tpr_gap.value", "dec3"),
     Cell(README, r"about (\d+) points on a typical job", MAIN, "test.rms_tpr_gap.value", "per100"),
     Cell(README, r"It is ([\d.]+) on the full test set", MAIN, "test.rms_tpr_gap.value", "dec3"),
     Cell(
@@ -1382,6 +1382,20 @@ CELLS: list[Cell] = [
         r"\(b\) cuts the gap by (\d+)% \(",
         r"\(b\) cuts the gap by \d+% \((\d+)% to",
         r"\(b\) cuts the gap by \d+% \(\d+% to (\d+)%\)",
+    ),
+    *cut_rows(
+        "d",
+        r"That is a (\d+)% cut \(",
+        r"That is a \d+% cut \((\d+)% to",
+        r"That is a \d+% cut \(\d+% to (\d+)%\)",
+        README,
+    ),
+    *cut_rows(
+        "b",
+        r"no retraining, cuts it by (\d+)% \(",
+        r"no retraining, cuts it by \d+% \((\d+)% to",
+        r"no retraining, cuts it by \d+% \(\d+% to (\d+)%\)",
+        README,
     ),
     # Report: the LLM screener
     Cell(REPORT, r"372 of (\d+) names", AUDIT, "manipulation_check.n_calls", "count"),
