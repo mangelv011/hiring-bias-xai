@@ -18,15 +18,16 @@ FIGURE_NAME = "f7_mitigation"
 ORIGINAL = "a"
 HEADLINE = "d"
 DARK = "#333333"
-HEIGHT_INCHES = 4.0
+HEIGHT_INCHES = 3.4
 # name, text offset in points, horizontal alignment
 LABELS = {
-    "a": ("a original", (6, 0), "left"),
+    "a": ("a original", (6, 12), "left"),
     "b": ("b scrubbed bios", (-6, 3), "right"),
     "c": ("c scrubbed model", (7, -4), "left"),
-    "d": ("d scrubbed both", (-7, -8), "right"),
-    "e": ("e proxy words deleted", (-3, 9), "right"),
+    "d": ("d scrubbed both", (-7, -10), "right"),
+    "e": ("e proxy words deleted", (-12, 26), "right"),
 }
+LEADER = "e"  # its dot sits next to a's, so its label hangs off a line
 
 
 def _block(report: dict, condition: str) -> dict:
@@ -67,10 +68,10 @@ def build(report: dict):
     x_high = max(p["macro_f1"]["ci_high"] for p in points.values())
     y_high = max(p["rms_tpr_gap"]["ci_high"] for p in points.values())
     span = x_high - x_low
-    ax.set_xlim(x_low - 0.3 * span, x_high + 0.5 * span)
+    ax.set_xlim(x_low - 0.45 * span, x_high + 0.5 * span)
     ax.set_ylim(0, y_high * 1.12)
     ax.text(
-        x_low - 0.22 * span,
+        x_low - 0.4 * span,
         (null["mean"] + null["p95"]) / 2,
         f"chance alone: {null['mean']:.2f} to {null['p95']:.2f}",
         color=DARK,
@@ -98,6 +99,7 @@ def build(report: dict):
                     "shrinkB": 3,
                 },
             )
+        leader = {"arrowstyle": "-", "color": DARK, "lw": 0.6} if condition == LEADER else None
         ax.annotate(
             label,
             xy=end,
@@ -106,19 +108,10 @@ def build(report: dict):
             color=colour if condition == HEADLINE else DARK,
             ha=align,
             va="center",
+            arrowprops=leader,
         )
-    ax.annotate(
-        "better",
-        xy=(0.97, 0.03),
-        xytext=(0.80, 0.12),
-        xycoords="axes fraction",
-        textcoords="axes fraction",
-        color=DARK,
-        ha="center",
-        arrowprops={"arrowstyle": "->", "color": DARK, "lw": 0.8},
-    )
     ax.set_xlabel("Macro-F1 (higher is better)")
-    ax.set_ylabel("Shortlist gap, test bios outside the\nshowcase subset (lower is better)")
+    ax.set_ylabel("Overall shortlist gap (RMS over jobs,\nlower is better)")
     return fig
 
 
