@@ -149,29 +149,38 @@ CELLS: list[Cell] = []
 ALLOWED: list[Allowed] = []
 
 
-def _fixed(scale: Decimal, decimals: int, signed: bool = False):
+def _fixed(scale: Decimal, decimals: int, signed: bool = False, absolute: bool = False):
     """A formatter: the value times `scale`, rounded half up to `decimals` places."""
     step = Decimal(1).scaleb(-decimals)
 
     def fmt(value) -> str:
         rounded = (Decimal(repr(value)) * scale).quantize(step, rounding=ROUND_HALF_UP)
+        if absolute:
+            rounded = abs(rounded)
         return f"{rounded:+f}" if signed else f"{rounded:f}"
 
     return fmt
 
 
+def _count(value) -> str:
+    return f"{int(Decimal(repr(value)).quantize(Decimal(1), rounding=ROUND_HALF_UP)):,}"
+
+
 FORMATS = {
     "per100": _fixed(Decimal(100), 0),
+    "abs_per100": _fixed(Decimal(100), 0, absolute=True),
     "pct1": _fixed(Decimal(100), 1),
-    "dec1": _fixed(Decimal(1), 1),
+    "abs_points1": _fixed(Decimal(100), 1, absolute=True),
+    "signed_points1": _fixed(Decimal(100), 1, signed=True),
     "dec2": _fixed(Decimal(1), 2),
     "dec3": _fixed(Decimal(1), 3),
-    "dec4": _fixed(Decimal(1), 4),
-    "signed_points1": _fixed(Decimal(100), 1, signed=True),
-    "signed3": _fixed(Decimal(1), 3, signed=True),
-    "hours2": _fixed(Decimal(1) / Decimal(3600), 2),
+    "of150": _fixed(Decimal(150), 0),
+    "seconds0": _fixed(Decimal(1), 0),
     "minutes0": _fixed(Decimal(1) / Decimal(60), 0),
-    "count": lambda value: f"{int(value):,}",
+    "minutes1": _fixed(Decimal(1) / Decimal(60), 1),
+    "hours2": _fixed(Decimal(1) / Decimal(3600), 2),
+    "count": _count,
+    "learning_rate": lambda value: f"{value:.0e}".replace("e-0", "e-"),
 }
 
 
