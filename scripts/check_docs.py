@@ -325,6 +325,9 @@ MITIGATION, AUDIT = "mitigation.json", "llm_audit.json"
 FLIPS = "counterfactual_gender.csv"
 PROBING = "probing.csv"
 SCRUBBED_LOG = "training_log_scrubbed.csv"
+TRAINING_LOG = "training_log.csv"
+LOSS_LOW = "base_learning_rate=3e-05,step=5625"
+LOSS_LAST = "base_learning_rate=3e-05,step=9375"
 CONDITION_A = "conditions.a.outside_showcase"
 CONDITION_D = "conditions.d.outside_showcase"
 REPORT = "report/main.tex"
@@ -526,7 +529,7 @@ CELLS: list[Cell] = [
     ),
     Cell(
         README,
-        r"still passes on (\d+) more qualified",
+        r"still shortlists (\d+) more qualified",
         MITIGATION,
         f"{CONDITION_D}.tpr_gap.model.value",
         "per100",
@@ -564,6 +567,16 @@ CELLS: list[Cell] = [
     Cell(README, r"\(\d+ against (\d+) of every 100 bios\)", BASE, "test.accuracy.value", "per100"),
     # README: results and data
     Cell(README, r"Tested on ([\d,]+) bios", "data_summary.json", "bios.test", "count"),
+    Cell(README, r"gender gap is ([\d.]+), about", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(README, r"about (\d+) points on a typical job", MAIN, "test.rms_tpr_gap.value", "per100"),
+    Cell(README, r"It is ([\d.]+) on the full test set", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(
+        README,
+        r"and ([\d.]+) on the test bios outside",
+        MITIGATION,
+        f"{CONDITION_A}.rms_tpr_gap.value",
+        "dec3",
+    ),
     *screener_rows(
         README,
         "Word counts + logistic regression (baseline)",
@@ -722,10 +735,10 @@ CELLS: list[Cell] = [
     *job_rows("composer", "composer"),
     *job_rows("dietitian", "dietitian"),
     *job_rows("nurse", "nurse"),
-    *job_rows("model", "model"),
+    *job_rows("fashion model", "model"),
     Cell(
         CARD,
-        r"passes on (\d+), and of 100 men",
+        r"shortlists (\d+), and of 100 men",
         MAIN,
         "test.per_occupation.surgeon.tpr_female.value",
         "per100",
@@ -739,7 +752,7 @@ CELLS: list[Cell] = [
     ),
     Cell(
         CARD,
-        r"passes on (\d+) of 100 women and",
+        r"shortlists (\d+) of 100 women and",
         MAIN,
         "test.per_occupation.model.tpr_female.value",
         "per100",
@@ -770,6 +783,25 @@ CELLS: list[Cell] = [
     ),
     Cell(
         CARD, r"holds (\d+) men dietitians", MAIN, "test.per_occupation.dietitian.n_male", "count"
+    ),
+    # Model card: fit to the training bios, and the size of the gap
+    Cell(CARD, r"is ([\d.]+) on the training bios", MAIN, "overfitting_check.train_macro_f1", "dec3"),
+    Cell(CARD, r"([\d.]+) on the dev bios", MAIN, "runs.1.best_dev_macro_f1", "dec3"),
+    Cell(CARD, r"and ([\d.]+) on the test bios\.", MAIN, "test.macro_f1.value", "dec3"),
+    Cell(CARD, r"test macro-F1 is ([\d.]+),", MAIN, "overfitting_check.gap", "dec3"),
+    Cell(CARD, r"baseline model's ([\d.]+) \(", BASE, "overfitting_check.gap", "dec3"),
+    Cell(CARD, r"after epoch (\d), from", TRAINING_LOG, f"{LOSS_LOW}:epoch", "count"),
+    Cell(CARD, r"epoch 3, from ([\d.]+) to", TRAINING_LOG, f"{LOSS_LOW}:dev_loss", "dec2"),
+    Cell(CARD, r"epoch 3, from [\d.]+ to ([\d.]+)\.", TRAINING_LOG, f"{LOSS_LAST}:dev_loss", "dec2"),
+    Cell(CARD, r"means about (\d+) points", MAIN, "test.rms_tpr_gap.value", "per100"),
+    Cell(CARD, r"([\d.]+) means about", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(CARD, r"gap is ([\d.]+) on the full test set", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(
+        CARD,
+        r"and ([\d.]+) on the test bios outside",
+        MITIGATION,
+        f"{CONDITION_A}.rms_tpr_gap.value",
+        "dec3",
     ),
     # Model card: the LLM
     Cell(CARD, r"Temperature (\d),", AUDIT, "settings.temperature", "count"),
@@ -1222,11 +1254,13 @@ ALLOWED: list[Allowed] = [
     Allowed(None, r"\b95%", "the level of the intervals"),
     Allowed(None, r"\bADR \d{4}\b", "the number of a decision record"),
     Allowed(None, r"\b(?:2019|2020|2021)\b", "the years of the cited works"),
+    Allowed(None, r"no gap of 5 points or more", "the bounds of the interval of statistics.primary"),
     Allowed(None, r"[Ss]eed 42", "the global seed, config.SEED"),
     Allowed(None, r"\b0 would be equal treatment|\babove 0\b", "the zero of the gap"),
     Allowed(None, r"Apache-2\.0|Ternary Bonsai 2 9B|\b2-bit\b", "the identity of the LLM"),
     Allowed(None, r"(?i)RTX 3050 laptop GPU \(4 GB\)", "the laptop"),
     Allowed(README, r'width="520"', "image width"),
+    Allowed(README, r"\b(?:2007|2010|2011|2017|2023)\b", "the years of the cited works"),
     Allowed(
         README, r"Python 3\.12|CUDA 12\.8", "software versions pinned in pyproject.toml and uv.lock"
     ),
