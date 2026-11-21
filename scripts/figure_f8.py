@@ -10,7 +10,6 @@ depends on the name when no name arm changes decisions more than the noise does.
 """
 
 import json
-import math
 from pathlib import Path
 
 from hiring_bias_xai import plotting
@@ -18,7 +17,7 @@ from hiring_bias_xai.config import RESULTS_DIR
 
 FIGURE_NAME = "f8_llm_screener"
 DARK = "#333333"
-HEIGHT_INCHES = 4.6
+HEIGHT_INCHES = 4.1
 NOTE_SHARE = 0.11  # share of the figure height kept free under the axis label for the note
 
 
@@ -27,17 +26,21 @@ def _points(stat: dict) -> tuple[float, float, float]:
 
 
 def title(report: dict) -> str:
-    """The primary contrast in plain words: a gap when its interval excludes 0, otherwise the size
-    of the gap the interval rules out."""
+    """The primary contrast in plain words, a gap only when its interval excludes 0, and then the
+    pooled contrast with no name, when its interval excludes 0 too."""
     value, low, high = _points(report["statistics"]["primary"])
     if low > 0 or high < 0:
         more = "more" if value > 0 else "fewer"
-        return (
+        names = (
             f"With a woman's name, {abs(value):.0f} {more} qualified candidates per 100 get yes "
-            "than with a man's."
+            "than with a man's"
         )
-    bound = math.ceil(round(max(abs(low), abs(high)), 6))
-    return f"Women's and men's names show no gap of {bound} points or more in the yes-rate."
+    else:
+        names = "Women's and men's names get about the same yes-rate"
+    pooled, low, high = _points(report["statistics"]["pooled_names_vs_none"])
+    if low > 0 or high < 0:
+        names += "; any name " + ("raises" if pooled > 0 else "lowers") + " it"
+    return names + "."
 
 
 def _label(arm: str) -> str:
@@ -59,8 +62,9 @@ def _note(report: dict) -> str:
     share = stated["share_no_mention"]
     low, high = 100 * share["ci_low"], 100 * share["ci_high"]
     return (
-        f"Of {stated['n_flips']} changed decisions, {100 * share['value']:.0f}% "
-        f"({low:.0f} to {high:.0f}) give a reason that does not mention name, origin or gender."
+        f"Of {stated['n_flips']} changed decisions, a keyword rule finds that "
+        f"{100 * share['value']:.0f}% ({low:.0f} to {high:.0f}) give a reason that does not "
+        "mention name, origin or gender."
     )
 
 
@@ -98,7 +102,7 @@ def build(report: dict):
     fig.text(0.01, 0.01, _note(report), color=DARK, va="bottom", ha="left", wrap=True)
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
-    ax.set_xlabel("Change in yes per 100 qualified\ncandidates, against no name")
+    ax.set_xlabel("Change in yes-rate (points),\nagainst no name")
     return fig
 
 
