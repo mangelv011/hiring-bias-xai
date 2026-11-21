@@ -69,7 +69,7 @@ How far to trust single words: the values come from random orders, so a rerun gi
 
 ## F3: which words make up the gap between women and men
 
-**In short:** in surgeon bios, gender words account for lower scores for women than for men. In fashion model bios, the strongest single word is not a gender word but the name of a website, `freeones`, that appears only in women's bios.
+**In short:** in surgeon bios, gender words lower women's scores and words about the job offset that. This is a breakdown of the score, not the effect of changing the words. In fashion model bios, the strongest single word is not a gender word but the name of a website, `freeones`, that appears only in women's bios.
 
 <p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gender words account for -1.1 score points of the gap in surgeon and +0.8 in fashion model."></p>
 
@@ -78,7 +78,7 @@ For each of the six jobs I study in detail, I take the main model's average scor
 F3 shows the main model in two jobs picked by a rule fixed beforehand: in each group, the one with the largest gap. That is surgeon (-0.77) and fashion model (+5.40). Each panel lists the ten words with the largest part of the gap, with the 95% interval from resampling bios. Gender words are in the highlight colour.
 
 - **Surgeon.** On average, women's and men's surgeon bios score about the same (score gap -0.77, an interval from -1.54 to +0.08 that includes 0). That hides two opposing parts: gender words lower women's scores by 1.12 score points (95% interval 1.02 to 1.24), with *she*, *he*, *her* and *his* all pushing the same way, and words about the job (*surgery*, *surgeon*) raise them and cancel part of it.
-- **Fashion model.** Women's bios score 5.40 score points higher. Gender words account for +0.80 of that (15%). The single strongest word is `freeones`, the name of a website listing adult performers. It appears in 54 of the 150 women's bios and in none of the 150 men's, and it adds +0.95 of the gap. It likely marks where some bios were collected, which I did not check, so part of this gap may come from where some women's bios were published, not from gender words, and the model weights the word: a likely spurious correlation. The counts show that the word appears only in women's bios; they do not show where the bios came from. `ranked`, `gallery` and `listed` follow the same pattern.
+- **Fashion model.** Women's bios score 5.40 score points higher. Gender words account for +0.80 of that (15%). The single strongest word is `freeones`, the name of a website listing adult performers. It appears in 54 of the 150 women's bios and in none of the 150 men's, and it adds +0.95 of the gap. The job is fashion model and the site lists adult performers, so the word may reflect the work or where the bio was published; I cannot tell which. Either way the model uses it as a gendered shortcut. The counts show that the word appears only in women's bios; they do not show where the bios came from. `ranked`, `gallery` and `listed` follow the same pattern.
 
 The table gives all six jobs and both models. "Gender words" is the total part of the gender words; "top 10" and "gender share" give what share of the gap the ten strongest words and the gender words make up. Shares are left out (n/a) when the gap itself may be zero, because a share of zero means nothing. Shares can pass 100% when other words pull the opposite way.
 
@@ -262,7 +262,7 @@ I score the 97,348 test bios outside the showcase subset, because I chose the pr
 | d. scrubbed model, scrubbed bios | 0.779 [0.774, 0.783] | 0.115 [0.103, 0.143] | -0.0282 [-0.0427, -0.0118] | -0.0048 [-0.0076, -0.0017] |
 | e. original model, proxy words deleted | 0.782 [0.777, 0.786] | 0.141 [0.128, 0.167] | -0.0023 [-0.0047, +0.0004] | -0.0016 [-0.0021, -0.0011] |
 
-The share of bios the model gets right changes by -0.02 points in (d), with an interval from -0.16 to +0.12. On the full test split (conditions a to d) the picture is the same: gap 0.147, 0.120, 0.113 and 0.118, macro-F1 0.783, 0.776, 0.779 and 0.778. The saved predictions of the main run agree with condition (a) on 99.94% of the bios; the 60 that differ come from scoring in batches of 4 instead of 64.
+The share of bios the model gets right changes by -0.02 points in (d), with an interval from -0.16 to +0.12. On the full test split (conditions a to d) the picture is the same: gap 0.147, 0.120, 0.113 and 0.118, macro-F1 0.783, 0.776, 0.779 and 0.778. The saved predictions of the main run agree with condition (a) on 99.94% of the bios. These full-test numbers therefore differ slightly from the first table, which is the main run (0.148 against 0.147; dietitian 25 against 24 points): the 60 bios that differ were scored in batches of 4 instead of 64.
 
 ### What I found
 

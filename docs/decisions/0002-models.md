@@ -4,20 +4,20 @@ Status: accepted
 
 ## Context
 
-The audit compares what different screeners do and explains why. Explanations need different access: gradients for Integrated Gradients and probing, weights for a linear reading, only input and output for a black box. Training must fit a laptop with a 4 GB GPU.
+The audit compares what different screeners do and explains why. Explanations need different access: hidden states for probing, repeated scoring for Shapley attribution, weights for a linear reading, only input and output for a black box. Training must fit a laptop with a 4 GB GPU.
 
 ## Decision
 
 Three screeners. The first two satisfy the `Classifier` interface; the LLM answers yes/no and is queried directly.
 
 - **Baseline model**: TF-IDF (1-2 grams) with logistic regression. Its coefficients can be read directly, and it anchors the comparison.
-- **Main model**: DeBERTa-v3-small fine-tuned on a stratified subsample of about 60k bios. It supplies gradients and hidden states.
-- **Black-box screener**: a local LLM served through an OpenAI-compatible API, used with counterfactual swaps only.
+- **Main model**: DeBERTa-v3-small fine-tuned on a stratified subsample of about 60k bios. It supplies hidden states for probing and is scored for Shapley attribution.
+- **Black-box screener**: a local LLM served through an OpenAI-compatible API, queried as a black box with name headers and pronoun swaps.
 
 ## Alternatives considered
 
 - **Larger encoders** (DeBERTa-v3-base or large, RoBERTa-large). They do not fit 4 GB of VRAM or the time budget for fine-tuning and for the attribution runs.
-- **Only an LLM.** No gradients, so no Integrated Gradients and no probing.
+- **Only an LLM.** No hidden states, so no probing.
 - **Only the linear model.** Nothing to explain mechanistically; it cannot show what a pretrained transformer encodes about gender.
 
 ## Consequences
@@ -46,7 +46,7 @@ Numbers are in `results/metrics_deberta.json` and `results/training_log.csv`.
 
 ## Update: attribution moved to Shapley values
 
-The context and the alternatives above name Integrated Gradients as the explanation that needs gradients. The audit replaced it with word-level Shapley values. The reasons and the alternatives are in [ADR 0003](0003-shapley-attribution.md). The choice of models stands.
+The first version of this record planned Integrated Gradients as the explanation that needs gradients. The audit used word-level Shapley values instead. The reasons and the alternatives are in [ADR 0003](0003-shapley-attribution.md). The choice of models stands.
 
 ## Outcomes
 

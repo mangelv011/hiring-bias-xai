@@ -95,7 +95,7 @@ Limits of this advice: one training seed per model, so the effect of retraining 
 
 ## Alternatives not run
 
-- **LEACE** (Belrose et al. 2023). A closed-form linear map that removes everything a linear classifier can read about gender from the representation before the head. It needs no retraining and has a guarantee for linear readers. Not run: concept erasure is out of scope for this issue. The probes of ADR 0006 show gender is readable after scrubbing, which makes it the natural next step.
+- **LEACE** (Belrose et al. 2023). A closed-form linear map that removes everything a linear classifier can read about gender from the representation before the head. It needs no retraining and has a guarantee for linear readers. Not run: concept erasure is out of scope for this audit. The probes of ADR 0006 show gender is readable after scrubbing, which makes it the natural next step.
 - **INLP** (Ravfogel et al. 2020). The same goal by repeated projection, one linear probe at a time. Slower, and it gives no guarantee at the end. Not run for the same reason.
 - **Adversarial training.** Out of scope.
 - **Choosing the proxy words on a split that is not part of test.** It would need Shapley values on new bios, about 2 hours of GPU per model. Evaluating on test minus the showcase subset keeps the choice and the measurement apart at no cost.
