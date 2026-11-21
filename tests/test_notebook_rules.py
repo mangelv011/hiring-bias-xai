@@ -24,6 +24,8 @@ def code(source):
         "The script `scripts/figure_f3.py` writes `results/f3_panels.json`.",
         "The macro-F1 averages over jobs.",
         "Macro-F1 heads the column.",
+        "Shapley (1953) defined the values.",
+        "Adebayo et al. (2018; Hooker et al., 2019) are cited.",
         "The main model is DeBERTa-v3-small.",
         "One reader labelled them, and often none of them agreed.",
         "A tenant and a tentative answer.",
@@ -162,3 +164,40 @@ def test_tokens_in_one_literal_keep_their_reading_order():
 def test_result_reads_follow_the_source_when_one_call_is_nested_in_another():
     nb = _nb(code('total = size(read_json("first.json")) + read_csv("second.csv")'))
     assert result_reads(nb) == ["first.json", "second.csv"]
+
+
+@pytest.mark.parametrize("extension", ["py", "csv", "json", "jsonl", "png", "pdf", "ipynb", "md"])
+def test_a_file_name_with_digits_is_not_a_number(extension):
+    assert loose_numbers(f"See results/f3_panels.{extension} for it.") == []
+
+
+def test_padding_in_a_format_spec_is_not_a_number():
+    nb = _nb(code('Markdown(f"{share: >5} left")'))
+    assert hand_typed_numbers(nb) == []
+
+
+def test_a_decimal_typed_in_an_expression_is_found():
+    nb = _nb(code('Markdown(f"about {share * 2.5} per group")'))
+    assert hand_typed_numbers(nb) == [(0, "2.5")]
+
+
+def test_expression_numbers_and_literal_numbers_keep_reading_order():
+    nb = _nb(code('Markdown(f"{share + 5} and 7 more")'))
+    assert hand_typed_numbers(nb) == [(0, "5"), (0, "7")]
+
+
+def test_methods_with_a_reader_name_are_not_readers():
+    nb = _nb(code('frame.read_json("x.json")\nlog.print("y")'))
+    assert result_reads(nb) == []
+    assert prints(nb) == []
+
+
+def test_result_reads_rejects_a_number_as_a_name():
+    nb = _nb(code("read_json(5)"))
+    with pytest.raises(ValueError, match="literal"):
+        result_reads(nb)
+
+
+def test_a_cell_with_two_prints_is_listed_once():
+    nb = _nb(code('print("a")\nprint("b")'))
+    assert prints(nb) == [0]
