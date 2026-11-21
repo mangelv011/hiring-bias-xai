@@ -275,12 +275,19 @@ def test_the_figure_says_that_per_word_values_carry_sampling_noise(figure):
 def test_each_case_is_named_above_its_sentence_by_gender_true_and_predicted_occupation(figure):
     headers = [t.get_text() for t in figure.texts]
     # Gendered units of the woman's bio: She, her and she (2.0 + 1.2 + 0.0); of the man's: He, his.
-    assert (
-        "Woman, true surgeon, predicted nurse (test-1). Gender words: +3.2 over 3 units." in headers
+    assert "Woman, true surgeon, predicted nurse (test-1)." in headers
+    assert "Man, true nurse, predicted surgeon (test-2)." in headers
+
+
+def test_a_note_gives_the_gender_words_total_of_each_case_and_how_extreme_the_cases_are(f2, cases):
+    fig = f2.build(*cases, wrong=(114, 154))
+    notes = [" ".join(t.get_text().split()) for t in fig.texts]
+    assert any(
+        "Gender words: +3.2 from 3 units for the woman, +1.5 from 2 for the man; "
+        "the largest of 114 and 154 wrong decisions." in note
+        for note in notes
     )
-    assert (
-        "Man, true nurse, predicted surgeon (test-2). Gender words: +1.5 over 2 units." in headers
-    )
+    plt.close(fig)
 
 
 MALE_DOMINATED = ["surgeon", "composer", "software_engineer"]
@@ -327,7 +334,7 @@ def run(f2, monkeypatch, tmp_path):
     results.save_predictions("deberta", subset, model.predict(texts))
 
     def go():
-        f2.main(results_dir)
+        go.figure = f2.main(results_dir)
         return results_dir
 
     go.subset, go.model, go.results_dir = subset, model, results_dir
@@ -344,6 +351,7 @@ def test_main_saves_the_figure_and_the_record_of_the_picked_bios(run):
     assert record["min_units"] == 15
     assert "male-dominated" in record["rule"] and "female-dominated" in record["rule"]
     assert "15 word units" in record["rule"]
+    assert any("the largest of" in t.get_text() for t in run.figure.texts)
     assert "six or more digits" in record["rule"]
 
 
