@@ -34,9 +34,9 @@ Bios the swap does not change (no pronoun) stay in the denominators; 1,689 of 1,
 
 ## Alternatives considered
 
-- **NLTK averaged perceptron tagger.** Apache 2.0 and lighter, but its data comes from `nltk.download` at run time with no hash, so CI needs a download step and a pin of our own. Not measured.
+- **NLTK averaged perceptron tagger.** Apache 2.0 and lighter, but its data comes from `nltk.download` at run time with no hash, so CI needs a download step and a pin of its own. Not measured.
 - **No tagger: "her" is "his" before a word and "him" otherwise.** No dependency, but "her" before a noun at the end of a clause and "gave her books" are wrong. Not measured.
-- **Swapping the residual nouns too** (mother for father). The pairs are not one to one (actor, hostess, king) and it would make the hand check a test of our dictionary. They are flagged instead.
+- **Swapping the residual nouns too** (mother for father). The pairs are not one to one (actor, hostess, king) and it would make the hand check a test of my dictionary. They are flagged instead.
 - **Dropping flagged bios from the main result.** Names are in 631 of 1,721 bios, so the unflagged set is smaller and different. Both sets are reported.
 - **SSA names from `ssa.gov` directly.** The server returns HTTP 403 to scripts. The pin is an Internet Archive capture of the same URL, checked by sha256.
 

@@ -4,7 +4,7 @@ Status: accepted. The first rule and the expected outcomes were written before a
 
 ## Context
 
-The explanations (ADR 0004) say the main model's score gap between women and men has two parts: gendered words (pronouns and titles) and other words that go with gender in the training bios. Two mitigations follow from that, and each acts on one part. Scrubbing the pronouns and retraining targets the first. Hiding the other words at inference, with no retraining, targets the second. We run both and measure what each costs in accuracy and what it leaves of the gap.
+The explanations (ADR 0004) say the main model's score gap between women and men has two parts: gendered words (pronouns and titles) and other words that go with gender in the training bios. Two mitigations follow from that, and each acts on one part. Scrubbing the pronouns and retraining targets the first. Hiding the other words at inference, with no retraining, targets the second. I run both and measure what each costs in accuracy and what it leaves of the gap.
 
 ## Decision
 
