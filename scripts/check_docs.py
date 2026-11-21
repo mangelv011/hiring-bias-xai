@@ -192,7 +192,17 @@ FORMATS = {
 
 
 def read_value(results_dir: Path, file: str, path: str):
-    """The value at `path` of a results file; raises when the file, path or row is missing."""
+    """The value at `path` of a results file; raises when the file, path or row is missing.
+
+    `a over b` is the value at `a` divided by the one at `b`, and `a minus b` their difference,
+    for a number the text derives from two results.
+    """
+    if " over " in path:
+        top, _, bottom = path.partition(" over ")
+        return read_value(results_dir, file, top) / read_value(results_dir, file, bottom)
+    if " minus " in path:
+        left, _, right = path.partition(" minus ")
+        return read_value(results_dir, file, left) - read_value(results_dir, file, right)
     full = results_dir / file
     if full.suffix == ".csv":
         keys, _, column = path.rpartition(":")
@@ -1460,7 +1470,7 @@ def check_numbers(
                 spans.setdefault(number, []).append(match.span(1))
             try:
                 expected = FORMATS[cell.fmt](read_value(root / "results", cell.file, cell.path))
-            except (OSError, KeyError, ValueError, IndexError, TypeError) as exc:
+            except (OSError, KeyError, ValueError, IndexError, TypeError, ZeroDivisionError) as exc:
                 errors.append(f"{name}: cannot read {cell.file} {cell.path}: {exc!r}")
                 continue
             for number, match in found:

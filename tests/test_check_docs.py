@@ -324,7 +324,7 @@ def test_the_share_uses_the_numerator_named_first(tmp_path):
 
 def test_a_value_may_be_the_difference_of_two_results(tmp_path):
     path = "a.gap.value minus a.change.value"
-    cells = [("README.md", r"by ([\d.]+)", "m.json", path, "dec3")]
+    cells = [("README.md", r"by ([\d.]+)", "m.json", path, "dec3")]
     assert _numbers(tmp_path, "by 0.172\n", cells, results={"m.json": DERIVED}) == []
     assert len(_numbers(tmp_path / "b", "by 0.115\n", cells, results={"m.json": DERIVED})) == 1
 
