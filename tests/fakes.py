@@ -65,7 +65,9 @@ class FakeLLMServer:
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_POST(self):
                 payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-                outer.requests.append({"path": self.path, "payload": payload})
+                outer.requests.append(
+                    {"path": self.path, "payload": payload, "headers": dict(self.headers)}
+                )
                 body = json.dumps({"choices": [{"message": answer(payload)}]}).encode()
                 self.send_response(200)
                 self.send_header("Content-Length", str(len(body)))

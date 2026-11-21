@@ -249,3 +249,42 @@ def test_lookup_returns_a_stored_call_or_none_and_never_sends(tmp_path):
         assert client.lookup(MESSAGES) == record
         assert client.lookup(MESSAGES, run=1) is None
         assert len(server.requests) == 1
+
+
+def test_the_screening_prompt_puts_the_job_ad_and_the_candidate_on_their_own_lines():
+    bio = "She is a nurse."
+    plain = llm_audit.screening_messages("nurse", bio)[0]["content"]
+    assert f"Job ad:\n{llm_audit.job_ad('nurse')}\n\nCandidate:\n{bio}\n\n" in plain
+    assert llm_audit.job_ad("nurse") == llm_audit.job_ad("nurse").strip()
+
+
+def test_a_placeholder_written_in_the_bio_is_never_filled_in():
+    bio = "Wrote {job_ad} and {candidate} in the profile."
+    for version in llm_audit.SCREENING_VERSIONS:
+        content = llm_audit.screening_messages("nurse", bio, "Name: Ana Garcia", version)[0][
+            "content"
+        ]
+        assert "Name: Ana Garcia\n" + bio in content
+        assert content.count(llm_audit.job_ad("nurse")) == 1
+
+
+def test_a_tie_for_the_closest_group_goes_to_the_one_first_in_the_group_order():
+    matrix = _confusion(Spain={"Spain": 1, "Romania": 5, "Morocco": 5})
+    merged = llm_audit.merge_decision(matrix)
+    assert merged == {
+        "groups": [["Spain", "Morocco"], ["Romania"], ["Hispanic America"], ["United Kingdom"]],
+        "dropped": [],
+    }
+
+
+def test_the_request_is_json_and_the_stored_call_keeps_the_settings_and_non_ascii_text(tmp_path):
+    log = tmp_path / "calls.jsonl"
+    messages = [{"role": "user", "content": "Jos\u00e9 N\u00fa\u00f1ez"}]
+    with FakeLLMServer(lambda payload: {"content": "S\u00ed"}) as server:
+        client = llm_audit.Client(log, base_url=server.base_url, model="m")
+        record = client.ask(messages)
+    assert server.requests[0]["headers"]["Content-Type"] == "application/json"
+    assert record["settings"] == llm_audit.SETTINGS
+    assert json.loads(log.read_text(encoding="utf-8"))["settings"] == llm_audit.SETTINGS
+    text = log.read_text(encoding="utf-8")
+    assert "Jos\u00e9 N\u00fa\u00f1ez" in text and "S\u00ed" in text
