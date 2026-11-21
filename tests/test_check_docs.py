@@ -856,3 +856,14 @@ def test_a_cell_without_an_interval_matches_none_of_the_three_numbers(tmp_path):
     results = {"m.json": '{"a": {"value": 0.837, "ci_low": 0.835, "ci_high": 0.839}}'}
     errors = _numbers(tmp_path, "| A | 83.7 |\n", cells, results=results)
     assert sum("no text matches" in e for e in errors) == 3
+
+
+def test_a_link_through_a_file_is_reported_not_a_crash(tmp_path):
+    errors = _errors(tmp_path, {"README.md": "[a](README.md/x)\n"})
+    assert len(errors) == 1 and "README.md/x" in errors[0]
+
+
+def test_a_json_path_through_a_number_is_an_error_line_not_a_crash(tmp_path):
+    cells = [("README.md", r"is (\d+)", "m.json", "n.deeper", "count")]
+    errors = _numbers(tmp_path, "is 1\n", cells, results={"m.json": ACCURACY})
+    assert len(errors) == 1 and "n.deeper" in errors[0]
