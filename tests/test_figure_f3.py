@@ -167,7 +167,7 @@ def test_the_title_gives_the_summed_gendered_contribution_in_each_panel(figure):
     # bios. Both intervals exclude 0, so both are stated, whatever the total gap does.
     text, lines = _title_lines(figure)
     assert text == (
-        "Gender words account for -1.1 score points of the score gap in surgeon, +0.8 in fashion model."
+        "Gender words account for -1.1 score points of the gap in surgeon, +0.8 in fashion model."
     )
     assert lines <= 2
 
@@ -188,7 +188,7 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
     ]
     text, lines = _title_lines(f3.build(both_above))
     assert text == (
-        "Gender words account for +2.0 score points of the score gap in nurse, +0.8 in fashion model."
+        "Gender words account for +2.0 score points of the gap in nurse, +0.8 in fashion model."
     )
     assert lines <= 2
     engineer = {**_SURGEON_SUMMARY, "gendered_sum": _shares(0.05, -0.06, 0.16)}
@@ -198,7 +198,7 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
     ]
     text, lines = _title_lines(f3.build(one_clear))
     assert text == (
-        "Gender words account for -1.1 score points of the score gap in surgeon, no clear part in composer."
+        "Gender words account for -1.1 score points of the gap in surgeon, no clear part in composer."
     )
     assert lines <= 2
 
@@ -206,7 +206,7 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
 def test_a_sum_whose_interval_ends_at_zero_is_no_clear_part(f3):
     touching = {**_MODEL_SUMMARY, "gendered_sum": _shares(0.3, 0.0, 0.6)}
     text = f3.title([f3.Panel("model", "female_dominated", MODEL_WORDS, touching)])
-    assert text == "Gender words account for no clear part of the score gap in fashion model."
+    assert text == "Gender words account for no clear part of the gap in fashion model."
 
 
 def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_there_are_none(figure):
