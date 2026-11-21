@@ -220,17 +220,16 @@ TEX_COMMENT = re.compile(r"(?<!\\)%.*")
 TEX_ARGUMENT_COMMANDS = re.compile(
     r"\\(?:cite[a-z]*|ref|label|includegraphics|url|bibliography|fig)(?:\[[^\]]*\])*\{[^}]*\}"
 )
-TEX_TABLE_SPEC = re.compile(r"\\begin\{tabular\}\{.*")
-TEX_POWER = re.compile(r"(\d)\\times ?10\^\{(-?\d+)\}")
-TEX_COMMAND = re.compile(r"\\(?:[A-Za-z]+\*?| )")
+TEX_POWER = re.compile(r"(\d)\\times10\^\{(-?\d+)\}")
+TEX_COMMAND = re.compile(r"\\[A-Za-z]+")
 
 
 def tex_lines(text: str):
     r"""Yield (line number, line) for the body of a LaTeX document as a reader sees the numbers.
 
-    Comments, the preamble, citation keys, references, labels, file names and column
-    specifications are dropped; math mode and `\%` are unwrapped, `3\times10^{-5}` becomes `3e-5`
-    and the other commands are removed with their braces, keeping the text inside.
+    Comments, the preamble, citation keys, references, labels and file names are dropped; math
+    mode and `\%` are unwrapped, `3\times10^{-5}` becomes `3e-5` and the other commands are
+    removed with their braces, keeping the text inside.
     """
     in_body = False
     for number, line in enumerate(text.splitlines(), start=1):
@@ -238,9 +237,9 @@ def tex_lines(text: str):
             in_body = "\\begin{document}" in line
             continue
         line = TEX_COMMENT.sub("", line)
-        line = TEX_TABLE_SPEC.sub("", TEX_ARGUMENT_COMMANDS.sub("", line))
-        line = TEX_POWER.sub(r"\1e\2", line).replace("\\%", "%").replace("\\\\", " ")
-        line = TEX_COMMAND.sub(" ", line).replace("$", "").replace("~", " ")
+        line = TEX_ARGUMENT_COMMANDS.sub("", line)
+        line = TEX_POWER.sub(r"\1e\2", line).replace("\\%", "%")
+        line = TEX_COMMAND.sub(" ", line).replace("$", "")
         yield number, line.replace("{", "").replace("}", "")
 
 
