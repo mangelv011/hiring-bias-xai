@@ -20,4 +20,5 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest -m "not gpu and not slow"
+      - run: python scripts/check_docs.py
       - run: pytest --nbmake notebooks/audit.ipynb
