@@ -132,6 +132,7 @@ def main(
             "n_noise_profiles": n_noise,
             "manipulation_check": check,
             "arms": llm_metrics.arm_rates(main_calls),
+            "fpr_by_hardness": {"none": llm_metrics.fpr_by_hardness(main_calls, "none")},
             "statistics": report["statistics"],
             "holm": report["holm"],
             "name_ranges": llm_metrics.name_ranges(main_calls),
