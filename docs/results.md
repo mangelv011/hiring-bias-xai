@@ -327,6 +327,21 @@ What does move the answer is having a name at all, and how the instruction is wo
 
 Limits. One model and one prompt, with two rewordings; six jobs; 600 profiles, of which 180 are not qualified, so the false-positive rates are rough (2.2%, interval 0.5 to 4.7). The noise bands come from 200 profiles and are wide. The INE lists carry no accents and give compound first names as written. Spain and Hispanic America share one group, because the model could not tell their names apart. Bios still contain surnames and lone first names that the first-name flag of F4 misses, which is where the name-mismatch reasons come from. The hand labels are from one reader, the one who also wrote the rule. Under a deuteranopia simulation the highlighted and grey dots stay apart ([check](figure_checks/f8_deuteranopia.png)).
 
+## Which script makes which figure
+
+For each figure: the script that computes the result, the file it writes and the script that draws the figure. F2 also reads the per-bio Shapley files kept in `HBX_ARTIFACTS`.
+
+| Figure | Result | Computed by | Writes | Drawn by |
+|---|---|---|---|---|
+| F1 | Gap between women and men, by job | [`gap_statistics`](../scripts/gap_statistics.py) | [`gap_statistics.json`](../results/gap_statistics.json) | [`figure_f1`](../scripts/figure_f1.py) |
+| F2 | Word scores of single decisions | [`shapley_run`](../scripts/shapley_run.py) | [`shapley_summary.json`](../results/shapley_summary.json) | [`figure_f2`](../scripts/figure_f2.py) |
+| F3 | Which words make the gap | [`gap_decomposition`](../scripts/gap_decomposition.py) | [`gap_decomposition.csv`](../results/gap_decomposition.csv) | [`figure_f3`](../scripts/figure_f3.py) |
+| F4 | Swapping gender words | [`counterfactual_gender`](../scripts/counterfactual_gender.py) | [`counterfactual_gender.csv`](../results/counterfactual_gender.csv) | [`figure_f4`](../scripts/figure_f4.py) |
+| F5 | Explanation check | [`deletion_curves`](../scripts/deletion_curves.py), [`stability`](../scripts/stability.py) | [`deletion_curves.csv`](../results/deletion_curves.csv), [`stability.json`](../results/stability.json) | [`figure_f5`](../scripts/figure_f5.py) |
+| F6 | Probing and patching | [`probing`](../scripts/probing.py), [`patching`](../scripts/patching.py) | [`probing.csv`](../results/probing.csv), [`patching.csv`](../results/patching.csv) | [`figure_f6`](../scripts/figure_f6.py) |
+| F7 | Mitigation | [`mitigation`](../scripts/mitigation.py) | [`mitigation.json`](../results/mitigation.json) | [`figure_f7`](../scripts/figure_f7.py) |
+| F8 | LLM name audit | [`llm_analyse`](../scripts/llm_analyse.py) | [`llm_audit.json`](../results/llm_audit.json) | [`figure_f8`](../scripts/figure_f8.py) |
+
 ## Reproduce every result
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build.
