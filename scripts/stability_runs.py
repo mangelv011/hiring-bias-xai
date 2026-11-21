@@ -14,6 +14,7 @@ main run's files are never touched. The run is resumable: a bio whose file is cu
 Pass variant names to run only those, one at a time if a call must stay under ten minutes.
 """
 
+import copy
 import json
 import sys
 import time
@@ -38,6 +39,18 @@ def _load(batch_size: int):
     model = DebertaModel.load(batch_size)
     model.network.to(DEVICE)
     return model
+
+
+def _randomised(model, seed: int):
+    """A copy of `model` with every weight redrawn by the network's own initialiser.
+
+    The initialiser is applied module by module, as `init_weights` would on a new network, but
+    that method skips modules flagged as already initialised. The trained network is not changed.
+    """
+    network = copy.deepcopy(model.network).cpu()
+    torch.manual_seed(seed)
+    network.apply(network._init_weights)
+    return DebertaModel(network.to(model.network.device), model.tokenizer, model.batch_size)
 
 
 def _run_variant(name: str, model, subset, positions, removal: str, n_permutations: int, seed):
