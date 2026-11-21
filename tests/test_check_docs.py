@@ -303,6 +303,40 @@ def test_a_value_is_read_from_a_list_by_position(tmp_path):
     assert _numbers(tmp_path, "has 7 runs\n", cells, results=results) == []
 
 
+DERIVED = '{"a": {"change": {"value": -0.0282, "ci_low": -0.0427}, "gap": {"value": 0.1435}}}'
+
+
+def test_a_value_may_be_a_share_of_one_result_in_another(tmp_path):
+    # -0.0282 / 0.1435 = -19.65%, read as a cut of 20%
+    path = "a.change.value over a.gap.value"
+    cells = [("README.md", r"cut of (\d+)%", "m.json", path, "abs_per100")]
+    assert _numbers(tmp_path, "cut of 20%\n", cells, results={"m.json": DERIVED}) == []
+    errors = _numbers(tmp_path / "b", "cut of 19%\n", cells, results={"m.json": DERIVED})
+    assert len(errors) == 1 and "19" in errors[0] and "20" in errors[0]
+
+
+def test_the_share_uses_the_numerator_named_first(tmp_path):
+    # the interval end -0.0427 / 0.1435 = -29.8%, not the inverse -3.36
+    path = "a.change.ci_low over a.gap.value"
+    cells = [("README.md", r"to (\d+)%", "m.json", path, "abs_per100")]
+    assert _numbers(tmp_path, "to 30%\n", cells, results={"m.json": DERIVED}) == []
+
+
+def test_a_value_may_be_the_difference_of_two_results(tmp_path):
+    path = "a.gap.value minus a.change.value"
+    cells = [("README.md", r"by ([\d.]+)", "m.json", path, "dec3")]
+    assert _numbers(tmp_path, "by 0.172\n", cells, results={"m.json": DERIVED}) == []
+    assert len(_numbers(tmp_path / "b", "by 0.115\n", cells, results={"m.json": DERIVED})) == 1
+
+
+def test_a_derived_value_with_a_missing_operand_or_a_zero_divisor_is_an_error(tmp_path):
+    zero = '{"a": {"x": 1.0, "z": 0.0}}'
+    for name, path in (("gone", "a.x over a.nope"), ("zero", "a.x over a.z")):
+        cells = [("README.md", r"is (\d+)", "m.json", path, "count")]
+        errors = _numbers(tmp_path / name, "is 1\n", cells, results={"m.json": zero})
+        assert len(errors) == 1 and path in errors[0]
+
+
 def test_a_value_is_read_from_a_csv_row_by_its_keys(tmp_path):
     results = {"t.csv": "screener,occupation,flip_rate\ndeberta,all,0.069\nbaseline,all,0.135\n"}
     path = "screener=baseline,occupation=all:flip_rate"
