@@ -6,7 +6,7 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 ## Bootstrap intervals and the permutation null
 
-**What it does.** The bootstrap redraws the test bios with replacement 1,000 times and recomputes a number each time; the middle 95% of the results is the interval. The permutation null shuffles gender among the bios of each job 1,000 times, keeps the model's decisions, and recomputes the overall gap (the RMS TPR gap). That gives the gap that chance alone produces. Holm's correction adjusts the p-values when the 28 jobs are tested one by one.
+**What it does.** The bootstrap redraws the test bios with replacement 1,000 times and recomputes a number each time; the middle 95% of the results is the interval. The correlation between the gap and the share of women also gets an occupation bootstrap, which redraws the 28 jobs instead of the bios. The permutation null shuffles gender among the bios of each job 1,000 times, keeps the model's decisions, and recomputes the overall gap (the RMS TPR gap). That gives the gap that chance alone produces. Holm's correction adjusts the p-values when the 28 jobs are tested one by one.
 
 **Why it fits.** Some jobs have few bios of one gender: the test split holds 71 men dietitians. A gap measured on so few needs an interval. The shuffle gives a yardstick for the overall gap without assuming a distribution.
 
@@ -30,7 +30,7 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 ## Gap decomposition
 
-**What it does.** For one job it takes the main model's average score for that job in women's bios minus the average in men's bios. Because Shapley values add up exactly, this gap splits into one part per word: how much more, or less, that word adds in women's bios than in men's, counting 0 where the word is missing. Each part also splits into how often the genders use the word and how differently the model weighs it.
+**What it does.** For one job it takes the main model's average score for that job in women's bios minus the average in men's bios. Because Shapley values add up exactly, this gap splits into one part per word: how much more, or less, that word adds in women's bios than in men's, counting 0 where the word is missing. Each part also splits into usage and weight: how often the genders use the word, and how differently the model weighs it.
 
 **Why it fits.** The question is why the screener passes on women and men at different rates. The decomposition answers it in words, and the sum of the parts is checked against the gap to float precision.
 
@@ -90,7 +90,7 @@ The setting throughout: the main model reads a bio and decides which of 28 jobs 
 
 ## Scrubbed retraining and proxy-word masking
 
-**What it does.** Scrubbed retraining trains a second model with the main model's recipe on bios without pronouns and titles. Proxy-word masking deletes, at scoring time, the few non-gendered words that one gender uses much more than the other and that push the gap the way pronouns do. Five conditions pair a model with a test text, and each is scored on the same bios.
+**What it does.** Scrubbed retraining trains a second model with the main model's recipe on bios without pronouns and titles. Proxy-word masking deletes, at scoring time, the few non-gendered words that one gender uses much more than the other and that push the gap the way pronouns do. Five mitigation conditions pair a model with a test text, and each is scored on the same bios.
 
 **Why it fits.** The decomposition says the gap has two parts, pronouns and other words, and each fix acts on one of them.
 

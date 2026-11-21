@@ -6,7 +6,7 @@ Terms used identically in code, tests, figures and the report.
 
 **Occupation**:
 One of the 28 labels of Bias in Bios; the job a bio belongs to.
-_Avoid_: job, class, category
+_Avoid_: class, category (in prose "job" is the plain word and means the same)
 
 **Screening decision**:
 The model's yes/no call on whether a bio matches the occupation a recruiter searches for.
@@ -80,6 +80,18 @@ _Avoid_: condition, variant
 Asking the LLM for the origin and gender of each bare full name, to see whether a name header carries the signal it is meant to carry. Groups it cannot tell apart are merged or dropped by the rule of ADR 0008.
 _Avoid_: sanity check, validation
 
+**Profile**:
+One candidate of the LLM audit: a showcase bio with no first name in its text, drawn as qualified or not qualified for the job ad of one showcase occupation. Every profile is shown in every arm.
+_Avoid_: case, sample
+
+**Yes-rate**:
+The share of the LLM's answers that are yes. For qualified candidates it is the TPR of the LLM; for the others it is the false positive rate.
+_Avoid_: acceptance rate, hit rate
+
+**Merge rule**:
+The rule of ADR 0008, fixed before the main run, that joins the origin groups whose names the LLM confuses in the manipulation check. It joined Spain and Hispanic America.
+_Avoid_: clustering
+
 **Qualified candidate**:
 A candidate whose bio really is of the job in the ad. The TPR of the LLM is the share of qualified candidates it says yes to.
 _Avoid_: positive, good candidate
@@ -94,7 +106,7 @@ _Avoid_: explanation, justification
 
 **Keyword rule**:
 A reason mentions the attribute when it has, as a whole word, one of the words listed in `llm_metrics.ATTRIBUTE_WORDS` (name, origin, nationality, gender and their kin). A first name used only to refer to the candidate is not a mention. Its agreement with hand labels is reported.
-_Avoid_: classifier, detector
+_Avoid_: detector
 
 **Primary contrast**:
 The comparison fixed before the main run of the LLM audit: the yes-rate for qualified candidates with a woman's name minus that with a man's name, paired by bio and origin group, pooled over the six jobs.
@@ -104,22 +116,26 @@ _Avoid_: main effect
 
 **TPR gap**:
 TPR of women minus TPR of men within one occupation; positive favours women.
-_Avoid_: equal opportunity difference, gender gap
+_Avoid_: equal opportunity difference
 
 **RMS TPR gap**:
 Root mean square of the TPR gaps over all occupations; one number for how far a screener is from equal opportunity, whichever gender it favours.
 _Avoid_: average gap, mean gap
 
+**Gender gap**:
+The plain-language name of the RMS TPR gap, used in the README, the figures and the prose of the results: how far, over all the jobs, the share of qualified women passed on is from the share of qualified men. 0 would be equal treatment.
+_Avoid_: bias score, fairness score
+
 **Gap-share correlation**:
 Pearson correlation, across occupations, between the TPR gap and the share of women in the training subsample.
 _Avoid_: bias correlation
 
-**Bootstrap CI**:
+**Bootstrap interval**:
 The 95% interval of a metric from resampling the test bios with replacement and reading the 2.5th and 97.5th percentiles.
-_Avoid_: error bar, confidence band
+_Avoid_: error bar, confidence band, CI (unqualified)
 
 **Occupation bootstrap**:
-The 95% interval of a statistic across occupations, from resampling the occupations (the 28 gap and share points) with replacement. It answers how much the gap-share correlation depends on which occupations exist; the bootstrap CI does not.
+The 95% interval of a statistic across occupations, from resampling the occupations (the 28 gap and share points) with replacement. It answers how much the gap-share correlation depends on which occupations exist; the bootstrap interval over bios does not.
 _Avoid_: second-level bootstrap
 
 **Permutation null**:
@@ -200,13 +216,13 @@ _Avoid_: anonymizing, masking (a different step: see proxy-word masking)
 A logistic regression on standardised representations, trained to read gender from one layer of an encoder. Its accuracy on the showcase subset is compared with references (the majority class, the occupation alone, TF-IDF) and with a permutation test that shuffles gender within occupation and refits it. A probe that reads gender does not show that the model uses it.
 _Avoid_: detector
 
-**Control task**:
-The same probe trained on random labels, to separate what the representation encodes from what the probe can memorise.
-_Avoid_: random baseline
-
 **Activation patching**:
 Running the swapped bio (corrupted) while replacing the hidden states of one layer output with those of the original bio (clean), at chosen token positions, to see how much of the clean score returns. This is denoising: it shows that those states are sufficient, not that they are necessary.
 _Avoid_: causal tracing, ablation
+
+**Eligible bio**:
+A bio whose gender swap moves the log-odds score of the true occupation by more than the 95th percentile of the move under the removal control. Patching uses only these.
+_Avoid_: selected bio
 
 **Restored share**:
 For one bio and one layer output, (patched - corrupted) / (clean - corrupted) of the log-odds score of the true occupation. 1 means the patch brings the clean score back, 0 that it changes nothing. It is reported for bios whose swap moves the score by more than the 95th percentile of the move under the removal control.
@@ -236,7 +252,7 @@ _Avoid_: top-k accuracy
 
 **Score gap**:
 In one occupation, the mean log-odds score of the full bios of women minus that of men, for the true occupation. Positive favours women. It is not the TPR gap: it uses scores, not decisions.
-_Avoid_: gender gap, bias score
+_Avoid_: bias score
 
 **Word**:
 In the gap decomposition, a word unit with punctuation at its ends removed and lower-cased (`data.word_core`); a unit with no letter or digit keeps its text. A bio's value for a word is the sum of the Shapley values of its occurrences; a word the bio lacks counts 0.
@@ -262,7 +278,7 @@ _Avoid_: gendered effect, bias of gendered words
 The sum of the gap contributions of the gendered words, divided by the score gap.
 _Avoid_: bias share
 
-**Usage part and weight part**:
+**Usage and weight**:
 The split of a word's gap contribution into the difference in how often women's and men's bios contain it, and the difference in its mean value when present. They add up to the contribution.
 _Avoid_: frequency effect, coefficient effect
 
@@ -274,8 +290,8 @@ _Avoid_: bias word, stand-in word
 
 **Proxy-word masking**:
 Deleting the proxy words from a bio before the model reads it. It needs no retraining.
-_Avoid_: scrubbing
+_Avoid_: scrubbing (that term is for pronouns and titles)
 
 **Mitigation condition**:
 One pairing of a model and a test text, lettered a to e: (a) original model on raw bios, (b) original model on scrubbed bios, (c) scrubbed model on raw bios, (d) scrubbed model on scrubbed bios, (e) original model with proxy words deleted. All five are scored on the same test bios outside the showcase subset.
-_Avoid_: scenario, arm
+_Avoid_: scenario, arm (the LLM audit's term)
