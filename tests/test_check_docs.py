@@ -1,4 +1,5 @@
 import importlib.util
+import re
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_docs.py"
@@ -985,3 +986,71 @@ def test_a_citation_reference_label_or_figure_key_that_is_a_number_is_not_read(t
 
 def test_a_number_that_a_command_argument_glues_to_a_letter_is_a_name(tmp_path):
     assert _report(tmp_path, "see Qwen{3}\n") == []
+
+
+def test_a_number_straight_after_a_command_is_read(tmp_path):
+    assert _numbers_of(_report(tmp_path, "x\\sim0.5\n")) == ["0.5"]
+
+
+def test_a_number_closed_by_a_brace_and_followed_by_letters_is_a_name(tmp_path):
+    assert _report(tmp_path, "the {7}th\n") == []
+
+
+def test_numbers_in_the_title_before_the_document_are_not_read(tmp_path):
+    assert _report(tmp_path, "text\n", preamble="\\title{Report 2025}\n") == []
+
+
+def test_the_rows_of_the_mitigation_table_match_their_own_line_and_label_only():
+    module = _load()
+    for cell in module.condition_rows("c. x", "c"):
+        assert re.search(cell.pattern, "c. x & 0.780 & 0.110 & -0.033 \\\\")
+        assert not re.search(cell.pattern, "see c. x & 0.780 & 0.110 & -0.033 \\\\")
+        assert not re.search(cell.pattern, "cz x & 0.780 & 0.110 & -0.033 \\\\")
+
+
+def test_the_rows_of_an_origin_take_a_plus_sign_for_the_high_end():
+    module = _load()
+    high = module.origin_rows("Morocco", "Morocco", "+")[2]
+    assert re.search(high.pattern, "Morocco & +1.5 [-5.3, +9.1]")
+    assert not re.search(high.pattern, "Morocco & +1.5 [-5.3, -9.1]")
+
+
+ALLOWED_PHRASES = [
+    ("1--2 grams", "1--3 grams"),
+    ("at least 500 test bios", "at least 501 test bios"),
+    ("her 11 gender words", "her 12 gender words"),
+    ("his 2 gender words", "his 3 gender words"),
+    ("by 20\\%", "by 21\\%"),
+    ("a 20\\% cut", "a 21\\% cut"),
+    ("the other 18", "the other 19"),
+    ("at layer 1", "at layer 2"),
+    ("(1) Scrub", "(5) Scrub"),
+    ("Above 0 the", "Above 1 the"),
+    ("excludes 0 for", "excludes 1 for"),
+    ("gender of 372", "gender of 373"),
+    ("yes to 53", "yes to 54"),
+    ("Woman's name (four groups) & 53", "Woman's name (four groups) & 54"),
+    ("Man's name (four groups) & 53", "Man's name (four groups) & 54"),
+    ("gaps of 5 points", "gaps of 6 points"),
+    ("a 4 GB RTX 3050 GPU", "a 5 GB RTX 3050 GPU"),
+    ("the top 10", "the top 11"),
+]
+
+
+def _allowed_errors(tmp_path, name, line):
+    module = _load()
+    root = _repo(
+        tmp_path, {name: f"\\begin{{document}}\n{line}\n" if name.endswith(".tex") else line}
+    )
+    return module.check_numbers(root, [], module.ALLOWED, (name,))
+
+
+def test_each_allowed_phrase_of_the_report_covers_its_own_numbers_and_no_others(tmp_path):
+    for index, (phrase, near_miss) in enumerate(ALLOWED_PHRASES):
+        assert _allowed_errors(tmp_path / f"a{index}", REPORT, phrase) == [], phrase
+        assert len(_allowed_errors(tmp_path / f"b{index}", REPORT, near_miss)) >= 1, near_miss
+
+
+def test_the_allowed_phrases_of_the_report_do_not_apply_to_the_readme(tmp_path):
+    for index, (phrase, _) in enumerate(ALLOWED_PHRASES):
+        assert _allowed_errors(tmp_path / str(index), "README.md", phrase) != [], phrase
