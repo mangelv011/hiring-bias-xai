@@ -121,7 +121,7 @@ def test_every_glossary_term_is_used_in_the_docs_or_the_code():
 
 
 def test_the_glossary_defines_the_terms_the_docs_rely_on():
-    required = {"Gender gap", "Profile", "Yes-rate", "Merge rule", "Eligible bio"}
+    required = {"Shortlist gap", "Score gap", "Profile", "Yes-rate", "Merge rule", "Eligible bio"}
     assert required <= set(_glossary())
 
 
@@ -133,7 +133,7 @@ def test_a_defined_term_is_not_listed_as_one_to_avoid():
 
 def test_the_terms_the_docs_use_for_the_gap_are_not_avoided():
     avoided = {word.lower() for words in _glossary().values() for word in words}
-    assert "gender gap" not in avoided
+    assert "shortlist gap" not in avoided
 
 
 def _readme_section(title):
@@ -189,3 +189,46 @@ def test_the_readme_cites_the_data_the_model_the_name_lists_and_the_llm():
     cite = _readme_section("Cite")
     for name in ("De-Arteaga", "DeBERTa", "INE", "Bonsai"):
         assert name in cite
+
+
+NOTEBOOK = "notebooks/audit.ipynb"
+
+
+def test_no_document_calls_the_shortlist_gap_the_gender_gap():
+    for name in ("README.md", "GLOSSARY.md", "docs/results.md", "docs/model_card.md", NOTEBOOK):
+        assert "gender gap" not in _read(name).lower(), name
+
+
+def test_no_document_says_gender_words_put_or_set_women_below_men():
+    # a decomposition says what the words account for, not what they cause
+    for name in ("README.md", "docs/results.md", NOTEBOOK, "report/main.tex"):
+        text = " ".join(_read(name).split())
+        assert not re.search(r"(?i)\b(?:put|puts|set|sets)\b[^.]{0,40}\b(?:below|above)\b", text), (
+            name
+        )
+
+
+def test_the_readme_gives_the_command_that_runs_the_notebook_and_says_what_it_is():
+    readme = _read("README.md")
+    assert "pytest --nbmake notebooks/audit.ipynb" in readme
+    assert "results viewer" in readme
+    assert "docs/results.md#reproduce-every-result" in readme
+
+
+def test_the_run_table_gives_measured_times_only():
+    readme = _read("README.md")
+    assert "not recorded" not in readme
+    assert "only the measured times are given" in _readme_section("How to run")
+
+
+def test_the_origin_groups_are_four_after_the_merge():
+    for name in ("README.md", "docs/model_card.md", "GLOSSARY.md"):
+        text = _read(name)
+        assert not re.search(r"(?i)\bfive (?:origin )?groups", text), name
+    assert "four origin groups" in _read("README.md")
+
+
+def test_the_readme_limits_say_the_task_is_a_proxy_for_screening():
+    limits = _readme_section("Limits and intended use")
+    assert "predicting an occupation" in limits
+    assert "proxy for screening" in limits

@@ -177,7 +177,7 @@ def test_the_axes_name_the_quantities_and_the_vertical_axis_starts_at_zero(figur
     ax = _ax(figure)
     assert ax.get_xlabel() == "Macro-F1 (higher is better)"
     assert " ".join(ax.get_ylabel().split()) == (
-        "Gender gap, test bios outside the showcase subset (lower is better)"
+        "Shortlist gap, test bios outside the showcase subset (lower is better)"
     )
     assert "RMS" not in ax.get_ylabel()
     assert ax.get_ylim()[0] == 0

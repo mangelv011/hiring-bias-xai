@@ -159,11 +159,11 @@ def test_the_weight_scrambling_result_is_read_from_stability(nb):
     assert any('"randomisation"' in source(c) for c in cells)
 
 
-def test_the_limits_are_five_bullets(nb):
+def test_the_limits_are_six_bullets(nb):
     limits = source(nb["cells"][-1])
     assert limits.startswith("## Limits")
     bullets = [line for line in limits.splitlines() if line.startswith("- ")]
-    assert len(bullets) == 5
+    assert len(bullets) == 6
 
 
 def _text(nb, title):
@@ -186,3 +186,16 @@ def test_the_training_plot_has_a_title_and_labels_the_epochs(nb):
     text = _text(nb, "Models and training")
     assert "suptitle(" in text
     assert 'xlabel="epoch"' in text
+
+
+def test_the_limits_say_the_task_is_a_proxy_and_attribution_was_not_tried_with_gradients(nb):
+    limits = source(nb["cells"][-1])
+    assert "proxy for screening" in limits
+    assert "gradient" in limits
+
+
+def test_the_first_cell_says_it_is_a_results_viewer_and_points_to_the_script_table(nb):
+    intro = source(nb["cells"][0])
+    assert "results viewer" in intro
+    assert "each stage is one script" in " ".join(intro.split())
+    assert "docs/results.md#reproduce-every-result" in intro
