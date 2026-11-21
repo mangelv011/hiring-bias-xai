@@ -564,8 +564,6 @@ CELLS: list[Cell] = [
     Cell(README, r"\(\d+ against (\d+) of every 100 bios\)", BASE, "test.accuracy.value", "per100"),
     # README: results and data
     Cell(README, r"Tested on ([\d,]+) bios", "data_summary.json", "bios.test", "count"),
-    Cell(README, r"shortlist gap is ([\d.]+), about", MAIN, "test.rms_tpr_gap.value", "dec3"),
-    Cell(README, r"about (\d+) points on a typical job", MAIN, "test.rms_tpr_gap.value", "per100"),
     Cell(README, r"It is ([\d.]+) on the full test set", MAIN, "test.rms_tpr_gap.value", "dec3"),
     Cell(
         README,
