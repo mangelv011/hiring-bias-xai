@@ -189,3 +189,148 @@ def test_an_anchor_on_a_non_markdown_file_is_not_checked(tmp_path):
 def test_an_anchor_is_compared_with_the_exact_slug(tmp_path):
     files = {"README.md": "[a](#Top)\n\n# Top\n"}
     assert len(_errors(tmp_path, files)) == 1
+
+
+def _numbers(tmp_path, readme, cells, allowed=(), results=None, documents=("README.md",)):
+    """Run check_numbers on a README and results files; `results` maps file name to content."""
+    module = _load()
+    files = {"README.md": readme}
+    files.update({f"results/{name}": content for name, content in (results or {}).items()})
+    root = _repo(tmp_path, files)
+    table = [module.Cell(*cell) for cell in cells]
+    allow = [module.Allowed(*entry) for entry in allowed]
+    return module.check_numbers(root, table, allow, documents)
+
+
+ACCURACY = '{"test": {"accuracy": {"value": 0.8370, "ci_low": 0.8346}}, "n": 99069}'
+RIGHT = ("README.md", r"right on ([\d.]+)%", "m.json", "test.accuracy.value", "pct1")
+
+
+def test_a_number_that_matches_its_results_value_leaves_no_error(tmp_path):
+    assert _numbers(tmp_path, "right on 83.7%\n", [RIGHT], results={"m.json": ACCURACY}) == []
+
+
+def test_a_number_that_differs_from_the_results_is_reported_with_both_values(tmp_path):
+    errors = _numbers(tmp_path, "right on 84.7%\n", [RIGHT], results={"m.json": ACCURACY})
+    assert len(errors) == 1
+    assert "84.7" in errors[0] and "83.7" in errors[0] and "README.md:1" in errors[0]
+
+
+def test_a_row_whose_pattern_is_not_found_is_reported(tmp_path):
+    errors = _numbers(tmp_path, "nothing here\n", [RIGHT], results={"m.json": ACCURACY})
+    assert len(errors) == 1 and "right on" in errors[0]
+
+
+def test_every_match_of_a_pattern_is_checked(tmp_path):
+    text = "right on 83.7%\n\nright on 80.0%\n"
+    errors = _numbers(tmp_path, text, [RIGHT], results={"m.json": ACCURACY})
+    assert len(errors) == 1 and "README.md:3" in errors[0]
+
+
+def test_a_number_outside_the_table_and_the_allow_list_is_reported(tmp_path):
+    errors = _numbers(tmp_path, "I read 12 bios and 3.5 more\n", [])
+    assert len(errors) == 2
+    assert "12" in errors[0] and "README.md:1" in errors[0] and "3.5" in errors[1]
+
+
+def test_an_allowed_phrase_covers_the_numbers_inside_it_and_no_others(tmp_path):
+    allowed = [("README.md", r"28 jobs", "the number of occupations")]
+    assert _numbers(tmp_path, "It reads 28 jobs\n", [], allowed) == []
+    assert len(_numbers(tmp_path / "b", "It reads 27 jobs\n", [], allowed)) == 1
+    assert len(_numbers(tmp_path / "c", "It reads 28 jobs and 28 more\n", [], allowed)) == 1
+
+
+def test_an_allowed_phrase_of_another_document_does_not_apply(tmp_path):
+    allowed = [("docs/model_card.md", r"28 jobs", "the number of occupations")]
+    assert len(_numbers(tmp_path, "It reads 28 jobs\n", [], allowed)) == 1
+
+
+def test_an_allowed_phrase_for_all_documents_applies(tmp_path):
+    allowed = [(None, r"\b2019\b", "a year")]
+    assert _numbers(tmp_path, "De-Arteaga et al., 2019\n", [], allowed) == []
+
+
+def test_numbers_with_thousands_separators_are_one_number(tmp_path):
+    cells = [("README.md", r"on ([\d,]+) bios", "m.json", "n", "count")]
+    assert _numbers(tmp_path, "on 99,069 bios\n", cells, results={"m.json": ACCURACY}) == []
+
+
+def test_numbers_in_a_list_are_separate_numbers(tmp_path):
+    assert len(_numbers(tmp_path, "Between [3, 5] jobs\n", [])) == 2
+
+
+def test_numbers_glued_to_letters_are_names_not_numbers(tmp_path):
+    text = "DeBERTa-v3-small and F1 and 9B and f1_gap and x_2\n"
+    assert _numbers(tmp_path, text, []) == []
+
+
+def test_numbers_in_code_and_link_targets_are_not_read(tmp_path):
+    text = "Run `scripts/a.py --n 5` and see [it](docs/0007-a.md) and ![x](r/f1.png).\n"
+    text += '<img src="results/f9.png" alt="no number">\n```\nuv run 30 minutes\n```\n'
+    assert _numbers(tmp_path, text, []) == []
+
+
+def test_numbers_in_alt_text_and_tables_are_read(tmp_path):
+    text = '<img src="results/f.png" alt="the gap is 0.5">\n\n| a | 7 |\n|---|---|\n'
+    assert len(_numbers(tmp_path, text, [])) == 2
+
+
+def test_a_signed_number_is_compared_with_its_sign(tmp_path):
+    results = {"m.json": '{"d": -0.0047}'}
+    cells = [("README.md", r"change ([-+]\d+\.\d)", "m.json", "d", "signed_points1")]
+    assert _numbers(tmp_path, "change -0.5\n", cells, results=results) == []
+    assert len(_numbers(tmp_path / "b", "change +0.5\n", cells, results=results)) == 1
+
+
+def test_formats_round_half_up_on_the_decimal_value():
+    formats = _load().FORMATS
+    assert formats["per100"](0.755) == "76"
+    assert formats["per100"](0.754) == "75"
+    assert formats["pct1"](0.8370) == "83.7"
+    assert formats["dec3"](0.1476) == "0.148"
+    assert formats["dec3"](0.1475) == "0.148"
+    assert formats["count"](99069) == "99,069"
+    assert formats["signed_points1"](0.0047) == "+0.5"
+    assert formats["signed_points1"](-0.0047) == "-0.5"
+    assert formats["hours2"](10773.6) == "2.99"
+    assert formats["minutes0"](296.6) == "5"
+
+
+def test_a_value_is_read_from_a_list_by_position(tmp_path):
+    results = {"m.json": '{"runs": [{"n": 5}, {"n": 7}]}'}
+    cells = [("README.md", r"has (\d+) runs", "m.json", "runs.1.n", "count")]
+    assert _numbers(tmp_path, "has 7 runs\n", cells, results=results) == []
+
+
+def test_a_value_is_read_from_a_csv_row_by_its_keys(tmp_path):
+    results = {"t.csv": "screener,occupation,flip_rate\ndeberta,all,0.069\nbaseline,all,0.135\n"}
+    path = "screener=baseline,occupation=all:flip_rate"
+    cells = [("README.md", r"flips (\d+) of", "t.csv", path, "per100")]
+    assert _numbers(tmp_path, "flips 14 of\n", cells, results=results) == []
+
+
+def test_a_csv_path_that_matches_no_row_or_many_rows_is_an_error(tmp_path):
+    results = {"t.csv": "a,v\nx,1\nx,2\n"}
+    for name, path in (("none", "a=y:v"), ("many", "a=x:v")):
+        cells = [("README.md", r"is (\d+)", "t.csv", path, "count")]
+        errors = _numbers(tmp_path / name, "is 1\n", cells, results=results)
+        assert len(errors) == 1 and path in errors[0]
+
+
+def test_a_missing_results_file_or_json_path_is_an_error(tmp_path):
+    cells = [("README.md", r"is (\d+)", "gone.json", "a", "count")]
+    assert len(_numbers(tmp_path, "is 1\n", cells)) == 1
+    cells = [("README.md", r"is (\d+)", "m.json", "no.such.path", "count")]
+    assert len(_numbers(tmp_path / "b", "is 1\n", cells, results={"m.json": ACCURACY})) == 1
+
+
+def test_a_cell_for_a_document_that_is_not_checked_is_an_error(tmp_path):
+    cells = [("docs/x.md", r"is (\d+)", "m.json", "n", "count")]
+    errors = _numbers(tmp_path, "nothing\n", cells, results={"m.json": ACCURACY})
+    assert len(errors) == 1 and "docs/x.md" in errors[0]
+
+
+def test_each_checked_document_is_read_in_order(tmp_path):
+    root = _repo(tmp_path, {"README.md": "a 5\n", "docs/model_card.md": "b 6\n"})
+    errors = _load().check_numbers(root, [], [], ("README.md", "docs/model_card.md"))
+    assert [error.split(":")[0] for error in errors] == ["README.md", "docs/model_card.md"]
