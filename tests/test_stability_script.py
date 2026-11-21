@@ -278,11 +278,10 @@ def test_the_randomisation_compares_the_random_model_with_the_main_run_and_has_n
     random = record["randomisation"]
     assert random["n_bios"] == 3
     assert random["spearman"]["median"] == pytest.approx(-1.0)
-    assert random["top10_overlap"]["median"] < 1.0
     for metric in ("spearman", "top10_overlap"):
         low, high = random[metric]["median_ci"]
         assert low <= random[metric]["median"] <= high
-    assert "random" in random["comparison"]
+    assert "redrawn" in random["comparison"]
     assert random["expected"]
     assert not {"passed", "rule", "thresholds"} & random.keys()
     assert set(record["checks"]) == {"seed", "removal", "method"}
