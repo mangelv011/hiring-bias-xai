@@ -169,7 +169,7 @@ The rule was fixed before looking: among bios of at least 15 words whose top Sha
 
 ### Does the explanation depend on what the model learned?
 
-I scrambled every weight of the main model (Adebayo et al., 2018) and scored the same 100 bios again: with every weight of the main model scrambled, the word ranking no longer matches the trained model's. The rank correlation is 0.06 [0.02, 0.09], against 0.89 between two seeds of the trained model, and the top 10 words share 2 of 10 (mean 0.22 [0.19, 0.25]), against 8. A random ranking of the words of these bios would share 2 of 10 by chance (0.20, the mean over the 100 bios of 10 divided by the word count), so the shared words are no more than chance. The explanations follow what the model learned.
+I scrambled every weight of the main model (Adebayo et al., 2018) and scored the same 100 bios again. The word ranking no longer matches the trained model's. The rank correlation is 0.06 [0.02, 0.09], against 0.89 between two seeds of the trained model, and the top 10 words share 2 of 10 (mean 0.22 [0.19, 0.25]), against 8. A random ranking of the words of these bios would share 2 of 10 by chance (0.20, the mean over the 100 bios of 10 divided by the word count), so the shared words are no more than chance. The explanations follow what the model learned.
 
 ### What I did not check
 
