@@ -281,6 +281,48 @@ Removing the pronouns is a cheap fix that does part of the work. If I could pick
 
 Limits. Each model has one training run, so the difference between the original and the scrubbed model includes run-to-run variation that I did not measure; the intervals cover the sampling of test bios only. There are six proxy words, chosen on 1,721 bios. The gap is measured on 27 of the 28 jobs. The outcomes I expected before the evaluation, and how they came out, are in the ADR. Under a deuteranopia simulation the highlighted and grey dots stay apart ([check](figure_checks/f7_deuteranopia.png)). Cost on the laptop: about 2.8 minutes per condition to score 99,069 bios and 2 minutes for the report.
 
+## F8: does an LLM screener react to names?
+
+**In short:** I gave a local LLM a job ad and a bio and asked for a yes or a no, with a woman's name, a man's name or no name on top. Switching a man's name for a woman's changes the yes-rate for qualified candidates by half a point, and the origin of the name does not change it either. But any name at all lowers it by about six points, and the reasons for those changes almost never name gender or origin.
+
+<p align="center"><img src="../results/figures/f8_llm_screener.png" width="520" alt="Dot plot of the change in the yes-rate of qualified candidates against the no-header arm: the primary contrast, women's minus men's names, is -0.5 points with an interval from -4.7 to +3.5; the eight name arms sit 4 to 8 points below zero, the neutral header and the swapped pronouns near zero, all within or near the grey noise band."></p>
+
+Many companies now let a general-purpose LLM read a bio and decide who goes to an interview. [F4](#f4-does-changing-only-the-gender-change-the-decision) tested one trained classifier by swapping pronouns. Here the screener is an LLM I cannot open, so I test it from outside: the same bio goes in with different names, and I watch whether the answer changes. I also read the reason the model writes with each answer. Design, rules and the expectations I wrote before the run are in [ADR 0008](decisions/0008-llm-audit.md).
+
+### What I ran
+
+- **The screener.** Ternary Bonsai 2 9B (Prism ML, Apache-2.0, a 2-bit ternary version of Qwen3.5-9B), served on the laptop. Temperature 0, seed 42, thinking off, no presence penalty. For a job ad and a bio it answers `{"reason": ..., "decision": "yes" or "no"}`. The prompt, the six job ads and two rewordings of the instruction are in `prompts/`.
+- **Names.** The most frequent first names and surnames of Spain, Morocco, Romania, Hispanic America (Colombia, Ecuador, Venezuela) and the United Kingdom, from the Spanish statistics office (INE, CC BY 4.0). Before using them I asked the model where each bare name comes from (375 names, `results/llm/name_check.json`). It read the gender of 372 of the 375 names correctly. It took 48 of 60 Spanish names for Hispanic America and only 10 for Spain, so by the rule in the ADR I merged Spain and Hispanic America into one group. Morocco (60 of 60), Romania (55 of 60) and the United Kingdom (60 of 60) were recognised.
+- **Candidates.** 600 profiles, 100 for each of the six showcase jobs: 70 qualified candidates (whose bio is of that job) and 30 who are not, half of them from the job the main model confuses most with it. Only bios without a first name in the text, so the text does not contradict the name on top.
+- **Eleven ways to present each profile (arms).** The bio alone; a neutral line `Candidate ID: <n>`; the pronouns swapped; and a line `Name: <first name> <surname>` for each of four origin groups and both genders, with the pronouns set to match the name.
+- **Noise.** On 200 profiles I asked the bio alone again (an identical request) and with a second space after every full stop. Neither changes anything that matters, so what they move is noise.
+- **Cost.** 8,167 distinct calls (8,200 planned; 33 repeat an earlier prompt) in 2.99 hours, 1.32 s each. One answer was not valid JSON. No reasoning text came back.
+
+### What I found
+
+With no header, of 100 qualified candidates the model says yes to 59 (55 to 64), and to 2 of 100 who are not qualified (3 of 100 for the hard ones, 1 of 100 for the others).
+
+| Presentation | Yes, of 100 qualified | Change from no header, in points |
+|---|---|---|
+| Man's name, all four groups | 53 | -5.8 |
+| Woman's name, all four groups | 53 | -6.3 |
+| Pronouns swapped | 57 | -2.4 [-4.9, +0.2] |
+| Neutral ID line | 61 | +1.7 [-1.7, +4.8] |
+
+- **A woman's name or a man's name makes no difference.** The primary contrast, qualified candidates with a woman's name minus those with a man's name, is -0.5 points (95% interval -4.7 to +3.5), pooled over the six jobs and four groups. Of 100 qualified candidates it says yes to 52.8 with a woman's name and 53.3 with a man's. The interval is wide: it rules out gaps of 5 points or more, not smaller ones. Swapping only the pronouns moves the yes-rate by -2.4 points (-4.9 to +0.2).
+- **The origin of the name makes no difference either.** Against the United Kingdom: Morocco +1.5 (-5.3 to +9.1), Romania 0.0 (-7.8 to +7.8), Spain and Hispanic America +3.0 (-4.1 to +9.3). After the Holm correction none is distinguishable from zero. The yes-rate across the first names of one group varies no more than shuffled names make it vary, in seven of eight groups and genders; the exception is the 25 men's first names of Spain and Hispanic America, whose range is 0.69 against 0.65 for shuffled names.
+- **But a name changes the answer.** Each of the eight name arms is 4 to 8 points below no header, and pooled they are 6.0 points below (2.1 to 10.1). This pooled comparison was not in my plan, so I read it as a lead. The neutral line does not do this. The same shows in the decisions: the answer changes for 10% to 15% of profiles in each name arm, against 5.0% (2.5 to 8.0) for a whitespace edit and 0% for an identical rerun. Each name arm is 5 to 10 points above the whitespace rate, with intervals above zero; the neutral line (6.0%) and the swapped pronouns (5.5%) are not. So a name changes decisions, whichever gender or origin it carries.
+- **A reworded instruction matters more than any name.** With the two paraphrases of the instruction and no header, the model says yes to 47 and 39 of 100 qualified candidates, against 59, and changes 13% and 16% of its decisions.
+- **Most reasons for those changes do not mention the name.** In the arms above the noise, 594 decisions changed. For 503 of them, 85% (82 to 87), the reason does not mention name, origin, nationality or gender by the keyword rule. Of the 594, 50 were labelled by hand: the rule agrees on 45 (90%, 79 to 96), and by hand 41 of 50, 82% (69 to 90), do not mention them. The 9 that do are all about the name on top not matching a name inside the bio ("name mismatch (Rachid Lakhal vs. Sean)"); the rule missed 5 of them because they say "lists Dr. Deepak Chhabra, not Margaret Smith". None of the 50 mentions gender or origin. The others talk about credentials, for example "does not state he is a Registered Nurse".
+
+### What it means
+
+For this model, this prompt and these six jobs, the gender and the origin of a name do not move the yes-rate by more than I can measure, which is a few points. This is a null result: a gap of one or two points could hide in these intervals.
+
+What does move the answer is having a name at all, and how the instruction is worded. A name makes the model stricter and changes about one decision in eight. Read the 85% with that in mind: about four in ten of these changes would also happen after a whitespace edit, and the rest come with a name, not with its gender or origin. So the reasons are not covering for a gender or origin effect; they explain changes that a name sets off by other routes, such as a mismatch with a name in the bio. This does not show that the reasons are always honest: it rests on 50 reasons read by one reader with one rule.
+
+Limits. One model and one prompt, with two rewordings; six jobs; 600 profiles, of which 180 are not qualified, so the false-positive rates are rough (2.2%, interval 0.5 to 4.7). The noise bands come from 200 profiles and are wide. The INE lists carry no accents and give compound first names as written. Spain and Hispanic America share one group, because the model could not tell their names apart. Bios still contain surnames and lone first names that the first-name flag of F4 misses, which is where the name-mismatch reasons come from. The hand labels are from one reader, the one who also wrote the rule. Under a deuteranopia simulation the highlighted and grey dots stay apart ([check](figure_checks/f8_deuteranopia.png)).
+
 ## Reproduce every result
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build.
@@ -351,6 +393,19 @@ for c in a b c d e; do uv run python scripts/mitigation.py predict $c; done   # 
 uv run python scripts/mitigation.py report            # CPU, about 2 minutes: results/mitigation.json
 uv run python scripts/figure_f7.py                    # reads results/mitigation.json, writes F7
 ```
+
+The LLM audit needs a local OpenAI-compatible server (set `HBX_LLM_BASE_URL` and `HBX_LLM_MODEL`; the defaults are llama-swap at `http://127.0.0.1:11400/v1` and `pc-equilibrado`) and nothing else on the GPU while it answers. The tests use a fake server and need no model. Every call is stored in `results/llm/*.jsonl` and a rerun skips what is stored, so each step can stop and resume:
+
+```bash
+uv run python scripts/llm_names.py          # downloads the four INE files (sha256 checked), writes results/llm/names.json
+uv run python scripts/llm_name_check.py     # about 3 minutes, 375 calls: results/llm/name_check.json and the merge decision
+uv run python scripts/llm_pilot.py          # about 2.5 minutes, 120 calls: results/llm/pilot.json
+uv run python scripts/llm_run.py --max-minutes 8   # one chunk of the main run; repeat until it reports 8200 of 8200 (about 3 hours, 8,200 calls)
+uv run python scripts/llm_analyse.py        # about 25 seconds: results/llm_audit.json and the sample for the hand check
+uv run python scripts/figure_f8.py          # reads results/llm_audit.json, writes F8
+```
+
+`llm_analyse.py` writes `results/llm/rationalization_hand_check.csv` once; fill the `hand_label` column by reading the reasons (1 if the reason mentions the candidate's name, origin, nationality or gender, 0 if not) and run it again to score the keyword rule against the labels.
 
 The part-of-speech tags come from spaCy's small English model, installed from a wheel pinned by URL and sha256 in `pyproject.toml`; no separate download step is needed.
 

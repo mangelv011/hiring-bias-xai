@@ -19,6 +19,7 @@ This project uses explainable-AI methods to find out why: which words drive thes
 - **Swapping *she* for *he* rarely flips a decision.** It changes the decision for 7 of every 100 bios, about as often as simply deleting the pronouns does (6 of 100). The simpler baseline model reacts more: 14 against 9 of every 100.
 - **The explanations hold in aggregate, not word by word.** Removing the words the explanation ranks highest hurts the model far more than removing random words, so the explanations point at what matters. But the exact order of the words in one bio changes with how the explanation is computed, so the conclusions rest on totals over hundreds of bios.
 - **Removing the pronouns narrows the gap by a fifth and leaves most of it.** Training and scoring on bios without pronouns brings the gap between women and men from 0.143 to 0.115 for half a point of macro-F1, still more than twice what chance gives. I would recommend it as a first step, not as a fix: in the job "model" the model passes on 40 more qualified women than men per 100 of each, against 44 before. Deleting the six words that stand in for gender barely moves it ([details](docs/results.md#f7-does-removing-the-cues-close-the-gap)).
+- **A local LLM screener does not react to the gender or origin of a name, but it reacts to there being a name.** With a woman's name instead of a man's it says yes to the same share of qualified candidates, 53 of every 100 either way, and names from Spain, Morocco, Romania, Hispanic America and the United Kingdom give the same answers. Any name at all lowers the yes-rate by about 6 points against no name, and rewording the instruction moves it by 12 to 20 points. The intervals rule out gaps of 5 points or more, not smaller ones ([details](docs/results.md#f8-does-an-llm-screener-react-to-names)).
 - **A more accurate model is not a fairer one.** The transformer is right more often than a simple word-count baseline (84 against 80 of every 100 bios), but its gap between women and men is not clearly smaller.
 
 ## Why it matters
@@ -36,7 +37,7 @@ A job platform that ranks candidates with a model is a high-risk AI system under
 | Can the explanations be trusted? | Deletion curves, seed and method stability | Explanation check | Done |
 | Where does the model store gender? | Probing and activation patching | Mechanistic | Done |
 | Does removing the cues close the gap, and at what cost? | Retraining on scrubbed text, masking proxy words | Mitigation | Done |
-| Does a general-purpose LLM do the same with names? | Black-box audit with names from four origin groups | Audit | Planned |
+| Does a general-purpose LLM do the same with names? | Black-box audit with names from five origin groups | Audit | Done |
 
 Full results, every figure and the reasoning behind each number are in **[docs/results.md](docs/results.md)**.
 

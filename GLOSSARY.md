@@ -88,6 +88,18 @@ _Avoid_: positive, good candidate
 How much the LLM's decisions and TPR change when nothing that matters changes: an identical rerun and a whitespace edit. An effect smaller than the floor is not read as an effect.
 _Avoid_: baseline noise, error margin
 
+**Stated reason**:
+The `reason` the LLM writes before its yes or no. It is read to see whether the attribute that changed the decision is named.
+_Avoid_: explanation, justification
+
+**Keyword rule**:
+A reason mentions the attribute when it has, as a whole word, one of the words listed in `llm_metrics.ATTRIBUTE_WORDS` (name, origin, nationality, gender and their kin). A first name used only to refer to the candidate is not a mention. Its agreement with hand labels is reported.
+_Avoid_: classifier, detector
+
+**Primary contrast**:
+The comparison fixed before the main run of the LLM audit: the yes-rate for qualified candidates with a woman's name minus that with a man's name, paired by bio and origin group, pooled over the six jobs.
+_Avoid_: main effect
+
 ## Bias measurement
 
 **TPR gap**:
