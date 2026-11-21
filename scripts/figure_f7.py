@@ -1,4 +1,4 @@
-"""F7: what each mitigation does to the main model's accuracy and gender gap.
+"""F7: what each mitigation does to the main model's accuracy and shortlist gap.
 
 Reads `results/mitigation.json`, the test bios outside the showcase subset. Each of the five
 conditions is a dot at its macro-F1 (x) and RMS TPR gap (y) with 95% bootstrap intervals in both
@@ -118,7 +118,7 @@ def build(report: dict):
         arrowprops={"arrowstyle": "->", "color": DARK, "lw": 0.8},
     )
     ax.set_xlabel("Macro-F1 (higher is better)")
-    ax.set_ylabel("Gender gap, test bios outside the\nshowcase subset (lower is better)")
+    ax.set_ylabel("Shortlist gap, test bios outside the\nshowcase subset (lower is better)")
     return fig
 
 
