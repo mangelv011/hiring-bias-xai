@@ -35,24 +35,26 @@ WHO_HOLDS = {"male_dominated": "mostly men", "female_dominated": "mostly women"}
 
 
 def title(panels: Sequence[Panel]) -> str:
-    """The finding as one sentence: how far the gender words put women's bios below or above
-    men's in each panel, from the summed gendered contribution (`gendered_sum`).
+    """The finding as one sentence: how much of the score gap the gender words account for in
+    each panel, from the summed gendered contribution (`gendered_sum`).
 
     The sum needs no division, so it is stated even when the total gap includes 0. A panel whose
-    sum has an interval that includes 0 is said to be within noise.
+    sum has an interval that includes 0 has no clear part. The sentence says what the words
+    account for, not what they cause.
     """
-    clauses, first = [], True  # the unit and "men" are named once, to keep the title at two lines
+    clauses = []
     for panel in panels:
         total = panel.summary["gendered_sum"]
+        job = plotting.job_name(panel.occupation)
+        # the unit and "of the score gap" are named once, to keep the title at two lines
+        tail = " of the gap" if not clauses else ""
         if total["ci_low"] <= 0 <= total["ci_high"]:
-            clauses.append(f"within noise in {plotting.job_name(panel.occupation)}")
+            clauses.append(f"no clear part{tail} in {job}")
+        elif not clauses:
+            clauses.append(f"{total['value']:+.1f} score points{tail} in {job}")
         else:
-            side = "above" if total["value"] > 0 else "below"
-            job = plotting.job_name(panel.occupation)
-            unit, reference = (" score points", " men") if first else ("", "")
-            clauses.append(f"{abs(total['value']):.1f}{unit} {side}{reference} in {job}")
-            first = False
-    return f"Gender words set women {', '.join(clauses)}."
+            clauses.append(f"{total['value']:+.1f} in {job}")
+    return f"Gender words account for {', '.join(clauses)}."
 
 
 def _interval(share: dict) -> str:
