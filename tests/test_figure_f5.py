@@ -212,7 +212,11 @@ def test_each_curve_has_its_interval_band_and_the_zero_reference_is_drawn(figure
 def test_curves_are_named_next_to_their_ends_and_there_is_no_legend(figure):
     top, _ = _axes(figure)
     texts = " ".join(t.get_text() for t in top.texts)
-    assert "highest value first" in " ".join(texts.split()) and "lowest value first" in " ".join(texts.split()) and "random" in texts
+    assert (
+        "highest value first" in " ".join(texts.split())
+        and "lowest value first" in " ".join(texts.split())
+        and "random" in texts
+    )
     assert not any(word in texts for word in ("MoRF", "LeRF"))
     assert top.get_legend() is None
 

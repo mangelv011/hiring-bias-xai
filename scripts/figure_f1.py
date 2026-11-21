@@ -1,7 +1,7 @@
 """F1: the main model's TPR gap against the share of women in each occupation.
 
 Written for a reader who has never seen a TPR: the y axis is how many more qualified women than
-men the model passes on to the recruiter, per 100 of each, and two familiar jobs carry their
+men the model shortlists for the recruiter, per 100 of each, and two familiar jobs carry their
 numbers. The title states the finding in plain words when the Fisher interval of r excludes 0."""
 
 import json
@@ -155,7 +155,7 @@ def build(results_dir: Path):
     for y, note, va in ((0.97, "↑ favours women", "top"), (0.03, "↓ favours men", "bottom")):
         ax.text(0.03, y, note, transform=ax.transAxes, va=va, color=DARK)
     ax.set_xlabel("Share of women in the job")
-    ax.set_ylabel("Qualified women minus qualified men\npassed on, per 100")
+    ax.set_ylabel("Qualified women minus qualified men\nshortlisted, per 100")
     ax.set_xlim(right=1.15)  # room for the labels of the female-dominated showcase occupations
     ax.set_xticks([0.2, 0.4, 0.6, 0.8, 1.0])
     ax.xaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
@@ -172,12 +172,12 @@ def build(results_dir: Path):
         "zero": [np.column_stack([fit_x, np.zeros(len(fit_x))])],
     }
     points = {name: (xi, yi) for name, xi, yi in zip(names, x, gap, strict=True)}
-    texts = {name: name.replace("_", " ") for name in names}
+    texts = {name: plotting.job_name(name) for name in names}
     for name in EXAMPLES:
         if name in per_occupation:
             women = round(100 * per_occupation[name]["tpr_female"]["value"])
             men = round(100 * per_occupation[name]["tpr_male"]["value"])
-            texts[name] += f": {women} of 100 women,\n{men} of 100 men passed on"
+            texts[name] += f": {women} of 100 women,\n{men} of 100 men shortlisted"
     _label(fig, ax, points, labelled, obstacles, texts)
     return fig
 

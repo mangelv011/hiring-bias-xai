@@ -55,6 +55,11 @@ def simulate_deuteranopia(image: np.ndarray) -> np.ndarray:
     return out
 
 
+def job_name(occupation: str) -> str:
+    """How a figure spells a job: spaces for underscores, and "fashion model" for `model`."""
+    return "fashion model" if occupation == "model" else occupation.replace("_", " ")
+
+
 def spread(positions: list[float], gap: float) -> list[float]:
     """`positions` moved apart so that neighbours are at least `gap` apart, order kept."""
     order = sorted(range(len(positions)), key=lambda i: positions[i])

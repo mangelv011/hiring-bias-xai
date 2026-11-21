@@ -12,7 +12,7 @@
   "min_units": 15,
   "n_bios": 1721,
   "n_skipped": 1,
-  "rule": "Women whose true occupation is one of the three male-dominated showcase occupations, and men whose true occupation is one of the three female-dominated ones, whom the main model gets wrong: in each group, the bio where the gendered words add the most to the log-odds of the predicted occupation (largest sum of their Shapley values, above zero). A gendered word is a word unit whose core is a scrubbed word. Bios under 15 word units or with six or more digits in a row are never picked. A group with no qualifying bio is shown as empty.",
+  "rule": "Women whose true occupation is one of the three male-dominated showcase occupations, and men whose true occupation is one of the three female-dominated ones, whom the main model gets wrong: in each group, the bio where the gender words add the most to the log-odds of the predicted occupation (largest sum of their Shapley values, above zero). A gender word is a word unit whose core is a scrubbed word. Bios under 15 word units or with six or more digits in a row are never picked. A group with no qualifying bio is shown as empty.",
   "women_in_male_dominated": {
     "n_wrong": 114,
     "pick": {

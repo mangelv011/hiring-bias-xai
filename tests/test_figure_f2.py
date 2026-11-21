@@ -229,15 +229,15 @@ def test_the_title_says_which_group_has_no_case(f2):
     woman = _case(f2, ["she", "x"], [2.0, 1.0])
     only_woman, lines = _title_lines(f2.build(woman, None))
     assert only_woman == (
-        "Gender words raised the score of a wrong job by 2.0 points for a woman; no misclassified man "
-        "qualified."
+        "Gender words raised the score of a wrong job by 2.0 points for a woman; "
+        "no misclassified man qualified."
     )
     assert lines <= 2
     man = _case(f2, ["he", "x"], [3.0, 1.0], gender="male")
     only_man, lines = _title_lines(f2.build(None, man))
     assert only_man == (
-        "Gender words raised the score of a wrong job by 3.0 points for a man; no misclassified woman "
-        "qualified."
+        "Gender words raised the score of a wrong job by 3.0 points for a man; "
+        "no misclassified woman qualified."
     )
     assert lines <= 2
     none, lines = _title_lines(f2.build(None, None))
@@ -263,22 +263,9 @@ def test_a_group_without_a_case_has_a_panel_that_says_so_and_no_bars(f2):
 
 def test_no_text_of_the_figure_says_log_odds(figure):
     figure.canvas.draw()
-    assert not [t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()]
-
-
-def test_no_text_of_the_figure_says_log_odds(figure):
-    figure.canvas.draw()
-    assert not [t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()]
-
-
-def test_no_text_of_the_figure_says_log_odds(figure):
-    figure.canvas.draw()
-    assert not [t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()]
-
-
-def test_no_text_of_the_figure_says_log_odds(figure):
-    figure.canvas.draw()
-    assert not [t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()]
+    assert not [
+        t.get_text() for t in figure.findobj(matplotlib.text.Text) if "log-odds" in t.get_text()
+    ]
 
 
 def test_the_figure_says_that_per_word_values_carry_sampling_noise(figure):
@@ -289,8 +276,7 @@ def test_each_case_is_named_above_its_sentence_by_gender_true_and_predicted_occu
     headers = [t.get_text() for t in figure.texts]
     # Gendered units of the woman's bio: She, her and she (2.0 + 1.2 + 0.0); of the man's: He, his.
     assert (
-        "Woman, true surgeon, predicted nurse (test-1). Gender words: +3.2 over 3 units."
-        in headers
+        "Woman, true surgeon, predicted nurse (test-1). Gender words: +3.2 over 3 units." in headers
     )
     assert (
         "Man, true nurse, predicted surgeon (test-2). Gender words: +1.5 over 2 units." in headers

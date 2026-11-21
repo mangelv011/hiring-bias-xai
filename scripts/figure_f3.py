@@ -31,31 +31,27 @@ class Panel(NamedTuple):
 
 
 KINDS = ("male_dominated", "female_dominated")
-
-
-def _name(occupation: str) -> str:
-    return occupation.replace("_", " ")
+WHO_HOLDS = {"male_dominated": "mostly men", "female_dominated": "mostly women"}
 
 
 def title(panels: Sequence[Panel]) -> str:
-    """The finding as one sentence: how far the gendered words put women's bios below or above
+    """The finding as one sentence: how far the gender words put women's bios below or above
     men's in each panel, from the summed gendered contribution (`gendered_sum`).
 
     The sum needs no division, so it is stated even when the total gap includes 0. A panel whose
     sum has an interval that includes 0 is said to be within noise.
     """
-    clauses, reference = [], " men's"  # named once, to keep the title at two lines
+    clauses, reference = [], " men"  # named once, to keep the title at two lines
     for panel in panels:
         total = panel.summary["gendered_sum"]
         if total["ci_low"] <= 0 <= total["ci_high"]:
-            clauses.append(f"within noise in {_name(panel.occupation)}")
+            clauses.append(f"within noise in {plotting.job_name(panel.occupation)}")
         else:
             side = "above" if total["value"] > 0 else "below"
-            clauses.append(
-                f"{abs(total['value']):.1f} {side}{reference} in {_name(panel.occupation)}"
-            )
+            job = plotting.job_name(panel.occupation)
+            clauses.append(f"{abs(total['value']):.1f} {side}{reference} in {job}")
             reference = ""
-    return f"Gendered words put women's bios {' and '.join(clauses)}."
+    return f"Gender words put women {' and '.join(clauses)}."
 
 
 def _interval(share: dict) -> str:
@@ -69,19 +65,19 @@ def header(panel: Panel) -> str:
     """
     gap = panel.summary["score_gap"]
     first = (
-        f"{_name(panel.occupation).capitalize()} ({panel.kind.replace('_', '-')}), "
+        f"{plotting.job_name(panel.occupation).capitalize()} ({WHO_HOLDS[panel.kind]}), "
         f"gap {gap['value']:+.1f} [{gap['ci_low']:+.1f}, {gap['ci_high']:+.1f}]"
     )
     total = panel.summary["gendered_sum"]
     first += (
-        f"\ngendered words: {total['value']:+.2f} [{total['ci_low']:+.2f}, {total['ci_high']:+.2f}]"
+        f"\ngender words: {total['value']:+.2f} [{total['ci_low']:+.2f}, {total['ci_high']:+.2f}]"
     )
     if panel.summary["gap_unstable"]:
         return first + "\ngap interval includes 0: no shares given"
     return (
         f"{first}\ntop {len(panel.summary['top_words'])} words: "
         f"{_interval(panel.summary['top_share'])}\n"
-        f"gendered share: {_interval(panel.summary['gendered_share'])}"
+        f"gender share: {_interval(panel.summary['gendered_share'])}"
     )
 
 
@@ -97,7 +93,7 @@ def build(panels: Sequence[Panel]):
         words = panel.words.sort_values("contribution", ascending=False, kind="stable")
         rows = range(len(words))
         ax.set_title(header(panel), loc="left")
-        ax.set_xlabel("Contribution to the women-minus-men gap (log-odds)")
+        ax.set_xlabel("Contribution to the women-minus-men gap (points)")
         ax.axvline(0, color=DARK, lw=0.6)
         colours = [plotting.HIGHLIGHT if g else plotting.NEUTRAL for g in words["gendered"]]
         ax.hlines(rows, words["contribution_ci_low"], words["contribution_ci_high"], colors=colours)
