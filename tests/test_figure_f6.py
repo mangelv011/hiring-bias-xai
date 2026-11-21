@@ -113,37 +113,22 @@ def _band(ax, colour):
     return band
 
 
-def test_the_title_counts_layers_above_the_occupation_reference_and_names_the_layer_effect_leaves(
-    f6, probing, patching
-):
+def test_the_title_claims_only_that_gender_is_still_readable_without_pronouns(f6, probing):
     # The occupation-only interval is 0.50 to 0.54. Every probe interval starts above it: the
-    # lowest is the main model at layer 2 (0.55). The differing positions have an interval above
-    # one half at layer 1 (0.67 to 0.73) and below it at layer 2.
-    assert f6.title(probing, patching) == (
-        "Gender stays readable after the pronouns are removed, and the swap's effect leaves the "
-        "edited words by layer 2."
-    )
+    # lowest is the main model at layer 2 (0.55).
+    assert f6.title(probing) == "Gender is still readable from bios without pronouns."
 
 
-def test_the_title_says_in_only_some_layers_when_not_all_are_above_the_reference(
-    f6, probing, patching
-):
+def test_the_title_says_in_only_some_layers_when_not_all_are_above_the_reference(f6, probing):
     probing.loc[(probing["model"] == "deberta") & (probing["layer"] == 2), ["ci_low"]] = 0.50
-    assert f6.title(probing, patching).startswith(
-        "Gender stays readable in only some layers after the pronouns are removed, and"
+    assert f6.title(probing) == (
+        "Gender is readable from bios without pronouns in only some layers."
     )
 
 
-def test_the_title_names_no_layer_when_the_effect_stays_above_one_half(f6, probing, patching):
-    patching.loc[patching["position_set"] == "differing", ["mean", "mean_ci_high"]] = (0.9, 0.95)
-    assert f6.title(probing, patching).endswith(
-        "and the swap's effect stays in the edited words in every layer."
-    )
-
-
-def test_the_title_ignores_the_unflagged_rows(f6, probing, patching):
+def test_the_title_ignores_the_unflagged_rows(f6, probing):
     probing.loc[probing["subset"] == "unflagged", "ci_low"] = 0.0
-    assert f6.title(probing, patching).startswith("Gender stays readable after the pronouns")
+    assert f6.title(probing) == "Gender is still readable from bios without pronouns."
 
 
 def test_panel_a_draws_the_two_models_per_layer_with_their_intervals_in_grey_and_highlight(figure):
@@ -245,38 +230,13 @@ def test_main_saves_the_figure_from_the_two_csv_files(f6, probing, patching, tmp
         "f6_probing_patching.pdf",
         "f6_probing_patching.png",
     ]
-    assert fig._suptitle.get_text() == f6.title(probing, patching)
+    assert fig._suptitle.get_text() == f6.title(probing)
     plt.close(fig)
-
-
-def test_the_effect_has_left_the_edited_words_only_when_the_whole_interval_is_below_one_half(
-    f6, probing, patching
-):
-    differing = patching["position_set"] == "differing"
-    patching.loc[differing & (patching["layer"] == 1), ["mean", "mean_ci_high"]] = (0.45, 0.55)
-    assert f6.title(probing, patching).endswith("leaves the edited words by layer 2.")
 
 
 def _text(ax, label):
     (text,) = [t for t in ax.texts if t.get_text() == label]
     return text
-
-
-def test_an_interval_that_ends_exactly_at_one_half_has_not_left_the_edited_words_yet(
-    f6, probing, patching
-):
-    patching.loc[
-        (patching["position_set"] == "differing") & (patching["layer"] == 1), "mean_ci_high"
-    ] = 0.5
-    assert f6.title(probing, patching).endswith("leaves the edited words by layer 2.")
-
-
-def test_the_title_names_the_first_layer_below_one_half_whatever_the_order_of_the_rows(
-    f6, probing, patching
-):
-    differing = patching["position_set"] == "differing"
-    patching.loc[differing & (patching["layer"] == 1), ["mean", "mean_ci_high"]] = (0.4, 0.45)
-    assert f6.title(probing, patching.iloc[::-1]).endswith("leaves the edited words by layer 1.")
 
 
 def _occupation_reference(probing, column):
@@ -285,21 +245,21 @@ def _occupation_reference(probing, column):
 
 
 def test_a_probe_whose_interval_starts_exactly_at_the_reference_interval_end_does_not_count(
-    f6, probing, patching
+    f6, probing
 ):
     ends = _occupation_reference(probing, "ci_high")
     probing.loc[(probing["model"] == "deberta") & (probing["layer"] == 2), "ci_low"] = ends
-    assert "in only some layers" in f6.title(probing, patching)
+    assert "in only some layers" in f6.title(probing)
 
 
 def test_a_probe_counts_only_when_its_interval_starts_above_the_end_of_the_reference_interval(
-    f6, probing, patching
+    f6, probing
 ):
     inside = (
         _occupation_reference(probing, "accuracy") + 0.01
     )  # above the accuracy, in the interval
     probing.loc[(probing["model"] == "deberta") & (probing["layer"] == 2), "ci_low"] = inside
-    assert "in only some layers" in f6.title(probing, patching)
+    assert "in only some layers" in f6.title(probing)
 
 
 def test_panel_a_labels_sit_at_the_last_layer_accuracy_moved_apart_only_where_they_touch(figure):
@@ -329,6 +289,26 @@ def test_the_bands_are_translucent_and_the_x_axis_line_spans_the_layers(figure):
         assert ax.spines["bottom"].get_bounds() == (0, 2)
 
 
+def test_each_reference_line_has_its_interval_as_a_faint_band(figure):
+    top, _ = _panels(figure)
+    bands = [
+        c
+        for c in top.collections
+        if isinstance(c, matplotlib.collections.PolyCollection)
+        and matplotlib.colors.to_hex(c.get_facecolor()[0]).upper() == "#333333"
+    ]
+    assert len(bands) == len(REFERENCES)
+    spans = sorted(
+        (
+            round(b.get_paths()[0].vertices[:, 1].min(), 2),
+            round(b.get_paths()[0].vertices[:, 1].max(), 2),
+        )
+        for b in bands
+    )
+    assert spans == sorted((round(a - 0.02, 2), round(a + 0.02, 2)) for a in REFERENCES.values())
+    assert all(b.get_facecolor()[0][3] < 0.2 for b in bands)
+
+
 def test_the_three_references_are_told_apart_by_line_style(figure):
     top, _ = _panels(figure)
     styles = [_line(top, name).get_linestyle() for name in REFERENCES]
@@ -339,7 +319,7 @@ def test_the_title_is_left_aligned_and_the_top_panel_is_taller_than_the_bottom_o
     top, bottom = _panels(figure)
     assert figure._suptitle.get_position()[0] == 0
     assert top.get_position().height > bottom.get_position().height
-    assert figure.get_size_inches()[1] == 5.6
+    assert figure.get_size_inches()[1] == 4.6
 
 
 def test_the_labels_of_panel_a_fit_inside_the_axes_to_the_right_of_the_last_layer(figure):
@@ -349,20 +329,18 @@ def test_the_labels_of_panel_a_fit_inside_the_axes_to_the_right_of_the_last_laye
         assert _text(top, label).get_window_extent().x1 <= box.x1 + 1, label
 
 
-def test_the_title_says_some_layers_when_only_one_probe_is_above_the_reference(
-    f6, probing, patching
-):
+def test_the_title_says_some_layers_when_only_one_probe_is_above_the_reference(f6, probing):
     rows = probing["model"].isin(["pretrained", "deberta"]) & (probing["subset"] == "all")
     probing.loc[rows, "ci_low"] = 0.0
     probing.loc[rows & (probing["model"] == "pretrained") & (probing["layer"] == 0), "ci_low"] = 0.9
-    assert f6.title(probing, patching).startswith("Gender stays readable in only some layers")
+    assert "in only some layers" in f6.title(probing)
 
 
-def test_the_title_says_not_readable_when_no_probe_is_above_the_reference(f6, probing, patching):
+def test_the_title_says_not_readable_when_no_probe_is_above_the_reference(f6, probing):
     rows = probing["model"].isin(["pretrained", "deberta"]) & (probing["subset"] == "all")
     probing.loc[rows, "ci_low"] = 0.0
-    assert f6.title(probing, patching).startswith(
-        "Gender is not readable beyond the occupation once the pronouns are removed, and"
+    assert f6.title(probing) == (
+        "Gender is not readable beyond the occupation from bios without pronouns."
     )
 
 
