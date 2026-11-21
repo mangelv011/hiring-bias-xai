@@ -975,3 +975,13 @@ def test_the_formats_the_report_uses_for_log_odds_and_counts_out_of_ten():
     assert formats["of10"](0.8) == "8"
     assert formats["hours1"](10773.6) == "3.0"
     assert formats["hours1"](5400) == "1.5"
+
+
+def test_a_citation_reference_label_or_figure_key_that_is_a_number_is_not_read(tmp_path):
+    for command in ("citep", "citet", "citealp", "ref", "label", "fig", "bibliography"):
+        errors = _report(tmp_path / command, f"see \\{command}{{7}}\n")
+        assert errors == [], command
+
+
+def test_a_number_that_a_command_argument_glues_to_a_letter_is_a_name(tmp_path):
+    assert _report(tmp_path, "see Qwen{3}\n") == []
