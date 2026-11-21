@@ -79,3 +79,10 @@ def test_the_hand_check_sample_is_written_for_labelling_and_scored_once_labelled
     summary = check["rationalization"]["hand_check"]
     assert summary["n"] == 24 and summary["n_rule_agrees"] == 20
     assert summary["agreement"]["value"] == pytest.approx(20 / 24)
+
+
+def test_the_report_splits_the_none_arm_false_positives_by_hardness(analysed):
+    _, report = analysed
+    hardness = report["fpr_by_hardness"]["none"]
+    assert hardness["hard"]["n"] == 6 and hardness["other"]["n"] == 6
+    assert hardness["hard"]["value"] == 1.0
