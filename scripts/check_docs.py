@@ -1028,7 +1028,7 @@ CELLS: list[Cell] = [
         f"{F2_WOMAN}.gendered_push",
         "signed1",
     ),
-    Cell(REPORT, r"add (\+[\d.]+) to ``poet''", F2, f"{F2_MAN}.gendered_push", "signed1"),
+    Cell(REPORT, r"add (\+[\d.]+) score points to ``poet''", F2, f"{F2_MAN}.gendered_push", "signed1"),
     Cell(
         REPORT, r"of (\d+) and \d+ wrong decisions", F2, "women_in_male_dominated.n_wrong", "count"
     ),
