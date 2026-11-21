@@ -189,7 +189,7 @@ def test_the_training_plot_has_a_title_and_labels_the_epochs(nb):
 
 
 def test_the_limits_say_the_task_is_a_proxy_and_attribution_was_not_tried_with_gradients(nb):
-    limits = source(nb["cells"][-1])
+    limits = " ".join(source(nb["cells"][-1]).split())
     assert "proxy for screening" in limits
     assert "gradient" in limits
 

@@ -13,7 +13,7 @@ Three screeners, all developed by me for this audit and described in [ADR 0002](
 - **What it is.** DeBERTa-v3-small (`microsoft/deberta-v3-small`, revision `a36c739020e01763fe789b4b85e2df55d6180012`) with a new output layer over the 28 jobs, fine-tuned on bios.
 - **Training data.** 60,000 bios of the training subsample; 10,000 dev bios choose the weights.
 - **Recipe.** AdamW, a linear warm-up over 6% of the steps and then a linear decay, bfloat16 autocast, 5 epochs, an effective batch of 32 (4 bios per step, 8 steps added up), at most 256 tokens per bio. Learning rate 3e-5, after also trying 5e-5; the two differ by less than the noise between neighbouring evaluations. Seed 42. The weights kept are those of the evaluation with the best dev macro-F1, at step 9,375.
-- **Fit to the training bios.** The model fits its training bios better than new ones, as every such model does, and it scores the same on two sets of bios it never trained on: macro-F1 is 0.929 on the training bios, 0.788 on the dev bios and 0.783 on the test bios. I chose the model and the learning rate on the dev bios, and the test bios agree with them. The gap between training and test macro-F1 is 0.145, about half the baseline model's 0.271 ([ADR 0002](decisions/0002-models.md)). Over the run, dev macro-F1 reached its best value at the last step, while dev loss rose slightly after epoch 3, from 0.59 to 0.64. The model grew more confident, and its accuracy on bios it had not seen did not fall (`results/training_log.csv`).
+- **Fit to the training bios.** Macro-F1 is 0.929 on the training bios, 0.788 on the dev bios and 0.783 on the test bios. I judge overfitting by three things. Dev and test macro-F1 agree, and I chose the model and the learning rate on dev. The gap between training and test macro-F1 is 0.145, about half the baseline model's 0.271 ([ADR 0002](decisions/0002-models.md)). Dev macro-F1 reached its best value at the last step, while dev loss rose slightly after epoch 3, from 0.59 to 0.64. I did not use it for early stopping. The model grew more confident, and its accuracy on bios it had not seen did not fall (`results/training_log.csv`).
 - **Cost.** 6,167 s for the chosen run on the RTX 3050 laptop GPU (4 GB); 12,411 s for both learning rates.
 
 ### Baseline model
@@ -40,14 +40,14 @@ A research audit of screening bias: how a model that decides which job a bio des
 
 - **Gender, for all models.** The label comes from the pronouns of the bio, as in Bias in Bios ([data card](data_card.md)); it is binary. Women are the group whose gap is measured against men, and a positive gap means the model favours women.
 - **Job.** The 28 jobs differ in the share of women. Six are studied in detail: surgeon, software engineer and composer (mostly men), dietitian, nurse and model (mostly women).
-- **Origin, for the LLM only.** Origin cannot be read from the bios. It enters only through names added above a bio, from five groups (Spain, Morocco, Romania, Hispanic America and the United Kingdom); Spain and Hispanic America were merged after the name check.
+- **Origin, for the LLM only.** Origin cannot be read from the bios. It enters only through names added above a bio, from four origin groups (Spain and Hispanic America merged, because the model could not tell their names apart, Morocco, Romania and the United Kingdom).
 
 ## Metrics
 
 - **Accuracy.** The share of bios for which the decision is the true job. For a recruiter: of 100 bios the model sorts, how many go to the right search.
 - **Macro-F1.** The F1 score of each job averaged over the 28 jobs, so small jobs count as much as large ones. For a recruiter: whether the model also works for the rare jobs, not only for the common ones.
 - **True positive rate (TPR).** Among the qualified candidates of a job, the share the model shortlists. For a recruiter: of 100 qualified surgeons, how many the search shows.
-- **TPR gap and RMS TPR gap.** The TPR gap of a job is the TPR of women minus the TPR of men; above 0 the model favours women. The RMS TPR gap is the root mean square of the 28 jobs' gaps, one number for the gender gap whichever gender is favoured. For a recruiter: how far the search is from showing the same share of qualified women and qualified men; shuffling the genders at random gives a gap of about 0.04. The RMS TPR gap is a typical size of the per-job difference between the two shares: 0.148 means about 15 points on a typical job. The main model's gap is 0.148 on the full test set, and 0.143 on the test bios outside the showcase subset, which the mitigation uses.
+- **TPR gap and RMS TPR gap.** The TPR gap of a job is the TPR of women minus the TPR of men; above 0 the model favours women. The RMS TPR gap is the root mean square of the 28 jobs' gaps, one number for the overall shortlist gap whichever gender is favoured. For a recruiter: how far the search is from showing the same share of qualified women and qualified men; shuffling the genders at random gives a gap of about 0.04. The RMS TPR gap is a typical size of the per-job difference between the two shares: 0.148 means about 15 points on a typical job. The main model's gap is 0.148 on the full test set, and 0.143 on the test bios outside the showcase subset, which the mitigation uses.
 
 Intervals are 95% bootstrap intervals over the test bios (1,000 resamples). They do not cover the variation between training runs.
 
@@ -60,9 +60,9 @@ Intervals are 95% bootstrap intervals over the test bios (1,000 resamples). They
 
 ## Results per group, with intervals
 
-All of the test split. The gender gap is the RMS TPR gap; the last two rows score the scrubbed model on raw and on scrubbed bios.
+All of the test split. The shortlist gap is the RMS TPR gap; the last two rows score the scrubbed model on raw and on scrubbed bios.
 
-| Model | Right job, of 100 bios | Macro-F1 | Gender gap (RMS TPR gap) |
+| Model | Right job, of 100 bios | Macro-F1 | Shortlist gap (RMS TPR gap) |
 |---|---|---|---|
 | Baseline model | 79.5 [79.3, 79.8] | 0.728 [0.724, 0.733] | 0.167 [0.151, 0.190] |
 | Main model | 83.7 [83.5, 83.9] | 0.783 [0.779, 0.788] | 0.148 [0.134, 0.172] |
@@ -89,14 +89,14 @@ What this means: of 100 qualified women surgeons the model shortlists 56, and of
 - **A fairness measurement is not a certificate.** A job platform that ranks candidates with a model falls under the EU AI Act as a high-risk system (Annex III). This audit shows how a gap can be measured and explained; it does not show that a model is fit for that use.
 - **A first fix is not a cure.** Removing the pronouns narrows the gap by about a fifth and leaves most of it ([results.md](results.md#f7-does-removing-the-cues-close-the-gap)). I would not present it as making the screener fair.
 - **Gap and accuracy do not move together.** The more accurate model is not clearly the fairer one.
-- **The LLM's stated reasons are not its causes.** The reason comes before the decision in the answer, so it is not written afterwards to justify it. The audit still reads it as text, not as an account of what drove the decision.
+- **The LLM's stated reasons are not its causes.** The audit reads a reason as text, not as an account of what drove the decision.
 - Real client data is not used anywhere in the project.
 
 ## Caveats and limitations
 
 - **One training run per model.** A difference between two models includes run-to-run variation that I did not measure.
 - **A subsample.** The models train on 60,000 training bios, a subsample of the training split, so their accuracy is below what the full split gives.
-- **Bios are not CVs.** They are short professional summaries from the web, in English. Findings carry over to CV screening only as far as that allows.
+- **Bios are not CVs, and the task is a proxy.** They are short professional summaries from the web, in English, and the task is predicting an occupation. That is a proxy for screening, not a real hiring decision, and the findings carry over to CV screening only as far as that proxy holds.
 - **Few bios in some groups.** The test split holds 71 men dietitians, so that job's gap has a wide interval and cannot be measured outside the showcase subset.
 - **The explanations hold in aggregate.** Single Shapley values change with how they are computed; the conclusions rest on totals over hundreds of bios.
 - **Cues beyond pronouns remain.** First names, topics and website names carry gender after scrubbing, and a probe still reads gender from the main model's internal states.

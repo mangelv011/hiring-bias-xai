@@ -6,18 +6,20 @@ This page explains every result of the audit: what I asked, what I found and wha
 
 **Two words used throughout.** The *main model* is the screener I audit: DeBERTa-v3-small, a transformer fine-tuned on 60,000 bios. The *baseline model* is a simpler screener for comparison: it counts words (TF-IDF) and weighs them (logistic regression). The *score* of a bio for a job is how strongly the model leans towards that job. It is measured in log-odds, which the figures and the report call score points (not to be confused with percentage points): 0 means even odds between that job and all the others together, and each score point up multiplies those odds by about 2.7.
 
+**Two gaps.** The *shortlist gap* of a job is the share of qualified women the model shortlists minus the share of qualified men (the TPR gap); the *overall shortlist gap* is its root mean square over the jobs. The *score gap* of a job is the difference between women's and men's mean score for it, in score points; it uses scores, not decisions.
+
 ## How good are the screeners?
 
 **In short:** the main model is right more often than the baseline model, but it is not clearly fairer.
 
 Both models were tested on 99,069 bios they never saw during training. Intervals are 95% bootstrap intervals (`src/hiring_bias_xai/fairness.py`).
 
-| Model | Right job, out of 100 bios | Macro-F1 | Gender gap (RMS TPR gap) |
+| Model | Right job, out of 100 bios | Macro-F1 | Shortlist gap (RMS TPR gap) |
 |---|---|---|---|
 | Baseline model | 79.5 [79.3, 79.8] | 0.728 [0.724, 0.733] | 0.167 [0.151, 0.190] |
 | Main model | 83.7 [83.5, 83.9] | 0.783 [0.779, 0.788] | 0.148 [0.134, 0.172] |
 
-Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones; the main model is clearly better on it (the intervals do not overlap). The gender gap sums up, over all 28 jobs, how far the share of qualified women shortlisted is from the share of qualified men (0 would be equal treatment). It is a typical size of the per-job difference between the share of qualified women and the share of qualified men that the model shortlists: 0.148 means about 15 points on a typical job. It is lower for the main model, but the intervals overlap, so the data does not show that the main model is fairer. This is the gap on the full test set. The mitigation section uses the test bios outside the showcase subset, where the main model's gap is 0.143. Training details are in [ADR 0002](decisions/0002-models.md).
+Macro-F1 averages the quality over the 28 jobs, so small jobs count as much as large ones; the main model is clearly better on it (the intervals do not overlap). The overall shortlist gap sums up, over all 28 jobs, how far the share of qualified women shortlisted is from the share of qualified men (0 would be equal treatment). It is a typical size of the per-job difference between the share of qualified women and the share of qualified men that the model shortlists: 0.148 means about 15 points on a typical job. It is lower for the main model, but the intervals overlap, so the data does not show that the main model is fairer. This is the gap on the full test set. The mitigation section uses the test bios outside the showcase subset, where the main model's gap is 0.143. Training details are in [ADR 0002](decisions/0002-models.md).
 
 ## F1: the gap follows the share of women
 
@@ -41,12 +43,12 @@ To check that the gaps are not luck, I shuffled the gender labels within each jo
 | Same, interval from resampling the 28 jobs | [0.835, 0.951] | [0.762, 0.933] |
 | Rank correlation (Spearman), resampling the jobs | 0.933 [0.826, 0.969] | 0.830 [0.582, 0.926] |
 | Correlation with one job left out | 0.877 (without dietitian) to 0.912 (without model) | 0.838 (without dietitian) to 0.874 (without nurse) |
-| Overall gender gap, real | 0.1666 | 0.1476 |
-| Overall gender gap with shuffled genders: mean (95th percentile) | 0.0391 (0.0539) | 0.0359 (0.0488) |
+| Overall shortlist gap, real | 0.1666 | 0.1476 |
+| Overall shortlist gap with shuffled genders: mean (95th percentile) | 0.0391 (0.0539) | 0.0359 (0.0488) |
 | Permutation p-value: reshuffles of the gender labels that gave a gap this large, plus one, over 1,001 | 0.001 | 0.001 |
-| Jobs whose own gap is clearly not zero (Holm-corrected p below 0.05) | 11 of 28 | 10 of 28 |
+| Jobs whose own gap is clearly not zero (p below 0.05 after correcting for testing 28 jobs, Holm) | 11 of 28 | 10 of 28 |
 
-The intervals here are wider than in the first table because the units are the 28 jobs, not the 99,069 bios. Looking at jobs one by one needs a stricter bar, because testing 28 jobs at once makes some false alarms likely (the Holm correction accounts for that). With that bar, the main model clearly favours women in dietitian, model, nurse, paralegal, physician and teacher, and men in attorney, chiropractor, pastor and surgeon. In the other 18 jobs the gap is too small to tell from zero with this data, which does not mean it is zero.
+The intervals here are wider than in the first table because the units are the 28 jobs, not the 99,069 bios. Looking at jobs one by one needs a stricter bar, because testing 28 jobs at once makes some false alarms likely (the Holm correction, applied above, accounts for that). With that bar, the main model clearly favours women in dietitian, model, nurse, paralegal, physician and teacher, and men in attorney, chiropractor, pastor and surgeon. In the other 18 jobs the gap is too small to tell from zero with this data, which does not mean it is zero.
 
 ## F2: a woman and a man, and the words that moved the decision
 
@@ -67,16 +69,16 @@ How far to trust single words: the values come from random orders, so a rerun gi
 
 ## F3: which words make up the gap between women and men
 
-**In short:** in surgeon bios, gender words alone put women's scores clearly below men's. In fashion model bios, the strongest single word is not a gender word but the name of a website, `freeones`, that appears only in women's bios.
+**In short:** in surgeon bios, gender words account for lower scores for women than for men. In fashion model bios, the strongest single word is not a gender word but the name of a website, `freeones`, that appears only in women's bios.
 
-<p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gender words set women 1.1 score points below men in surgeon, 0.8 above in fashion model."></p>
+<p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gender words account for -1.1 score points of the gap in surgeon and +0.8 in fashion model."></p>
 
 For each of the six jobs I study in detail, I take the main model's average score for that job in women's bios and subtract the average in men's bios: the score gap (positive favours women). Because Shapley values add up exactly to the score, this gap splits exactly into one part per word: how much more (or less) that word adds in women's bios than in men's, counting 0 where the word is missing. The parts add up to the gap to within 3 in 10^15. This tells how the gap is made up, not what would happen if a word were edited; F4 tests that. Definitions are in [ADR 0004](decisions/0004-gap-decomposition.md). This uses 1,721 test bios: up to 150 women and 150 men per job.
 
 F3 shows the main model in two jobs picked by a rule fixed beforehand: in each group, the one with the largest gap. That is surgeon (-0.77) and fashion model (+5.40). Each panel lists the ten words with the largest part of the gap, with the 95% interval from resampling bios. Gender words are in the highlight colour.
 
-- **Surgeon.** The overall gap (-0.77) is too small to tell from zero (its interval runs from -1.54 to +0.08). But the gender words alone put women 1.12 score points below men (95% interval 1.02 to 1.24): *she*, *he*, *her* and *his* all push the same way. Words about the job (*surgery*, *surgeon*) push the other way and cancel part of it.
-- **Fashion model.** Women's bios score 5.40 score points higher. Gender words account for +0.80 of that (15%). The single strongest word is `freeones`, the name of a website listing adult performers. It appears in 54 of the 150 women's bios and in none of the 150 men's, and it adds +0.95 of the gap. So part of this gap comes from where some women's bios were published, not from gender words. The counts show that the word appears only in women's bios; they do not show where the bios came from. `ranked`, `gallery` and `listed` follow the same pattern.
+- **Surgeon.** On average, women's and men's surgeon bios score about the same (score gap -0.77, an interval from -1.54 to +0.08 that includes 0). That hides two opposing parts: gender words lower women's scores by 1.12 score points (95% interval 1.02 to 1.24), with *she*, *he*, *her* and *his* all pushing the same way, and words about the job (*surgery*, *surgeon*) raise them and cancel part of it.
+- **Fashion model.** Women's bios score 5.40 score points higher. Gender words account for +0.80 of that (15%). The single strongest word is `freeones`, the name of a website listing adult performers. It appears in 54 of the 150 women's bios and in none of the 150 men's, and it adds +0.95 of the gap. It likely marks where some bios were collected, which I did not check, so part of this gap may come from where some women's bios were published, not from gender words, and the model weights the word: a likely spurious correlation. The counts show that the word appears only in women's bios; they do not show where the bios came from. `ranked`, `gallery` and `listed` follow the same pattern.
 
 The table gives all six jobs and both models. "Gender words" is the total part of the gender words; "top 10" and "gender share" give what share of the gap the ten strongest words and the gender words make up. Shares are left out (n/a) when the gap itself may be zero, because a share of zero means nothing. Shares can pass 100% when other words pull the opposite way.
 
@@ -89,13 +91,13 @@ The table gives all six jobs and both models. "Gender words" is the total part o
 | nurse | +1.31 [+0.32, +2.34] | +1.97 [+1.80, +2.14] | 83% [25, 157] | 150% [83, 598] | +2.98 [+1.49, +4.50] | +3.99 [+3.66, +4.31] | 196% [149, 312] | 134% [89, 266] |
 | fashion model | +5.40 [+4.44, +6.40] | +0.80 [+0.68, +0.91] | 61% [51, 77] | 15% [12, 19] | +11.72 [+10.02, +13.51] | +2.46 [+2.27, +2.64] | 76% [68, 92] | 21% [18, 25] |
 
-The pattern is the same in both models: gender words work against women in the jobs held mostly by men and for them in the jobs held mostly by women. The one exception is the main model in software engineer, where the gender words' total is too small to tell from zero. Compare signs and shares between the two models, not sizes: their scores are on different scales.
+The pattern is the same in both models: gender words lower women's scores in the jobs held mostly by men and raise them in the jobs held mostly by women. The one exception is software engineer: the main model gives +0.05 (interval -0.06 to +0.16), too small to tell from zero, while the baseline model gives -1.84. Compare signs and shares between the two models, not sizes: their scores are on different scales.
 
 Both models list the pronouns among the ten strongest words in every job, and titles (*Mr*, *Ms*, *Dr*) in nurse. Their top-ten lists share 5 to 8 words. The baseline model's lists also hold small common words (*and*, *of*, *the*), and the main model's hold words about the work (*computer*, *piano*, *crna*). Dietitian has only 71 men's bios. The intervals do not include the run-to-run noise of the Shapley values, which averaging over bios reduces but does not remove.
 
 ## F4: does changing only the gender change the decision?
 
-**In short:** swapping *he* and *she* changes the main model's decisions about as often as simply deleting them. When a swap does change a decision, it usually moves it towards a job typical of the new gender. The baseline model reacts more.
+**In short:** swapping *he* and *she* changes the main model's decisions about as often as simply deleting them. When a swap does change a decision, it usually moves it towards a job held more by the new gender, a hint and not a test. The baseline model reacts more.
 
 <p align="center"><img src="../results/figures/f4_flip_rates.png" width="520" alt="Swapping pronouns changes the main model's decisions about as often as deleting them."></p>
 
@@ -120,7 +122,7 @@ Share of bios whose decision changes. The csv also has the same rates without th
 
 - **Main model.** The swap changes 6.9% of decisions and the deletion 6.3%, and the intervals overlap in every job. So for the main model most flips come from editing the text, and this data shows no extra reaction to the gender itself. The swap does not move its score for the true job either (+0.03, 95% interval -0.01 to +0.08).
 - **Baseline model.** The swap changes more decisions than the deletion (13.5% against 8.8%), most clearly in fashion model (17.3% against 8.0%). Giving male pronouns to women's dietitian and fashion model bios lowers its score for those jobs by about 0.55, far more than deleting the pronouns does. It reads female pronouns as evidence for these jobs.
-- **Which way the flips go.** When the main model flips after a swap, 88% of the time the new job is one held more by the new gender (95% interval 82% to 94%). That partly reflects where these six jobs sit, at the extremes, so I compare it with the deletion copies read the same way: 72% (63% to 80%). The swap's flips lean further towards the new gender than an edit alone explains. The baseline model shows the same (95% against 84%).
+- **Which way the flips go.** When a swap flips a decision, 88% of the new jobs have more workers of the new gender (95% interval 82% to 94%). That partly reflects where these six jobs sit, at the extremes. For deletion flips, counted against the same reference, it is 72% (63% to 80%). The difference is a hint, not a test. The baseline model shows the same (95% against 84%).
 
 Limits: 50 bios read by hand cannot rule out rare errors in the swap; the bios without flags have no clue I detected, not necessarily no clue; names and origin are left to the LLM audit; and a swap between two genders says nothing about non-binary people.
 
@@ -174,7 +176,7 @@ I scrambled every weight of the main model (Adebayo et al., 2018) and scored the
 
 ### What I did not check
 
-I scrambled all the weights at once, not layer by layer, and I did not randomize the labels, which needs a new training run. Retraining-based evaluation (ROAR, Hooker et al., 2019) needs one fine-tuning run per share of words removed, which is too costly on this hardware. The stability comparisons use 100 bios, 8 or 9 per occupation and gender. The expected outcomes, written before the runs, are in `results/stability.json` and [ADR 0003](decisions/0003-shapley-attribution.md).
+I compared attribution with leave-one-out occlusion and with masking, not with gradient methods. I scrambled all the weights at once, not layer by layer, and I did not randomize the labels, which needs a new training run. Retraining-based evaluation (ROAR, Hooker et al., 2019) needs one fine-tuning run per share of words removed, which is too costly on this hardware. The stability comparisons use 100 bios, 8 or 9 per occupation and gender. The expected outcomes, written before the runs, are in `results/stability.json` and [ADR 0003](decisions/0003-shapley-attribution.md).
 
 ## F6: gender inside the model
 
@@ -204,7 +206,7 @@ What I found:
 
 - **Gender is still readable.** Every probe, in both models and at every layer, scores above the occupation alone, and its interval does not overlap the occupation's. None of 100 probes trained on shuffled genders did as well as the real one (the smallest p-value that 100 shuffles can give, 0.0099). So this is not chance. The signal is modest: at most 67%.
 - **A good part of it sits in the words themselves.** The embeddings are plain word vectors, and they already give 63%. TF-IDF on the same text gives 60%. Names, topics and site names such as the one in [F3](#f3-which-words-make-up-the-gap-between-women-and-men) remain after the pronouns are gone.
-- **Fine-tuning makes gender a little harder to read in the last layers.** The main model falls from 63% at the embeddings to 58% at the last layer (the intervals miss each other by half a point: 60.9 and 60.4). From layer 4 on it is 6 to 8 points below the pretrained model, with no overlap. The pretrained model rises to 67% at layer 5.
+- **Fine-tuning makes gender a little harder to read in the last layers, and does not remove it.** The last layer holds about as much as word counts on the same text (58% against 59.7%). The main model falls from 63% at the embeddings to 58% at the last layer (the intervals miss each other by half a point: 60.9 and 60.4). From layer 4 on it is 6 to 8 points below the pretrained model, with no overlap. The pretrained model rises to 67% at layer 5.
 - **First names matter little.** Without them, the main model's probes lose less than one point. The pretrained ones lose up to three and a half.
 - **The shuffled probes score above chance.** They score 56% to 57%, above the occupation alone. A shuffle within an occupation keeps a bio's own gender 82% of the time when the occupation is 90% women, so the shuffled labels still hold part of the real signal. The real probes beat this stricter comparison.
 
@@ -238,9 +240,9 @@ Cost on the laptop: encoding the 11,721 bios took 26 s (pretrained) and 25 s (ma
 
 ## F7: does removing the cues close the gap?
 
-**In short:** scrubbing the pronouns narrows the gender gap by about a fifth for half a point of macro-F1, and the gap that remains is still more than twice what chance gives. Deleting six proxy words leaves it where it was.
+**In short:** scrubbing the pronouns narrows the shortlist gap by about a fifth for half a point of macro-F1, and the gap that remains is still more than twice what chance gives. Deleting six proxy words leaves it where it was.
 
-<p align="center"><img src="../results/figures/f7_mitigation.png" width="520" alt="Scrubbing pronouns moves the gender gap from 0.14 to 0.12 and macro-F1 from 0.784 to 0.779; deleting proxy words moves neither by much; every condition stays above the band that chance gives."></p>
+<p align="center"><img src="../results/figures/f7_mitigation.png" width="520" alt="Scrubbing pronouns moves the shortlist gap from 0.14 to 0.12 and macro-F1 from 0.784 to 0.779; deleting proxy words moves neither by much; every condition stays above the band that chance gives."></p>
 
 [F3](#f3-which-words-make-up-the-gap-between-women-and-men) and [F4](#f4-does-changing-only-the-gender-change-the-decision) show that pronouns push the model's decisions towards one gender, and [F6](#f6-gender-inside-the-model) that other words and the model's own states still carry gender. So I try two fixes and measure what each one does to the gap and to accuracy. Design, the rules and the alternatives I did not run (LEACE, INLP) are in [ADR 0007](decisions/0007-mitigation.md).
 
@@ -252,7 +254,7 @@ Cost on the laptop: encoding the 11,721 bios took 26 s (pretrained) and 25 s (ma
 
 I score the 97,348 test bios outside the showcase subset, because I chose the proxy words on the showcase subset. Dietitian is the one job where the gap cannot be measured there: the test split holds 71 men dietitians and the subset takes all of them. So the gap below averages the other 27 jobs, while macro-F1 and accuracy use every bio. Intervals are 95% bootstrap intervals over bios. For the change from (a), both conditions are scored on the same resampled bios, which makes the interval of the change much narrower than the two intervals side by side. The gap that chance gives comes from shuffling gender within each job 1,000 times: 0.037 on average and 0.050 at the 95th percentile. The gaps in this section are on the test bios outside the showcase subset (0.143 for the original model); on the full test set it is 0.148.
 
-| Condition | Macro-F1 | Gender gap (RMS TPR gap) | Change in the gap from (a) | Change in macro-F1 from (a) |
+| Condition | Macro-F1 | Shortlist gap (RMS TPR gap) | Change in the gap from (a) | Change in macro-F1 from (a) |
 |---|---|---|---|---|
 | a. original model, raw bios | 0.784 [0.779, 0.788] | 0.143 [0.130, 0.169] | | |
 | b. original model, scrubbed bios | 0.776 [0.771, 0.780] | 0.119 [0.105, 0.145] | -0.0247 [-0.0355, -0.0118] | -0.0076 [-0.0098, -0.0055] |
@@ -264,7 +266,7 @@ The share of bios the model gets right changes by -0.02 points in (d), with an i
 
 ### What I found
 
-- **Scrubbing narrows the gap by a fifth and costs half a point.** The scrubbed model on scrubbed bios (d) brings the gap from 0.143 to 0.115. Scrubbing only the bios the original model reads (b) gets 0.119 with no retraining, for 0.8 points of macro-F1. Conditions (c) and (d) differ by less than their intervals.
+- **Scrubbing narrows the gap by a fifth and costs half a point.** The scrubbed model on scrubbed bios (d) brings the gap from 0.143 to 0.115, a cut of 20% (8% to 30%), from a single training run per model. Scrubbing only the bios the original model reads (b) gets 0.119 with no retraining, a cut of 17% (8% to 25%), for 0.8 points of macro-F1. Each share is the change in `results/mitigation.json` (`conditions.<k>.outside_showcase.change_from_a.rms_tpr_gap`) divided by condition (a)'s gap, so the interval carries the change's uncertainty and leaves out (a)'s. Conditions (c) and (d) differ by less than their intervals.
 - **The gap that is left is more than twice the chance level.** Every condition stays above 0.050, the 95th percentile of what shuffled genders give; the lowest, (c), is 0.110. In every condition, none of 1,000 random reshuffles of the gender labels gave a gap this large.
 - **The jobs with the largest gaps move by a few points.** The table gives women minus men in true positive rate: how many more qualified women than qualified men the model shortlists, per 100 of each.
 
@@ -318,7 +320,7 @@ With no header, of 100 qualified candidates the model says yes to 59 (55 to 64),
 - **No origin group differs from the United Kingdom.** Against the United Kingdom: Morocco +1.5 (-5.3 to +9.1), Romania 0.0 (-7.8 to +7.8), Spain and Hispanic America +3.0 (-4.1 to +9.3). After the Holm correction none is distinguishable from zero. The yes-rate across the first names of one group varies no more than shuffled names make it vary, in seven of eight groups and genders; the exception is the 25 men's first names of Spain and Hispanic America, whose range is 0.69 against 0.65 for shuffled names.
 - **But a name changes the answer.** Each of the eight name arms is 4 to 8 points below no header, and pooled they are 6.0 points below (2.1 to 10.1). This pooled comparison was not in my plan, so I read it as a lead. It is also confounded: some bios already contain a name, for example a profile that opens with "Mrs." and a full name, and adding a name sometimes changes the pronouns. The neutral line does not do this. The same shows in the decisions: the answer changes for 10% to 15% of profiles in each name arm, against 5.0% (2.5 to 8.0) for a whitespace edit and 0% for an identical rerun. Each name arm is 5 to 10 points above the whitespace rate, with intervals above zero; the neutral line (6.0%) and the swapped pronouns (5.5%) are not. So a name changes decisions, whichever gender or origin it carries.
 - **A reworded instruction matters more than any name.** With the two paraphrases of the instruction and no header, the model says yes to 47 and 39 of 100 qualified candidates, against 59, and changes 13% and 16% of its decisions.
-- **Most reasons for those changes do not mention the name.** The reason comes before the decision in the answer, so it is not an after-the-fact justification. In the arms above the noise, 594 decisions changed. For 503 of them, 85% (82 to 87), the reason does not mention name, origin, nationality or gender by the keyword rule. Of the 594, 50 were labelled by hand: the rule agrees on 45 (90%, 79 to 96), and by hand 41 of 50, 82% (69 to 90), do not mention them. The 9 that do are all about the name on top not matching a name inside the bio ("name mismatch (Rachid Lakhal vs. Sean)"); the rule missed 5 of them because they say "lists Dr. Deepak Chhabra, not Margaret Smith". None of the 50 mentions gender or origin. The others talk about credentials, for example "does not state he is a Registered Nurse".
+- **Most reasons for those changes do not mention the name.** In the arms above the noise, 594 decisions changed. For 503 of them, 85% (82 to 87), the reason does not mention name, origin, nationality or gender by the keyword rule. Of the 594, 50 were labelled by hand: the rule agrees on 45 (90%, 79 to 96), and by hand 41 of 50, 82% (69 to 90), do not mention them. The 9 that do are all about the name on top not matching a name inside the bio ("name mismatch (Rachid Lakhal vs. Sean)"); the rule missed 5 of them because they say "lists Dr. Deepak Chhabra, not Margaret Smith". None of the 50 mentions gender or origin. The others talk about credentials, for example "does not state he is a Registered Nurse".
 
 ### What it means
 

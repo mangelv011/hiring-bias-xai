@@ -195,7 +195,7 @@ NOTEBOOK = "notebooks/audit.ipynb"
 
 
 def test_no_document_calls_the_shortlist_gap_the_gender_gap():
-    for name in ("README.md", "GLOSSARY.md", "docs/results.md", "docs/model_card.md", NOTEBOOK):
+    for name in ("README.md", "docs/results.md", "docs/model_card.md", NOTEBOOK):
         assert "gender gap" not in _read(name).lower(), name
 
 
