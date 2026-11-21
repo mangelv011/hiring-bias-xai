@@ -353,3 +353,11 @@ def test_the_readme_reads_freeones_as_a_possible_trace_not_a_spurious_correlatio
     readme = _read("README.md")
     assert "may reflect" in readme and "spurious" not in readme
     assert "I did not check" not in readme
+
+
+def test_the_readme_cite_section_states_the_ai_assistance():
+    sentence = (
+        "I used an AI coding assistant for implementation and editing; "
+        "I designed the audit, chose the methods and checked every result."
+    )
+    assert sentence in _readme_section("Cite")
