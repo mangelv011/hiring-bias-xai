@@ -115,3 +115,77 @@ def test_each_broken_link_is_one_error_and_line_numbers_are_given(tmp_path):
     errors = _errors(tmp_path, {"README.md": "ok\n\n[a](x.md) and [b](y.md)\n"})
     assert len(errors) == 2
     assert all("README.md:3" in error for error in errors)
+
+
+def test_an_anchor_that_matches_a_heading_resolves(tmp_path):
+    files = {
+        "README.md": "[a](docs/r.md#f1-the-gap-follows-the-share-of-women) [b](#top)\n\n# Top\n",
+        "docs/r.md": "## F1: the gap follows the share of women\n",
+    }
+    assert _errors(tmp_path, files) == []
+
+
+def test_a_missing_anchor_is_reported_with_the_target_file(tmp_path):
+    files = {"README.md": "[a](docs/r.md#nope)\n", "docs/r.md": "# Yes\n"}
+    errors = _errors(tmp_path, files)
+    assert len(errors) == 1 and "#nope" in errors[0]
+
+
+def test_a_missing_anchor_in_the_same_document_is_reported(tmp_path):
+    errors = _errors(tmp_path, {"README.md": "[a](#nope)\n\n# Yes\n"})
+    assert len(errors) == 1 and "#nope" in errors[0]
+
+
+def test_slugs_drop_punctuation_lowercase_and_join_with_hyphens():
+    slug = _load().slug
+    assert (
+        slug("F8: does an LLM screener react to names?") == "f8-does-an-llm-screener-react-to-names"
+    )
+    assert slug("Is the gap real?") == "is-the-gap-real"
+    assert slug("What I did not check") == "what-i-did-not-check"
+    assert slug("Data and models") == "data-and-models"
+
+
+def test_slugs_keep_hyphens_underscores_digits_and_letters_with_accents():
+    slug = _load().slug
+    assert slug("DeBERTa-v3-small, fine_tuned") == "deberta-v3-small-fine_tuned"
+    assert slug("Ética 2") == "ética-2"
+
+
+def test_slugs_keep_every_space_as_a_hyphen():
+    assert _load().slug("A  b - c") == "a--b---c"
+
+
+def test_heading_markup_is_removed_before_the_slug(tmp_path):
+    files = {
+        "README.md": "[a](#score-in-code) [b](#a-link-here) [c](#bold-and-em)\n\n"
+        "## Score in `code`\n\n## A [link](x.md) here\n\n## **Bold** and *em*\n",
+        "x.md": "x",
+    }
+    assert _errors(tmp_path, files) == []
+
+
+def test_a_repeated_heading_gets_a_numbered_slug(tmp_path):
+    text = "[a](#same) [b](#same-1) [c](#same-2) [d](#same-3)\n\n# Same\n\n# Same\n\n# Same\n"
+    errors = _errors(tmp_path, {"README.md": text})
+    assert len(errors) == 1 and "#same-3" in errors[0]
+
+
+def test_hashes_inside_fenced_code_are_not_headings(tmp_path):
+    text = "[a](#comment)\n\n```bash\n# comment\n```\n"
+    assert len(_errors(tmp_path, {"README.md": text})) == 1
+
+
+def test_a_heading_needs_a_space_after_the_hashes_and_at_most_six_hashes(tmp_path):
+    text = "[a](#tag) [b](#seven)\n\n#tag\n\n####### Seven\n"
+    assert len(_errors(tmp_path, {"README.md": text})) == 2
+
+
+def test_an_anchor_on_a_non_markdown_file_is_not_checked(tmp_path):
+    files = {"README.md": "[a](results/f.csv#row1)\n", "results/f.csv": "x"}
+    assert _errors(tmp_path, files) == []
+
+
+def test_an_anchor_is_compared_with_the_exact_slug(tmp_path):
+    files = {"README.md": "[a](#Top)\n\n# Top\n"}
+    assert len(_errors(tmp_path, files)) == 1
