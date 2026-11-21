@@ -145,8 +145,6 @@ class Allowed(NamedTuple):
 
 
 NUMBER_DOCUMENTS = ("README.md", "docs/model_card.md")
-CELLS: list[Cell] = []
-ALLOWED: list[Allowed] = []
 
 
 def _fixed(scale: Decimal, decimals: int, signed: bool = False, absolute: bool = False):
@@ -233,6 +231,531 @@ def _covered(spans: list[tuple[int, int]], start: int, end: int) -> bool:
     return any(a <= start and end <= b for a, b in spans)
 
 
+README = "README.md"
+CARD = "docs/model_card.md"
+SIGNED = r"[-+]?[\d.]+"
+
+
+def _row(label: str, skip: int) -> str:
+    """Start of a pattern for the cell `skip` cells after the first one in the row `label`."""
+    return rf"^\| {re.escape(label)} \|(?:[^|]*\|){{{skip}}} \*{{0,2}}"
+
+
+def interval(doc, label, skip, file, path, fmt):
+    """The three numbers of a table cell written `value [low, high]`."""
+    start = _row(label, skip)
+    value = rf"({SIGNED})\*{{0,2}} \["
+    low = rf"{SIGNED}\*{{0,2}} \[({SIGNED}),"
+    high = rf"{SIGNED}\*{{0,2}} \[{SIGNED}, ({SIGNED})\]"
+    return [
+        Cell(doc, start + value, file, f"{path}.value", fmt),
+        Cell(doc, start + low, file, f"{path}.ci_low", fmt),
+        Cell(doc, start + high, file, f"{path}.ci_high", fmt),
+    ]
+
+
+def plain(doc, label, skip, file, path, fmt):
+    """The one number of a table cell written without an interval."""
+    return Cell(doc, _row(label, skip) + r"([\d,]+) \|", file, path, fmt)
+
+
+def screener_rows(doc, label, file, accuracy, macro_f1, gap):
+    """The accuracy, macro-F1 and RMS TPR gap cells of one row of a results table."""
+    return (
+        interval(doc, label, 0, file, accuracy, "pct1")
+        + interval(doc, label, 1, file, macro_f1, "dec3")
+        + interval(doc, label, 2, file, gap, "dec3")
+    )
+
+
+def job_rows(label, key):
+    """The cells of one job of the per-job table of the model card, main model."""
+    base = f"test.per_occupation.{key}"
+    return (
+        [
+            plain(CARD, label, 0, "metrics_deberta.json", f"{base}.n_female", "count"),
+            plain(CARD, label, 1, "metrics_deberta.json", f"{base}.n_male", "count"),
+        ]
+        + interval(CARD, label, 2, "metrics_deberta.json", f"{base}.tpr_female", "pct1")
+        + interval(CARD, label, 3, "metrics_deberta.json", f"{base}.tpr_male", "pct1")
+        + interval(CARD, label, 4, "metrics_deberta.json", f"{base}.tpr_gap", "signed_points1")
+    )
+
+
+MAIN, BASE = "metrics_deberta.json", "metrics_baseline.json"
+MITIGATION, AUDIT = "mitigation.json", "llm_audit.json"
+FLIPS = "counterfactual_gender.csv"
+PROBING = "probing.csv"
+SCRUBBED_LOG = "training_log_scrubbed.csv"
+CONDITION_A = "conditions.a.outside_showcase"
+CONDITION_D = "conditions.d.outside_showcase"
+
+# One row per number the two documents state: the document, a pattern with one group around the
+# number as written, the results file, the path to the value in it and the format.
+CELLS: list[Cell] = [
+    # README: the opening
+    Cell(
+        README, r"trained such a model on ([\d,]+) real", "data_summary.json", "bios.train", "count"
+    ),
+    Cell(README, r"among ([\d,]+) bios it had", "data_summary.json", "bios.test", "count"),
+    Cell(
+        README,
+        r"(\d+) of every 100 men but",
+        MAIN,
+        "test.per_occupation.surgeon.tpr_male.value",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"only (\d+) of every 100 women",
+        MAIN,
+        "test.per_occupation.surgeon.tpr_female.value",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"opposite: (\d+) of every 100 women",
+        MAIN,
+        "test.per_occupation.nurse.tpr_female.value",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"women, (\d+) of every 100 men",
+        MAIN,
+        "test.per_occupation.nurse.tpr_male.value",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"surgeon: (\d+) of 100 qualified women",
+        MAIN,
+        "test.per_occupation.surgeon.tpr_female.value",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"against (\d+) of 100 men; nurse",
+        MAIN,
+        "test.per_occupation.surgeon.tpr_male.value",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"nurse: (\d+) of 100 women",
+        MAIN,
+        "test.per_occupation.nurse.tpr_female.value",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"against (\d+) of 100 men\.",
+        MAIN,
+        "test.per_occupation.nurse.tpr_male.value",
+        "per100",
+    ),
+    # README: key findings
+    Cell(
+        README,
+        r"in (\d+) of 150 women's bios",
+        "gap_decomposition.csv",
+        "screener=deberta,occupation=model,word=freeones:freq_female",
+        "of150",
+    ),
+    Cell(
+        README,
+        r"decision for (\d+) of every 100 bios",
+        FLIPS,
+        "screener=deberta,occupation=pooled,subset=all,condition=swap:flip_rate",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"does \((\d+) of 100\)",
+        FLIPS,
+        "screener=deberta,occupation=pooled,subset=all,condition=removal:flip_rate",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"reacts more: (\d+) against \d+ of every",
+        FLIPS,
+        "screener=baseline,occupation=pooled,subset=all,condition=swap:flip_rate",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"reacts more: \d+ against (\d+) of every",
+        FLIPS,
+        "screener=baseline,occupation=pooled,subset=all,condition=removal:flip_rate",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"for (\d+)% to \d+% of bios",
+        PROBING,
+        "model=deberta,layer=6,subset=all:accuracy",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"for \d+% to (\d+)% of bios",
+        PROBING,
+        "model=deberta,layer=0,subset=all:accuracy",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"against (\d+)% from the job alone",
+        PROBING,
+        "model=occupation_only,subset=all:accuracy",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"gender gap from ([\d.]+) to",
+        MITIGATION,
+        f"{CONDITION_A}.rms_tpr_gap.value",
+        "dec3",
+    ),
+    Cell(
+        README,
+        r"gap from [\d.]+ to ([\d.]+) for",
+        MITIGATION,
+        f"{CONDITION_D}.rms_tpr_gap.value",
+        "dec3",
+    ),
+    Cell(
+        README,
+        r"still passes on (\d+) more qualified",
+        MITIGATION,
+        f"{CONDITION_D}.tpr_gap.model.value",
+        "per100",
+    ),
+    Cell(
+        README, r"against (\d+) before", MITIGATION, f"{CONDITION_A}.tpr_gap.model.value", "per100"
+    ),
+    Cell(
+        README, r"differs by (-[\d.]+) points", AUDIT, "statistics.primary.value", "signed_points1"
+    ),
+    Cell(README, r"\(interval (-[\d.]+) to", AUDIT, "statistics.primary.ci_low", "signed_points1"),
+    Cell(README, r"to (\+[\d.]+)\)", AUDIT, "statistics.primary.ci_high", "signed_points1"),
+    Cell(
+        README,
+        r"by about (\d+) points against no name",
+        AUDIT,
+        "statistics.pooled_names_vs_none.value",
+        "abs_per100",
+    ),
+    Cell(
+        README,
+        r"changes (\d+)% and \d+% of its",
+        AUDIT,
+        "prompt_sensitivity.v2.flip_rate_against_v1",
+        "per100",
+    ),
+    Cell(
+        README,
+        r"changes \d+% and (\d+)% of its",
+        AUDIT,
+        "prompt_sensitivity.v3.flip_rate_against_v1",
+        "per100",
+    ),
+    Cell(README, r"\((\d+) against \d+ of every 100 bios\)", MAIN, "test.accuracy.value", "per100"),
+    Cell(README, r"\(\d+ against (\d+) of every 100 bios\)", BASE, "test.accuracy.value", "per100"),
+    # README: results and data
+    Cell(README, r"Tested on ([\d,]+) bios", "data_summary.json", "bios.test", "count"),
+    *screener_rows(
+        README,
+        "Word counts + logistic regression (baseline)",
+        BASE,
+        "test.accuracy",
+        "test.macro_f1",
+        "test.rms_tpr_gap",
+    ),
+    *screener_rows(
+        README,
+        "DeBERTa-v3-small, fine-tuned (main model)",
+        MAIN,
+        "test.accuracy",
+        "test.macro_f1",
+        "test.rms_tpr_gap",
+    ),
+    Cell(
+        README,
+        r"gives about ([\d.]+)\.",
+        "gap_statistics.json",
+        "main_model.rms_tpr_gap.null_mean",
+        "dec2",
+    ),
+    Cell(README, r"on a ([\d,]+)-bio subsample", "data_summary.json", "bios.train", "count"),
+    Cell(
+        README,
+        r"subset of ([\d,]+) test bios",
+        "data_summary.json",
+        "bios.showcase_subset",
+        "count",
+    ),
+    # README: run times
+    Cell(README, r"\| (\d+) minutes on the CPU", BASE, "runtime_seconds", "minutes0"),
+    Cell(README, r"; ([\d.]+) hours on the GPU", MAIN, "training_seconds", "hours2"),
+    Cell(
+        README,
+        r"run ([\d.]+) hours for the main",
+        "shapley_summary.json",
+        "screeners.deberta.total_seconds",
+        "hours2",
+    ),
+    Cell(
+        README,
+        r"and (\d+) minutes for the baseline;",
+        "shapley_summary.json",
+        "screeners.baseline.total_seconds",
+        "minutes0",
+    ),
+    Cell(
+        README, r"probes (\d), \d and \d minutes", "probing.json", "seconds.references", "minutes0"
+    ),
+    Cell(
+        README, r"probes \d, (\d) and \d minutes", "probing.json", "seconds.pretrained", "minutes0"
+    ),
+    Cell(README, r"probes \d, \d and (\d) minutes", "probing.json", "seconds.deberta", "minutes0"),
+    Cell(README, r"patching (\d+) seconds", "patching.json", "seconds", "seconds0"),
+    Cell(
+        README, r"name check (\d+) minutes", AUDIT, "manipulation_check.seconds.total", "minutes0"
+    ),
+    Cell(README, r"pilot ([\d.]+) minutes", "llm/pilot.json", "seconds_total", "minutes1"),
+    Cell(README, r"run ([\d.]+) hours;", AUDIT, "run_cost.seconds_total", "hours2"),
+    # Model card: details
+    Cell(
+        CARD,
+        r"(\d[\d,]*) bios of the training subsample",
+        "data_summary.json",
+        "bios.train",
+        "count",
+    ),
+    Cell(CARD, r"; ([\d,]+) dev bios choose", "data_summary.json", "bios.dev", "count"),
+    Cell(CARD, r"warm-up over (\d+)% of", MAIN, "hyperparameters.warmup_ratio", "per100"),
+    Cell(CARD, r"bfloat16 autocast, (\d+) epochs", MAIN, "hyperparameters.epochs", "count"),
+    Cell(
+        CARD, r"effective batch of (\d+) \(", MAIN, "hyperparameters.effective_batch_size", "count"
+    ),
+    Cell(CARD, r"\((\d+) bios per step", MAIN, "hyperparameters.batch_size", "count"),
+    Cell(CARD, r", (\d+) steps added up", MAIN, "hyperparameters.gradient_accumulation", "count"),
+    Cell(CARD, r"at most (\d+) tokens per bio", MAIN, "hyperparameters.max_length", "count"),
+    Cell(
+        CARD, r"Learning rate (3e-5), after", MAIN, "hyperparameters.learning_rate", "learning_rate"
+    ),
+    Cell(CARD, r"also trying (5e-5);", MAIN, "runs.0.learning_rate", "learning_rate"),
+    Cell(
+        CARD, r"best dev macro-F1, at step ([\d,]+)\.", MAIN, "hyperparameters.best_step", "count"
+    ),
+    Cell(CARD, r"\*\* ([\d,]+) s for the chosen run", MAIN, "runs.1.training_seconds", "count"),
+    Cell(CARD, r"; ([\d,]+) s for both learning rates", MAIN, "training_seconds", "count"),
+    Cell(CARD, r"at least (\d+) bios, and", BASE, "hyperparameters.min_df", "count"),
+    Cell(CARD, r"C is (\d+); both", BASE, "hyperparameters.C", "count"),
+    Cell(CARD, r"trained in ([\d,]+) s on the CPU", BASE, "runtime_seconds", "count"),
+    Cell(
+        CARD,
+        r"Learning rate (3e-5), \d epochs",
+        SCRUBBED_LOG,
+        "step=8250:base_learning_rate",
+        "learning_rate",
+    ),
+    Cell(CARD, r"Learning rate 3e-5, (\d) epochs", SCRUBBED_LOG, "step=8250:epoch", "count"),
+    Cell(CARD, r"macro-F1, ([\d.]+) at step", SCRUBBED_LOG, "step=8250:dev_macro_f1", "dec3"),
+    Cell(CARD, r"macro-F1, [\d.]+ at step ([\d,]+)\.", SCRUBBED_LOG, "step=8250:step", "count"),
+    # Model card: use, factors, metrics, data
+    Cell(CARD, r"on ([\d,]+) web bios", "data_summary.json", "bios.train", "count"),
+    Cell(CARD, r"train on ([\d,]+) training bios", "data_summary.json", "bios.train", "count"),
+    Cell(
+        CARD,
+        r"over the test bios \(([\d,]+) resamples\)",
+        "gap_statistics.json",
+        "main_model.n_bootstrap",
+        "count",
+    ),
+    Cell(
+        CARD,
+        r"gives a gap of about ([\d.]+)\.",
+        "gap_statistics.json",
+        "main_model.rms_tpr_gap.null_mean",
+        "dec2",
+    ),
+    Cell(CARD, r"\*\*Test split\.\*\* ([\d,]+) bios", "data_summary.json", "bios.test", "count"),
+    Cell(
+        CARD,
+        r"\*\*Showcase subset\.\*\* ([\d,]+) test bios",
+        "data_summary.json",
+        "bios.showcase_subset",
+        "count",
+    ),
+    Cell(
+        CARD,
+        r"also scored on the ([\d,]+) test bios outside",
+        MITIGATION,
+        "evaluation_set.bios_scored",
+        "count",
+    ),
+    # Model card: results tables
+    *screener_rows(
+        CARD, "Baseline model", BASE, "test.accuracy", "test.macro_f1", "test.rms_tpr_gap"
+    ),
+    *screener_rows(CARD, "Main model", MAIN, "test.accuracy", "test.macro_f1", "test.rms_tpr_gap"),
+    *screener_rows(
+        CARD,
+        "Scrubbed model, raw bios",
+        MITIGATION,
+        "conditions.c.full_test.accuracy",
+        "conditions.c.full_test.macro_f1",
+        "conditions.c.full_test.rms_tpr_gap",
+    ),
+    *screener_rows(
+        CARD,
+        "Scrubbed model, scrubbed bios",
+        MITIGATION,
+        "conditions.d.full_test.accuracy",
+        "conditions.d.full_test.macro_f1",
+        "conditions.d.full_test.rms_tpr_gap",
+    ),
+    *job_rows("surgeon", "surgeon"),
+    *job_rows("software engineer", "software_engineer"),
+    *job_rows("composer", "composer"),
+    *job_rows("dietitian", "dietitian"),
+    *job_rows("nurse", "nurse"),
+    *job_rows("model", "model"),
+    Cell(
+        CARD,
+        r"passes on (\d+), and of 100 men",
+        MAIN,
+        "test.per_occupation.surgeon.tpr_female.value",
+        "per100",
+    ),
+    Cell(
+        CARD,
+        r"of 100 men (\d+), so a recruiter",
+        MAIN,
+        "test.per_occupation.surgeon.tpr_male.value",
+        "per100",
+    ),
+    Cell(
+        CARD,
+        r"passes on (\d+) of 100 women and",
+        MAIN,
+        "test.per_occupation.model.tpr_female.value",
+        "per100",
+    ),
+    Cell(
+        CARD,
+        r"and (\d+) of 100 men\. Software",
+        MAIN,
+        "test.per_occupation.model.tpr_male.value",
+        "per100",
+    ),
+    Cell(
+        CARD, r"\(correlation ([\d.]+),", "gap_statistics.json", "main_model.pearson.value", "dec2"
+    ),
+    Cell(
+        CARD,
+        r"95% interval ([\d.]+) to",
+        "gap_statistics.json",
+        "main_model.pearson.fisher_ci_low",
+        "dec2",
+    ),
+    Cell(
+        CARD,
+        r"to ([\d.]+) over the 28 jobs",
+        "gap_statistics.json",
+        "main_model.pearson.fisher_ci_high",
+        "dec2",
+    ),
+    Cell(
+        CARD, r"holds (\d+) men dietitians", MAIN, "test.per_occupation.dietitian.n_male", "count"
+    ),
+    # Model card: the LLM
+    Cell(CARD, r"Temperature (\d),", AUDIT, "settings.temperature", "count"),
+    Cell(CARD, r"presence penalty (\d),", AUDIT, "settings.presence_penalty", "count"),
+    Cell(CARD, r"at most (\d+) tokens\.", AUDIT, "settings.max_tokens", "count"),
+    Cell(CARD, r"\*\*What I measured\.\*\* (\d+) profiles", AUDIT, "profiles.n_profiles", "count"),
+    Cell(CARD, r": (\d+) qualified candidates and", AUDIT, "profiles.n_match", "count"),
+    Cell(CARD, r"and (\d+) who are not\.", AUDIT, "profiles.n_nonmatch", "count"),
+    Cell(CARD, r"says yes to (\d+) with no header", AUDIT, "statistics.tpr|none.value", "per100"),
+    Cell(CARD, r"\(interval (\d+) to \d+\)", AUDIT, "statistics.tpr|none.ci_low", "per100"),
+    Cell(CARD, r"\(interval \d+ to (\d+)\)", AUDIT, "statistics.tpr|none.ci_high", "per100"),
+    Cell(
+        CARD,
+        r"man's name, is (-[\d.]+) points",
+        AUDIT,
+        "statistics.primary.value",
+        "signed_points1",
+    ),
+    Cell(CARD, r"\(interval (-[\d.]+) to", AUDIT, "statistics.primary.ci_low", "signed_points1"),
+    Cell(CARD, r"to (\+[\d.]+)\)", AUDIT, "statistics.primary.ci_high", "signed_points1"),
+    Cell(
+        CARD,
+        r"lowers the yes-rate by ([\d.]+) points",
+        AUDIT,
+        "statistics.pooled_names_vs_none.value",
+        "abs_points1",
+    ),
+    Cell(
+        CARD,
+        r"\(interval ([\d.]+) to [\d.]+\), a lead",
+        AUDIT,
+        "statistics.pooled_names_vs_none.ci_high",
+        "abs_points1",
+    ),
+    Cell(
+        CARD,
+        r"\(interval [\d.]+ to ([\d.]+)\), a lead",
+        AUDIT,
+        "statistics.pooled_names_vs_none.ci_low",
+        "abs_points1",
+    ),
+    Cell(CARD, r"yes-rate to (\d+) and \d+ of 100\.", AUDIT, "prompt_sensitivity.v2.tpr", "per100"),
+    Cell(CARD, r"yes-rate to \d+ and (\d+) of 100\.", AUDIT, "prompt_sensitivity.v3.tpr", "per100"),
+    Cell(CARD, r"\*\*Cost\.\*\* ([\d,]+) calls", AUDIT, "run_cost.n_calls", "count"),
+    Cell(CARD, r"calls in ([\d.]+) hours", AUDIT, "run_cost.seconds_total", "hours2"),
+    Cell(CARD, r"(\d+) profiles that are not qualified", AUDIT, "arms.none.n_nonmatch", "count"),
+]
+
+# Numbers that are not results: names, units, years, counts in the descriptions and times that
+# only docs/results.md records. `None` means every checked document.
+ALLOWED: list[Allowed] = [
+    Allowed(None, r"\b28\b", "the 28 occupations of Bias in Bios"),
+    Allowed(None, r"\b100\b", "the base of the shares quoted as 'of every 100'"),
+    Allowed(None, r"\b150\b", "the showcase subset takes up to 150 bios per job and gender"),
+    Allowed(None, r"\b95%", "the level of the intervals"),
+    Allowed(None, r"\bADR \d{4}\b", "the number of a decision record"),
+    Allowed(None, r"\b(?:2019|2020|2021)\b", "the years of the cited works"),
+    Allowed(None, r"[Ss]eed 42", "the global seed, config.SEED"),
+    Allowed(None, r"\b0 would be equal treatment|\babove 0\b", "the zero of the gap"),
+    Allowed(None, r"Apache-2\.0|Ternary Bonsai 2 9B|\b2-bit\b", "the identity of the LLM"),
+    Allowed(None, r"(?i)RTX 3050 laptop GPU \(4 GB\)", "the laptop"),
+    Allowed(README, r'width="520"', "image width"),
+    Allowed(
+        README, r"Python 3\.12|CUDA 12\.8", "software versions pinned in pyproject.toml and uv.lock"
+    ),
+    Allowed(README, r"arXiv:2111\.09543|CC BY 4\.0|01/01/20(?:22|25)", "the citations"),
+    Allowed(README, r"about 3 minutes", "the fast test suite, measured on the laptop"),
+    Allowed(README, r"about 30 seconds", "gap_decomposition.py, docs/results.md"),
+    Allowed(README, r"about 45 seconds", "counterfactual_gender.py, docs/results.md"),
+    Allowed(
+        README,
+        r"about 6 minutes|about 10 and 15 minutes",
+        "deletion curves and reruns, docs/results.md",
+    ),
+    Allowed(README, r"about 1 minute each", "probing_features.py, docs/results.md"),
+    Allowed(README, r"about 1\.9 hours", "train_scrubbed.py, docs/results.md"),
+    Allowed(
+        README,
+        r"about 2\.8 minutes per condition and 2 minutes for",
+        "mitigation.py, docs/results.md",
+    ),
+    Allowed(README, r"about 25 seconds", "llm_analyse.py, docs/results.md"),
+]
+
+
 def check_numbers(
     root: Path,
     cells: Sequence[Cell] = CELLS,
@@ -285,7 +808,7 @@ def check_numbers(
 
 
 def main(root: Path = REPO_ROOT) -> int:
-    errors = check_links(root)
+    errors = check_links(root) + check_numbers(root)
     for error in errors:
         print(error)
     return 1 if errors else 0

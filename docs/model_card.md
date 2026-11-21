@@ -52,7 +52,7 @@ Intervals are 95% bootstrap intervals over the test bios (1,000 resamples). They
 
 ## Evaluation data
 
-- **Test split.** 99,069 bios of Bias in Bios that no model saw during training. Women are 46.1% of it. All three screeners are scored on all of it.
+- **Test split.** 99,069 bios of Bias in Bios that no model saw during training. All three screeners are scored on all of it.
 - **Showcase subset.** 1,721 test bios from the six jobs above, up to 150 per job and gender. The explanations run on it.
 - **Mitigation.** The scrubbed model and the proxy-word masking are also scored on the 97,348 test bios outside the showcase subset, because I chose the proxy words on the subset.
 - Details, class balance and known issues are in the [data card](data_card.md).
@@ -94,7 +94,7 @@ What this means: of 100 qualified women surgeons the model passes on 56, and of 
 ## Caveats and limitations
 
 - **One training run per model.** A difference between two models includes run-to-run variation that I did not measure.
-- **A subsample.** The models train on 60,000 of the 257,478 training bios, so their accuracy is below what the full set gives.
+- **A subsample.** The models train on 60,000 training bios, a subsample of the training split, so their accuracy is below what the full split gives.
 - **Bios are not CVs.** They are short professional summaries from the web, in English. Findings carry over to CV screening only as far as that allows.
 - **Few bios in some groups.** The test split holds 71 men dietitians, so that job's gap has a wide interval and cannot be measured outside the showcase subset.
 - **The explanations hold in aggregate.** Single Shapley values change with how they are computed; the conclusions rest on totals over hundreds of bios.
@@ -107,6 +107,6 @@ I audited this model from outside, as a black box. Full results are in [results.
 
 - **Identity.** Ternary Bonsai 2 9B by Prism ML: a 2-bit ternary version of Qwen3.5-9B (`Qwen/Qwen3.5-9B`). File `Ternary-Bonsai-2-9B-PQ2_0-MTP-Q8_0.gguf` from `prism-ml/Ternary-Bonsai-2-9B-gguf` on Hugging Face, Apache-2.0 licence. Served on the laptop by llama-swap with a llama.cpp fork from Prism ML, under the name `pc-equilibrado`.
 - **Settings.** Temperature 0, seed 42, thinking off, presence penalty 0, at most 400 tokens. For a job ad and a bio it answers `{"reason": ..., "decision": "yes" or "no"}`. The prompts and job ads are in `prompts/`.
-- **What I measured.** 600 profiles, 100 for each of the six jobs: 70 qualified candidates and 30 who are not. Each goes through eleven presentations (arms): the bio alone, a neutral ID line, the pronouns swapped, and a name from each of four origin groups, for each gender. Of 100 qualified candidates it says yes to 59 with no header (interval 55 to 64). The primary contrast, a woman's name minus a man's name, is -0.5 points (interval -4.7 to +3.5), so it does not react to gender by 5 points or more. Any name at all lowers the yes-rate by 6.0 points against no name (interval 2.1 to 10.1), a lead I did not plan for. Rewording the instruction moves the yes-rate to 47 and 39 of 100.
+- **What I measured.** 600 profiles, 100 for each of the six jobs: 70 qualified candidates and 30 who are not. Each goes through eleven presentations (arms): the bio alone, a neutral ID line, the pronouns swapped, and a name from each of four origin groups, for each gender. Of 100 qualified candidates it says yes to 59 with no header (interval 55 to 64). The primary contrast, a woman's name minus a man's name, is -0.5 points (interval -4.7 to +3.5), so this data shows no reaction to gender, though the interval is wide. Any name at all lowers the yes-rate by 6.0 points against no name (interval 2.1 to 10.1), a lead I did not plan for. Rewording the instruction moves the yes-rate to 47 and 39 of 100.
 - **Cost.** 8,167 calls in 2.99 hours on the laptop.
 - **Limits.** One model, one prompt, six jobs, 180 profiles that are not qualified. A gap of one or two points could hide in these intervals.
