@@ -198,9 +198,7 @@ def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qua
     for name in ("neutral", "pronouns", "Morocco", "woman", "man"):
         assert any(name in label for label in labels)
     assert ax.get_legend() is None
-    assert " ".join(ax.get_xlabel().split()) == (
-        "Change in yes-rate (points), against no name"
-    )
+    assert " ".join(ax.get_xlabel().split()) == ("Change in yes-rate (points), against no name")
 
 
 def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
