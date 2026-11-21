@@ -41,7 +41,7 @@ def title(panels: Sequence[Panel]) -> str:
     The sum needs no division, so it is stated even when the total gap includes 0. A panel whose
     sum has an interval that includes 0 is said to be within noise.
     """
-    clauses, reference = [], " men"  # named once, to keep the title at two lines
+    clauses, first = [], True  # the unit and "men" are named once, to keep the title at two lines
     for panel in panels:
         total = panel.summary["gendered_sum"]
         if total["ci_low"] <= 0 <= total["ci_high"]:
@@ -49,9 +49,10 @@ def title(panels: Sequence[Panel]) -> str:
         else:
             side = "above" if total["value"] > 0 else "below"
             job = plotting.job_name(panel.occupation)
-            clauses.append(f"{abs(total['value']):.1f} {side}{reference} in {job}")
-            reference = ""
-    return f"Gender words put women {' and '.join(clauses)}."
+            unit, reference = (" score points", " men") if first else ("", "")
+            clauses.append(f"{abs(total['value']):.1f}{unit} {side}{reference} in {job}")
+            first = False
+    return f"Gender words set women {', '.join(clauses)}."
 
 
 def _interval(share: dict) -> str:
@@ -93,7 +94,7 @@ def build(panels: Sequence[Panel]):
         words = panel.words.sort_values("contribution", ascending=False, kind="stable")
         rows = range(len(words))
         ax.set_title(header(panel), loc="left")
-        ax.set_xlabel("Contribution to the women-minus-men gap (points)")
+        ax.set_xlabel("Women-minus-men gap contribution (score points)")
         ax.axvline(0, color=DARK, lw=0.6)
         colours = [plotting.HIGHLIGHT if g else plotting.NEUTRAL for g in words["gendered"]]
         ax.hlines(rows, words["contribution_ci_low"], words["contribution_ci_high"], colors=colours)

@@ -211,14 +211,14 @@ GROUPS = (
 def _title(woman: Case | None, man: Case | None) -> str:
     if woman and man:
         return (
-            f"Gender words raised the score of a wrong job by {gendered_push(woman):.1f} points "
+            f"Gender words added {gendered_push(woman):.1f} score points to a wrong job "
             f"for a woman and {gendered_push(man):.1f} for a man."
         )
     for case, who, other in ((woman, "a woman", "man"), (man, "a man", "woman")):
         if case:
             return (
-                f"Gender words raised the score of a wrong job by {gendered_push(case):.1f} "
-                f"points for {who}; no misclassified {other} qualified."
+                f"Gender words added {gendered_push(case):.1f} score points to a wrong job "
+                f"for {who}; no misclassified {other} qualified."
             )
     return "No misclassified woman or man met the rules, so there is no case to show."
 
@@ -239,7 +239,7 @@ def build(woman: Case | None, man: Case | None):
     capacity = int(text_width // char_pt)
     title = _title(woman, man)
     note = (
-        "A point is one unit of the model's score for a job. Per-word values carry sampling "
+        "A score point is one unit of the model's score for a job. Per-word values carry sampling "
         "noise; no per-word interval is shown."
     )
     title_pt = _text_height_pt(fig, title, fontweight="bold")

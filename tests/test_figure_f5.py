@@ -364,7 +364,7 @@ def test_value_labels_stand_right_of_their_interval_and_clear_their_dots(
     dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
     radius = (dots[0].get_sizes()[0] ** 0.5) / 2 * figure.dpi / 72
     values = [t for t in bottom.texts if re.fullmatch(r"\d\.\d\d", t.get_text())]
-    assert len(values) == 6
+    assert len(values) == 8
     for dot in dots:
         for x, y in dot.get_offsets():
             px, py = bottom.transData.transform((x, y))
@@ -417,7 +417,7 @@ def test_the_measure_names_stand_on_the_rows_of_the_last_check(figure):
     _, bottom = _axes(figure)
     last_row = {
         round(bottom.transData.transform((0, y))[1])
-        for y in (2 - 0.18, 2 + 0.18)  # the correlation and overlap dots of the third row
+        for y in (3 - 0.18, 3 + 0.18)  # the correlation and overlap dots of the fourth row
     }
     names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "shared top-10 words")]
     centres = {round(t.get_window_extent().get_points()[:, 1].mean()) for t in names}
