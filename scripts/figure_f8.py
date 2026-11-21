@@ -77,7 +77,6 @@ def build(report: dict):
     floor = [_points(report["noise_floor"][part]["tpr_diff"]) for part in ("rerun", "edit")]
     band_low, band_high = min(f[1] for f in floor), max(f[2] for f in floor)
     ax.axvspan(band_low, band_high, color=plotting.NEUTRAL, alpha=0.3, lw=0)
-    ax.axvline(0, color=DARK, lw=0.8)
     primary_y = len(ordered) + 0.8
     rows = [(y, _label(arm), stat, plotting.NEUTRAL) for y, (arm, stat) in enumerate(ordered)]
     primary = _points(report["statistics"]["primary"])
@@ -92,6 +91,10 @@ def build(report: dict):
     ax.set_xlim(low_edge - pad, high_edge + pad)
     ax.set_ylim(-0.8, primary_y + 1.4)
     ax.text((band_low + band_high) / 2, primary_y + 0.55, "noise floor", color=DARK, ha="center")
+    bottom, top = ax.get_ylim()
+    ax.axvline(
+        0, ymax=(primary_y + 0.3 - bottom) / (top - bottom), color=DARK, lw=0.8
+    )  # stops under the label
     fig.text(0.01, 0.01, _note(report), color=DARK, va="bottom", ha="left", wrap=True)
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)

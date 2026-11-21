@@ -4,7 +4,7 @@ This page explains every result of the audit: what I asked, what I found and wha
 
 **The setting, in one paragraph.** A recruiter searches for a job, say surgeon. An AI model reads each candidate's short professional bio and decides which of 28 jobs it describes. Bios it labels "surgeon" go on to the recruiter; the rest are set aside. A candidate is qualified for a search when the bio belongs to someone who really does that job, and a fair screener shortlists the same share of qualified women and qualified men.
 
-**Two words used throughout.** The *main model* is the screener I audit: DeBERTa-v3-small, a transformer fine-tuned on 60,000 bios. The *baseline model* is a simpler screener for comparison: it counts words (TF-IDF) and weighs them (logistic regression). The *score* of a bio for a job is how strongly the model leans towards that job. It is measured in log-odds: 0 means even odds between that job and all the others together, and each point up multiplies those odds by about 2.7.
+**Two words used throughout.** The *main model* is the screener I audit: DeBERTa-v3-small, a transformer fine-tuned on 60,000 bios. The *baseline model* is a simpler screener for comparison: it counts words (TF-IDF) and weighs them (logistic regression). The *score* of a bio for a job is how strongly the model leans towards that job. It is measured in log-odds, which the figures and the report call score points (not to be confused with percentage points): 0 means even odds between that job and all the others together, and each score point up multiplies those odds by about 2.7.
 
 ## How good are the screeners?
 
@@ -52,14 +52,14 @@ The intervals here are wider than in the first table because the units are the 2
 
 **In short:** in two wrong decisions, gender words pushed the model towards the wrong job, though words about the work itself weighed more.
 
-<p align="center"><img src="../results/figures/f2_shapley_cases.png" width="520" alt="Gender words raised the score of a wrong job by 3.2 points for a woman and 2.0 for a man."></p>
+<p align="center"><img src="../results/figures/f2_shapley_cases.png" width="520" alt="Gender words added 3.2 score points to a wrong job for a woman and 2.0 for a man."></p>
 
 To see which words drive a decision, I use Shapley values. This is SHAP at the level of words: the same Shapley values that the SHAP library estimates, with the permutation estimator its PermutationExplainer uses. I did not use the library because its text masker hides a word with a mask token, while I delete it, and [F5](#f5-can-the-explanations-be-trusted) shows that hiding a word with `[UNK]` changes the ranking a lot (rank correlation 0.47). A bio's score is split among its words: each word gets the amount it adds to or takes from the score, averaged over many orders in which the words could be revealed. The parts add up exactly to the score. Here a word "absent" means deleted from the text, and each bio uses 40 random orders, each also read backwards.
 
 The figure shows two bios the main model got wrong, picked by a rule fixed before looking. The first is a woman in a job held mostly by men; the second is a man in a job held mostly by women, mirroring F1. Within each group, I took the wrong decision where gender words (she, he, her, his, Mr, Ms and the like) add the most to the wrong job's score, among bios of at least 15 words without long numbers. Each panel shows the bio with its eight strongest words underlined and a bar per word: how much it moves the score towards the wrong job. Gender words are in the highlight colour, and the header gives their total, which is the number in the title. The colours stay apart under simulated colour blindness ([check](figure_checks/f2_deuteranopia.png)).
 
-- **The woman** (`test-30717`) is a composer whom the model labelled a rapper. Her 11 gender words add +3.2 to "rapper", with one *her* alone worth +0.6.
-- **The man** (`test-9467`) is a fashion model whom the main model labelled a poet. His 2 gender words add +2.0 to "poet", with one *his* worth +1.0.
+- **The woman** (`test-30717`) is a composer whom the model labelled a rapper. Her 11 gender words add +3.2 score points to "rapper", with one *her* alone worth +0.6.
+- **The man** (`test-9467`) is a fashion model whom the main model labelled a poet. His 2 gender words add +2.0 score points to "poet", with one *his* worth +1.0.
 
 In both, the strongest single words are about the work (songs, career, play), not gender. These are the most extreme of 114 and 154 wrong decisions, chosen to illustrate, not typical cases.
 
@@ -69,14 +69,14 @@ How far to trust single words: the values come from random orders, so a rerun gi
 
 **In short:** in surgeon bios, gender words alone put women's scores clearly below men's. In fashion model bios, the strongest single word is not a gender word but the name of a website, `freeones`, that appears only in women's bios.
 
-<p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gender words put women's bios 1.1 below men's in surgeon and 0.8 above in fashion model."></p>
+<p align="center"><img src="../results/figures/f3_gap_words.png" width="520" alt="Gender words set women 1.1 score points below men in surgeon, 0.8 above in fashion model."></p>
 
 For each of the six jobs I study in detail, I take the main model's average score for that job in women's bios and subtract the average in men's bios: the score gap (positive favours women). Because Shapley values add up exactly to the score, this gap splits exactly into one part per word: how much more (or less) that word adds in women's bios than in men's, counting 0 where the word is missing. The parts add up to the gap to within 3 in 10^15. This tells how the gap is made up, not what would happen if a word were edited; F4 tests that. Definitions are in [ADR 0004](decisions/0004-gap-decomposition.md). This uses 1,721 test bios: up to 150 women and 150 men per job.
 
 F3 shows the main model in two jobs picked by a rule fixed beforehand: in each group, the one with the largest gap. That is surgeon (-0.77) and fashion model (+5.40). Each panel lists the ten words with the largest part of the gap, with the 95% interval from resampling bios. Gender words are in the highlight colour.
 
-- **Surgeon.** The overall gap (-0.77) is too small to tell from zero (its interval runs from -1.54 to +0.08). But the gender words alone put women 1.12 points below men (95% interval 1.02 to 1.24): *she*, *he*, *her* and *his* all push the same way. Words about the job (*surgery*, *surgeon*) push the other way and cancel part of it.
-- **Fashion model.** Women's bios score 5.40 points higher. Gender words account for +0.80 of that (15%). The single strongest word is `freeones`, the name of a website listing adult performers. It appears in 54 of the 150 women's bios and in none of the 150 men's, and it adds +0.95 of the gap. So part of this gap comes from where some women's bios were published, not from gender words. The counts show that the word appears only in women's bios; they do not show where the bios came from. `ranked`, `gallery` and `listed` follow the same pattern.
+- **Surgeon.** The overall gap (-0.77) is too small to tell from zero (its interval runs from -1.54 to +0.08). But the gender words alone put women 1.12 score points below men (95% interval 1.02 to 1.24): *she*, *he*, *her* and *his* all push the same way. Words about the job (*surgery*, *surgeon*) push the other way and cancel part of it.
+- **Fashion model.** Women's bios score 5.40 score points higher. Gender words account for +0.80 of that (15%). The single strongest word is `freeones`, the name of a website listing adult performers. It appears in 54 of the 150 women's bios and in none of the 150 men's, and it adds +0.95 of the gap. So part of this gap comes from where some women's bios were published, not from gender words. The counts show that the word appears only in women's bios; they do not show where the bios came from. `ranked`, `gallery` and `listed` follow the same pattern.
 
 The table gives all six jobs and both models. "Gender words" is the total part of the gender words; "top 10" and "gender share" give what share of the gap the ten strongest words and the gender words make up. Shares are left out (n/a) when the gap itself may be zero, because a share of zero means nothing. Shares can pass 100% when other words pull the opposite way.
 
@@ -136,7 +136,7 @@ The earlier sections rest on Shapley values, so before relying on them I ask two
 
 I remove a bio's words step by step, up to half of them, in three orders: highest Shapley value first, lowest first, and at random (10 orders per bio). A removed word is replaced by `[UNK]`, not deleted as in the Shapley run, so the check does not simply repeat how the values were made. At each step I measure how far the score of the true occupation falls (in log-odds). If the values are right, removing the top words first should hurt the most. Script: `scripts/deletion_curves.py`, on the 1,721 showcase bios.
 
-It does. Averaged over the steps, the main model's score falls by 7.0 log-odds when the top words go first, 1.5 when words go at random, and rises by 0.7 when the least useful words go first (95% intervals within ±0.2). With half of the words gone, the main model keeps its original decision in 12% of bios when the top words go first, 44% at random and 73% when the least useful go first.
+It does. Averaged over the steps, the main model's score falls by 7.0 score points when the top words go first, 1.5 when words go at random, and rises by 0.7 when the least useful words go first (95% intervals within ±0.2). With half of the words gone, the main model keeps its original decision in 12% of bios when the top words go first, 44% at random and 73% when the least useful go first.
 
 | Screener | Top words first | Random | Least useful first |
 |---|---|---|---|
@@ -149,13 +149,14 @@ The baseline model gives the same order, but its check is weaker: its TF-IDF rea
 
 ### Does the ranking stay the same?
 
-I compare the ranking of the main run (Shapley, words deleted, seed 42) with three alternatives, bio by bio. Two measures: the rank correlation over all the words of a bio (1 = same order), and the share of the ten strongest words that both rankings have in common. Panel b shows the median over bios with its 95% interval. Scripts: `scripts/stability_runs.py` and `scripts/stability.py`.
+I compare the ranking of the main run (Shapley, words deleted, seed 42) with three alternatives and with a scrambled copy of the model, bio by bio. Two measures: the rank correlation over all the words of a bio (1 = same order), and the share of the ten strongest words that both rankings have in common. Panel b shows the median over bios with its 95% interval. Scripts: `scripts/stability_runs.py` and `scripts/stability.py`.
 
 | Compared with the main run | Bios | Rank correlation | Shared top-10 words |
 |---|---|---|---|
 | Same method, another seed | 100 | 0.89 [0.88, 0.91] | 0.80 [0.80, 0.80] |
 | `[UNK]` instead of deleting the word | 100 | 0.47 [0.41, 0.53] | 0.50 [0.50, 0.60] |
 | Leave-one-out instead of Shapley | 1,721 | 0.42 [0.40, 0.43] | 0.50 [0.50, 0.50] |
+| Every weight of the model scrambled | 100 | 0.06 [0.02, 0.09] | 0.20 [0.20, 0.20] |
 
 - **Another seed.** Shapley is computed from random word orders, so a rerun is never identical. The two runs give almost the same ranking (0.89) and share 8 of the top 10 words. This is the noise of the method itself.
 - **`[UNK]` instead of deleting.** The two ways of hiding a word ask slightly different questions: "what if the word were not there?" against "what if there were a blank in its place?". The rankings agree far less than two runs do (0.47), and they share half of the top 10 words.
@@ -169,7 +170,7 @@ The rule was fixed before looking: among bios of at least 15 words whose top Sha
 
 ### Does the explanation depend on what the model learned?
 
-I scrambled every weight of the main model (Adebayo et al., 2018) and scored the same 100 bios again. The word ranking no longer matches the trained model's. The rank correlation is 0.06 [0.02, 0.09], against 0.89 between two seeds of the trained model, and the top 10 words share 2 of 10 (mean 0.22 [0.19, 0.25]), against 8. A random ranking of the words of these bios would share 2 of 10 by chance (0.20, the mean over the 100 bios of 10 divided by the word count), so the shared words are no more than chance. The explanations follow what the model learned.
+I scrambled every weight of the main model (Adebayo et al., 2018) and scored the same 100 bios again. The word ranking no longer matches the trained model's. The rank correlation is 0.06 [0.02, 0.09], against 0.89 between two seeds of the trained model, and the top 10 words share 2 of 10 (mean 0.22 [0.19, 0.25]), against 8. A random ranking of the words of these bios would share 2 of 10 by chance (0.20, the mean over the 100 bios of 10 divided by the word count), so the shared words are no more than chance. The explanations follow what the model learned. Panel b shows this as its last row.
 
 ### What I did not check
 
@@ -227,7 +228,7 @@ I use only bios the swap moves by a large amount: those where the swap changes t
 
 What I found:
 
-- **The effect starts in the swapped words and moves to other positions.** Up to layer 3 the swapped words alone bring back at least 75%. At layer 4 the effect is split (42% and 56%). By layer 5 most of it is at the other positions (17% and 82%). Patching shows where the effect sits, not how it got there.
+- **The effect starts in the swapped words and moves to other positions.** Up to layer 3 the swapped words alone bring back at least 75%. At layer 4 the effect is split (42% and 56%). By layer 5 most of it is at the other positions (17% and 82%). Patching shows where the effect sits and leaves open how it got there.
 - **The model's design fixes the two ends.** At the embeddings every word is still only itself, so the other words carry nothing new (0%). At the last layer the classifier reads only the [CLS] state, which is not a swapped word, so the swapped words give 0%. The layers in between are the informative part.
 - **Check of the method.** Patching all positions at once gives 100% at every layer, with no deviation, as it must. It tests the code and is not a result, so I do not draw it.
 

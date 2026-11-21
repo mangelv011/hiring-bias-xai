@@ -40,6 +40,7 @@ CHECK_NAMES = {
     "seed": "same method,\nanother seed",
     "removal": "a blank instead\nof deleting",
     "method": "leave-one-out,\nnot Shapley",
+    "randomisation": "every weight\nscrambled",
 }
 OTHER_WAYS = ("removal", "method")  # compared with the seed check, the noise of a rerun
 
@@ -88,12 +89,12 @@ def _deletion_panel(ax, curves: pd.DataFrame) -> None:
     ax.spines["bottom"].set_bounds(0, LAST_STEP)
     ax.xaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
     ax.set_xlabel("Words removed (share of the bio)")
-    ax.set_ylabel("Fall in the true job's\nscore (points)")
+    ax.set_ylabel("Fall in the true job's score\n(score points)")
     ax.set_title("a  Deletion curves, main model", loc="left", fontweight="bold")
 
 
 def _agreement_panel(ax, stability: dict) -> None:
-    checks = stability["checks"]
+    checks = {**stability["checks"], "randomisation": stability["randomisation"]}
     names = sorted(checks, key=lambda name: -checks[name]["spearman"]["median"])
     rows = list(range(len(names)))
     ax.axvline(0, color=DARK, lw=0.6)

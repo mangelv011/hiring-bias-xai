@@ -226,7 +226,7 @@ def test_each_panel_header_gives_its_total_gap_and_either_the_shares_or_why_ther
 
 def test_the_x_axis_names_the_quantity_and_its_unit(figure):
     for ax in _data_axes(figure):
-        assert ax.get_xlabel() == "Contribution to the women-minus-men gap (score points)"
+        assert ax.get_xlabel() == "Women-minus-men gap contribution (score points)"
 
 
 def test_the_figure_is_3_3_inches_wide_and_no_text_is_below_7_pt(figure):
