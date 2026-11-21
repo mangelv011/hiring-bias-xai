@@ -199,7 +199,7 @@ def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qua
         assert any(name in label for label in labels)
     assert ax.get_legend() is None
     assert " ".join(ax.get_xlabel().split()) == (
-        "Change in yes-rate for qualified candidates (points), against no name"
+        "Change in yes-rate (points), against no name"
     )
 
 
