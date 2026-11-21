@@ -5,9 +5,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 from fakes import Hashed
 
 from hiring_bias_xai import attribution, data
+from hiring_bias_xai.models import DebertaModel
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "stability_runs.py"
 PILOT = {
@@ -156,3 +158,42 @@ def test_progress_lines_count_the_bios_scored(run, capsys):
     assert "deberta-seed7: 4/4 bios, 4 scored" in capsys.readouterr().out
     run("deberta-seed7")
     assert "deberta-seed7: 4/4 bios, 0 scored" in capsys.readouterr().out
+
+
+def _perturbed_model(tiny_network, tiny_tokenizer):
+    """A tiny DeBERTa whose every parameter, biases and norm layers included, is far from its
+    initial value, as in a trained network."""
+    network = tiny_network()
+    with torch.no_grad():
+        for parameter in network.parameters():
+            parameter.add_(1.0)
+    return DebertaModel(network, tiny_tokenizer(16), batch_size=4)
+
+
+def _weights(model):
+    return {
+        name: parameter.detach().clone() for name, parameter in model.network.named_parameters()
+    }
+
+
+def test_the_random_model_has_every_weight_redrawn_and_leaves_the_trained_one_alone(
+    run, tiny_network, tiny_tokenizer
+):
+    model = _perturbed_model(tiny_network, tiny_tokenizer)
+    before = _weights(model)
+    random = run.module._randomised(model, 42)
+    after = _weights(random)
+    assert after.keys() == before.keys()
+    assert [name for name in before if torch.equal(before[name], after[name])] == []
+    assert all(torch.equal(before[name], parameter) for name, parameter in _weights(model).items())
+    assert random.network is not model.network
+    assert (random.tokenizer, random.batch_size) == (model.tokenizer, model.batch_size)
+
+
+def test_the_same_seed_gives_the_same_random_weights_and_another_seed_other_weights(
+    run, tiny_network, tiny_tokenizer
+):
+    model = _perturbed_model(tiny_network, tiny_tokenizer)
+    first, again, other = (_weights(run.module._randomised(model, seed)) for seed in (42, 42, 7))
+    assert all(torch.equal(first[name], again[name]) for name in first)
+    assert not torch.equal(first["classifier.weight"], other["classifier.weight"])
