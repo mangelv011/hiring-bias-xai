@@ -4,10 +4,15 @@ Reads files of this repository only and makes no network calls. Exits with 1 and
 per problem when a link, an image path or a heading anchor does not resolve.
 """
 
+import csv
+import json
 import os
 import re
 import sys
+from collections.abc import Sequence
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import unquote
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +24,7 @@ HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
 HEADING_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 HTML_TAG = re.compile(r"<[^>]*>")
 NOT_IN_SLUG = re.compile(r"[^\w\s-]")
+NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 EXTERNAL = re.compile(r"^[a-z][a-z0-9+.-]*:", re.IGNORECASE)
 
 
@@ -113,6 +119,159 @@ def check_links(root: Path) -> list[str]:
             if fragment and found.suffix == ".md":
                 if unquote(fragment) not in anchors(found.read_text(encoding="utf-8")):
                     errors.append(f"{name}:{number}: {target} has no such heading")
+    return errors
+
+
+class Cell(NamedTuple):
+    """One number a document states and where it comes from in results/.
+
+    `pattern` has one group holding the number as written. `path` is dotted keys for a JSON file
+    (a list is entered by position) or `column=value,...:column` for a CSV file.
+    """
+
+    document: str
+    pattern: str
+    file: str
+    path: str
+    fmt: str
+
+
+class Allowed(NamedTuple):
+    """A phrase whose numbers are not results: a year, a count in a method description."""
+
+    document: str | None
+    pattern: str
+    reason: str
+
+
+NUMBER_DOCUMENTS = ("README.md", "docs/model_card.md")
+CELLS: list[Cell] = []
+ALLOWED: list[Allowed] = []
+
+
+def _fixed(scale: Decimal, decimals: int, signed: bool = False):
+    """A formatter: the value times `scale`, rounded half up to `decimals` places."""
+    step = Decimal(1).scaleb(-decimals)
+
+    def fmt(value) -> str:
+        rounded = (Decimal(repr(value)) * scale).quantize(step, rounding=ROUND_HALF_UP)
+        return f"{rounded:+f}" if signed else f"{rounded:f}"
+
+    return fmt
+
+
+FORMATS = {
+    "per100": _fixed(Decimal(100), 0),
+    "pct1": _fixed(Decimal(100), 1),
+    "dec1": _fixed(Decimal(1), 1),
+    "dec2": _fixed(Decimal(1), 2),
+    "dec3": _fixed(Decimal(1), 3),
+    "dec4": _fixed(Decimal(1), 4),
+    "signed_points1": _fixed(Decimal(100), 1, signed=True),
+    "signed3": _fixed(Decimal(1), 3, signed=True),
+    "hours2": _fixed(Decimal(1) / Decimal(3600), 2),
+    "minutes0": _fixed(Decimal(1) / Decimal(60), 0),
+    "count": lambda value: f"{int(value):,}",
+}
+
+
+def read_value(results_dir: Path, file: str, path: str):
+    """The value at `path` of a results file; raises when the file, path or row is missing."""
+    full = results_dir / file
+    if full.suffix == ".csv":
+        keys, _, column = path.rpartition(":")
+        wanted = dict(item.split("=", 1) for item in keys.split(","))
+        with full.open(encoding="utf-8", newline="") as handle:
+            rows = [r for r in csv.DictReader(handle) if all(r[k] == v for k, v in wanted.items())]
+        if len(rows) != 1:
+            raise ValueError(f"{len(rows)} rows match")
+        return float(rows[0][column])
+    value = json.loads(full.read_text(encoding="utf-8"))
+    for part in path.split("."):
+        value = value[int(part)] if isinstance(value, list) else value[part]
+    return value
+
+
+def _blank(line: str, pattern: re.Pattern) -> str:
+    """The line with the first group of every match of `pattern` replaced by spaces."""
+    for match in pattern.finditer(line):
+        start, end = match.span(1)
+        line = line[:start] + " " * (end - start) + line[end:]
+    return line
+
+
+def claim_lines(text: str) -> list[tuple[int, str]]:
+    """The lines a reader takes numbers from: no code, no link targets, no image sources."""
+    return [
+        (number, _blank(_blank(line, MARKDOWN_LINK), HTML_REFERENCE))
+        for number, line in prose_lines(text)
+    ]
+
+
+def number_tokens(line: str):
+    """Yield (start, end, text) of the numbers of a line, leaving out names such as F1 or 9B."""
+    for match in NUMBER.finditer(line):
+        before = line[match.start() - 1 : match.start()]
+        after = line[match.end() : match.end() + 1]
+        if before and (before.isalnum() or before == "_"):
+            continue
+        if after and (after.isalpha() or after == "_"):
+            continue
+        yield match.start(), match.end(), match.group()
+
+
+def _covered(spans: list[tuple[int, int]], start: int, end: int) -> bool:
+    return any(a <= start and end <= b for a, b in spans)
+
+
+def check_numbers(
+    root: Path,
+    cells: Sequence[Cell] = CELLS,
+    allowed: Sequence[Allowed] = ALLOWED,
+    documents: Sequence[str] = NUMBER_DOCUMENTS,
+) -> list[str]:
+    """One message per number that differs from results/ and per number no row or phrase covers."""
+    errors = [
+        f"{c.document}: a row of the table names a document that is not checked"
+        for c in cells
+        if c.document not in documents
+    ]
+    for name in documents:
+        path = root / name
+        if not path.is_file():
+            errors.append(f"{name}: document is missing")
+            continue
+        lines = claim_lines(path.read_text(encoding="utf-8"))
+        spans: dict[int, list[tuple[int, int]]] = {}
+        for cell in (c for c in cells if c.document == name):
+            pattern = re.compile(cell.pattern)
+            found = [(n, m) for n, line in lines for m in pattern.finditer(line)]
+            if not found:
+                errors.append(f"{name}: no text matches {cell.pattern!r}")
+                continue
+            for number, match in found:
+                spans.setdefault(number, []).append(match.span(1))
+            try:
+                expected = FORMATS[cell.fmt](read_value(root / "results", cell.file, cell.path))
+            except (OSError, KeyError, ValueError, IndexError) as exc:
+                errors.append(f"{name}: cannot read {cell.file} {cell.path}: {exc!r}")
+                continue
+            for number, match in found:
+                if match.group(1) != expected:
+                    errors.append(
+                        f"{name}:{number}: {match.group(1)} in the text, {expected} in "
+                        f"{cell.file} {cell.path}"
+                    )
+        for entry in (a for a in allowed if a.document in (None, name)):
+            pattern = re.compile(entry.pattern)
+            for number, line in lines:
+                spans.setdefault(number, []).extend(m.span() for m in pattern.finditer(line))
+        for number, line in lines:
+            for start, end, token in number_tokens(line):
+                if not _covered(spans.get(number, []), start, end):
+                    errors.append(
+                        f"{name}:{number}: number {token} is covered by no row or allowed phrase"
+                    )
     return errors
 
 
