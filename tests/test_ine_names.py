@@ -165,3 +165,10 @@ def test_the_workbook_is_read_from_its_bytes_into_one_grid_of_cells_per_sheet(mo
 def test_bytes_that_are_not_a_workbook_raise_a_value_error():
     with pytest.raises(ValueError, match="not an .xls workbook"):
         ine_names.read_sheets(b"MZ this is not a spreadsheet")
+
+
+def test_a_country_listed_twice_under_the_same_heading_stops_the_build():
+    files = _files()
+    files["first_names"]["OTRA"] = files["first_names"]["ÁFRICA"]
+    with pytest.raises(ValueError, match="MARRUECOS"):
+        ine_names.build_groups(files, n_first=2, n_surnames=2)

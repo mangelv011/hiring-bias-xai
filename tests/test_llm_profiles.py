@@ -114,3 +114,35 @@ def test_merged_groups_pool_their_names_and_dropped_groups_are_left_out():
         "name|Romania|female",
         "name|Romania|male",
     ]
+
+
+def test_odd_sizes_give_the_extra_bio_to_a_woman_and_the_remainder_of_non_matches_to_other():
+    hardest = {"a": "b", "b": "a", "c": "a"}
+    profiles = llm_profiles.sample_profiles(_subset(), hardest, n_match=5, n_nonmatch=5)
+    for _, rows in profiles.groupby("job"):
+        matches = rows[rows["match"]]
+        assert matches["gender"].value_counts().to_dict() == {"female": 3, "male": 2}
+        hard = rows[rows["hard"]]
+        assert len(hard) == 2 and len(rows[~rows["match"] & ~rows["hard"]]) == 3
+        other = rows[~rows["match"] & ~rows["hard"]]
+        assert other["gender"].value_counts().to_dict() == {"female": 2, "male": 1}
+
+
+def test_names_drawn_for_different_arms_of_one_bio_are_not_drawn_alike():
+    pool = {
+        "first_names": {"female": list("abcdefgh"), "male": list("ABCDEFGH")},
+        "surnames": list("stuvwxyz"),
+    }
+    groups = {"G1": pool, "G2": pool}
+    same_index = [
+        llm_profiles.draw_name(groups, "G1", "female", f"test-{i}")
+        == tuple(c.lower() for c in llm_profiles.draw_name(groups, "G2", "male", f"test-{i}"))
+        for i in range(80)
+    ]
+    assert not all(same_index)
+    other_group = [
+        llm_profiles.draw_name(groups, "G1", "female", f"test-{i}")
+        == llm_profiles.draw_name(groups, "G2", "female", f"test-{i}")
+        for i in range(80)
+    ]
+    assert not all(other_group)
