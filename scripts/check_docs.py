@@ -173,6 +173,7 @@ FORMATS = {
     "abs_points1": _fixed(Decimal(100), 1, absolute=True),
     "signed_points1": _fixed(Decimal(100), 1, signed=True),
     "dec2": _fixed(Decimal(1), 2),
+    "signed2": _fixed(Decimal(1), 2, signed=True),
     "dec3": _fixed(Decimal(1), 3),
     "of150": _fixed(Decimal(150), 0),
     "seconds0": _fixed(Decimal(1), 0),
@@ -209,8 +210,38 @@ def _blank(line: str, pattern: re.Pattern) -> str:
     return line
 
 
-def claim_lines(text: str) -> list[tuple[int, str]]:
+TEX_COMMENT = re.compile(r"(?<!\\)%.*")
+TEX_ARGUMENT_COMMANDS = re.compile(
+    r"\\(?:cite[a-z]*|ref|label|includegraphics|url|bibliography|fig)(?:\[[^\]]*\])*\{[^}]*\}"
+)
+TEX_TABLE_SPEC = re.compile(r"\\begin\{tabular\}\{.*")
+TEX_POWER = re.compile(r"(\d)\\times ?10\^\{(-?\d+)\}")
+TEX_COMMAND = re.compile(r"\\(?:[A-Za-z]+\*?| )")
+
+
+def tex_lines(text: str):
+    r"""Yield (line number, line) for the body of a LaTeX document as a reader sees the numbers.
+
+    Comments, the preamble, citation keys, references, labels, file names and column
+    specifications are dropped; math mode and `\%` are unwrapped, `3\times10^{-5}` becomes `3e-5`
+    and the other commands are removed with their braces, keeping the text inside.
+    """
+    in_body = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not in_body:
+            in_body = "\\begin{document}" in line
+            continue
+        line = TEX_COMMENT.sub("", line)
+        line = TEX_TABLE_SPEC.sub("", TEX_ARGUMENT_COMMANDS.sub("", line))
+        line = TEX_POWER.sub(r"\1e\2", line).replace("\\%", "%").replace("\\\\", " ")
+        line = TEX_COMMAND.sub(" ", line).replace("$", "").replace("~", " ")
+        yield number, line.replace("{", "").replace("}", "")
+
+
+def claim_lines(text: str, tex: bool = False) -> list[tuple[int, str]]:
     """The lines a reader takes numbers from: no code, no link targets, no image sources."""
+    if tex:
+        return list(tex_lines(text))
     return [
         (number, _blank(_blank(line, MARKDOWN_LINK), HTML_REFERENCE))
         for number, line in prose_lines(text)
@@ -775,7 +806,7 @@ def check_numbers(
         if not path.is_file():
             errors.append(f"{name}: document is missing")
             continue
-        lines = claim_lines(path.read_text(encoding="utf-8"))
+        lines = claim_lines(path.read_text(encoding="utf-8"), tex=name.endswith(".tex"))
         spans: dict[int, list[tuple[int, int]]] = {}
         for cell in (c for c in cells if c.document == name):
             pattern = re.compile(cell.pattern)
