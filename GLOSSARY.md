@@ -25,7 +25,7 @@ A property of the person the screening decision must not depend on: gender or or
 _Avoid_: sensitive feature, demographic
 
 **Origin group**:
-One of five groups signalled by a name: Spain, Morocco, Romania, Hispanic America (Colombia, Ecuador and Venezuela) and the United Kingdom, which is the reference group. The name check can merge or drop groups the model cannot tell apart.
+One of four groups signalled by a name: Spain and Hispanic America (Colombia, Ecuador and Venezuela) merged, because the model could not tell their names apart, Morocco, Romania, and the United Kingdom, which is the reference group. The name check can merge or drop groups the model cannot tell apart.
 _Avoid_: ethnicity, nationality, Latin America
 
 **Showcase occupations**:
@@ -130,9 +130,9 @@ _Avoid_: equal opportunity difference
 Root mean square of the TPR gaps over all occupations; one number for how far a screener is from equal opportunity, whichever gender it favours.
 _Avoid_: average gap, mean gap
 
-**Gender gap**:
-The plain-language name of the RMS TPR gap, used in the README, the figures and the prose of the results: how far, over all the jobs, the share of qualified women shortlisted is from the share of qualified men. 0 would be equal treatment. Its size is a typical per-job difference between the share of qualified women and the share of qualified men that the screener shortlists: 0.148 means about 15 points on a typical job. Two values appear: 0.148 on the full test set and 0.143 on the test set outside the showcase subset, the one the mitigation compares.
-_Avoid_: bias score, fairness score
+**Shortlist gap**:
+How far a screener is from shortlisting qualified women and qualified men alike, in shares of qualified candidates. For one occupation it is the TPR gap: the share of qualified women shortlisted minus the share of qualified men; positive favours women. The overall shortlist gap, the plain-language name of the RMS TPR gap, is its root mean square over the occupations: 0 would be equal treatment, and 0.148 means about 15 points on a typical job. Two values appear: 0.148 on the full test set and 0.143 on the test set outside the showcase subset, the one the mitigation compares. It is not the score gap.
+_Avoid_: gender gap, bias score, fairness score
 
 **Gap-share correlation**:
 Pearson correlation, across occupations, between the TPR gap and the share of women in the training subsample.
@@ -259,7 +259,7 @@ _Avoid_: top-k accuracy
 ## Gap decomposition
 
 **Score gap**:
-In one occupation, the mean log-odds score of the full bios of women minus that of men, for the true occupation. Positive favours women. It is not the TPR gap: it uses scores, not decisions.
+In one occupation, the mean log-odds score of the full bios of women minus that of men, for the true occupation. Positive favours women. It is not the shortlist gap: it uses scores, not decisions.
 _Avoid_: bias score
 
 **Word**:
@@ -279,7 +279,7 @@ The sum of the gap contributions of the ten words with the largest absolute cont
 _Avoid_: explained variance
 
 **Gender-word sum**:
-The sum of the gap contributions of the gender words: how far they put women's bios above (positive) or below (negative) men's. It needs no division, so it exists when the score gap is near 0.
+The sum of the gap contributions of the gender words: how much of the score gap they account for: positive when they raise women's scores above men's, negative when they lower them. It describes how the gap is made up, not what the words cause. It needs no division, so it exists when the score gap is near 0.
 _Avoid_: gendered effect, bias of gender words
 
 **Gender-word share**:

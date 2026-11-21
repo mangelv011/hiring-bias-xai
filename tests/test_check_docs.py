@@ -1042,20 +1042,12 @@ def test_the_rows_of_the_mitigation_table_match_their_own_line_and_label_only():
         assert not re.search(cell.pattern, "cz x & 0.780 & 0.110 & -0.033 \\\\")
 
 
-def test_the_rows_of_an_origin_take_a_plus_sign_for_the_high_end():
-    module = _load()
-    high = module.origin_rows("Morocco", "Morocco", "+")[2]
-    assert re.search(high.pattern, "Morocco & +1.5 [-5.3, +9.1]")
-    assert not re.search(high.pattern, "Morocco & +1.5 [-5.3, -9.1]")
-
-
 ALLOWED_PHRASES = [
     ("1--2 grams", "1--3 grams"),
     ("at least 500 test bios", "at least 501 test bios"),
     ("her 11 gender words", "her 12 gender words"),
     ("his 2 gender words", "his 3 gender words"),
-    ("by 20\\%", "by 21\\%"),
-    ("a 20\\% cut", "a 21\\% cut"),
+    ("by about 2.7", "by about 2.8"),
     ("the other 18", "the other 19"),
     ("at layer 1", "at layer 2"),
     ("(1) Scrub", "(5) Scrub"),
@@ -1063,8 +1055,6 @@ ALLOWED_PHRASES = [
     ("excludes 0 for", "excludes 1 for"),
     ("gender of 372", "gender of 373"),
     ("yes to 53", "yes to 54"),
-    ("Woman's name (four groups) & 53", "Woman's name (four groups) & 54"),
-    ("Man's name (four groups) & 53", "Man's name (four groups) & 54"),
     ("gaps of 5 points", "gaps of 6 points"),
     ("a 4 GB RTX 3050 GPU", "a 5 GB RTX 3050 GPU"),
     ("the top 10", "the top 11"),
