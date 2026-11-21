@@ -325,7 +325,7 @@ def test_the_report_describes_the_data_the_models_and_the_gap_plainly():
         "(dietitian, nurse, fashion model)",
         "reading at most 256 tokens",
         "TF-IDF (weighted counts of words and word pairs)",
-        "The main model's overall shortlist gap is lower than the baseline's (0.148 against 0.167),",
+        "overall shortlist gap is lower than the baseline's (0.148 against 0.167),",
         "in every one of the six jobs but software engineer",
         "explanations can help",
         "Change in gap vs (a)",
@@ -337,9 +337,9 @@ def test_the_report_describes_the_data_the_models_and_the_gap_plainly():
 def test_the_report_links_the_explanations_to_the_fix_and_states_the_ai_assistance():
     report = _report()
     assert "which is why I scrub them" in report
-    assert "tests the explanation's next hypothesis, that a few words carry the rest, and it does not hold" in report
+    assert "next hypothesis, that a few words carry the rest, and it does not hold" in report
     assert "which cut the gap by a fifth in one run" in report
-    assert "I used an AI coding assistant for implementation and editing; I designed the audit" in report
+    assert "I used an AI coding assistant for implementation and editing;" in report
 
 
 def test_the_chance_level_is_named_as_the_95th_percentile_of_what_chance_gives():

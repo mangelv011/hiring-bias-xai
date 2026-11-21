@@ -863,9 +863,7 @@ CELLS: list[Cell] = [
     Cell(REPORT, r"subsample of ([\d,]+) bios", "data_summary.json", "bios.train", "count"),
     Cell(REPORT, r"select on ([\d,]+) of the dev", "data_summary.json", "bios.dev", "count"),
     Cell(REPORT, r"and ([\d,]+) test bios;", "data_summary.json", "bios.test", "count"),
-    Cell(
-        REPORT, r"reading at most (\d+) tokens", MAIN, "hyperparameters.max_length", "count"
-    ),
+    Cell(REPORT, r"reading at most (\d+) tokens", MAIN, "hyperparameters.max_length", "count"),
     Cell(
         REPORT,
         r"as that alone gave (\d+)% with no retraining",
@@ -935,7 +933,13 @@ CELLS: list[Cell] = [
     Cell(
         REPORT, r"for [\d.]+ \([\d.]+ \[[\d.]+, ([\d.]+)\]", BASE, "test.macro_f1.ci_high", "dec3"
     ),
-    Cell(REPORT, r"lower than the baseline's \(([\d.]+) against", MAIN, "test.rms_tpr_gap.value", "dec3"),
+    Cell(
+        REPORT,
+        r"lower than the baseline's \(([\d.]+) against",
+        MAIN,
+        "test.rms_tpr_gap.value",
+        "dec3",
+    ),
     Cell(REPORT, r"against ([\d.]+)\), but", BASE, "test.rms_tpr_gap.value", "dec3"),
     Cell(
         REPORT,
