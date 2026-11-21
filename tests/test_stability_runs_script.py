@@ -197,3 +197,29 @@ def test_the_same_seed_gives_the_same_random_weights_and_another_seed_other_weig
     first, again, other = (_weights(run.module._randomised(model, seed)) for seed in (42, 42, 7))
     assert all(torch.equal(first[name], again[name]) for name in first)
     assert not torch.equal(first["classifier.weight"], other["classifier.weight"])
+
+
+def test_the_random_variant_scores_with_the_random_model_on_the_orders_of_the_main_run(
+    run, monkeypatch
+):
+    random, drawn = Hashed(), []
+    monkeypatch.setattr(
+        run.module, "_randomised", lambda model, seed: (drawn.append((model, seed)), random)[1]
+    )
+    ids = _sample_ids(run("deberta-random"))
+    assert drawn == [(run.fake, 42)]
+    assert run.fake.calls == []
+    assert len(random.calls) == 4
+    for bio_id in ids:
+        position = [bio[0] for bio in BIOS].index(bio_id)
+        saved = attribution.load(attribution.path("deberta-random", bio_id))
+        (main,) = attribution.shapley(
+            Hashed(), [BIOS[position][1]], [BIOS[position][2]], 3, "delete", seed=(42, position)
+        )
+        assert saved.removal == "delete"
+        np.testing.assert_array_equal(saved.orders, main.orders)
+
+
+def test_the_other_variants_never_build_a_random_model(run, monkeypatch):
+    monkeypatch.setattr(run.module, "_randomised", lambda *args: pytest.fail("built"))
+    run("deberta-seed7", "deberta-unk")
