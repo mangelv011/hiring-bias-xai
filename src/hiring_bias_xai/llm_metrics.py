@@ -311,3 +311,14 @@ def stated_reasons(flipped: pd.DataFrame) -> dict:
         "share_mention": _proportion(n_mention, n),
         "share_no_mention": _proportion(n - n_mention, n),
     }
+
+
+def fpr_by_hardness(calls: pd.DataFrame, arm: str) -> dict:
+    """The yes share of one arm on hard and on other non-matches, with the number of valid
+    answers and a Wilson interval. Needs a boolean `hard` column."""
+    rows = calls[(calls["arm"] == arm) & ~calls["match"] & calls["yes"].notna()]
+    report = {}
+    for name, part in (("hard", rows[rows["hard"]]), ("other", rows[~rows["hard"]])):
+        yes = int(part["yes"].sum())
+        report[name] = _proportion(yes, len(part)) | {"n": len(part)}
+    return report
