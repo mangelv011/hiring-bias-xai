@@ -198,7 +198,8 @@ def test_the_title_covers_two_clear_sums_and_one_within_noise_in_two_lines(f3):
     ]
     text, lines = _title_lines(f3.build(one_clear))
     assert text == (
-        "Gender words account for -1.1 score points of the gap in surgeon, no clear part in composer."
+        "Gender words account for -1.1 score points of the gap in surgeon, "
+        "no clear part in composer."
     )
     assert lines <= 2
 
