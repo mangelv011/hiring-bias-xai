@@ -1,7 +1,7 @@
 """Check the written documents against the repository: `python scripts/check_docs.py`.
 
 Reads files of this repository only and makes no network calls. Exits with 1 and prints one line
-per problem when a link or an image path does not resolve.
+per problem when a link, an image path or a heading anchor does not resolve.
 """
 
 import os
@@ -15,6 +15,10 @@ FENCE = re.compile(r"^\s*(```|~~~)")
 INLINE_CODE = re.compile(r"`[^`\n]*`")
 MARKDOWN_LINK = re.compile(r"!?\[[^\]\n]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 HTML_REFERENCE = re.compile(r"""\b(?:src|href)\s*=\s*["']([^"']+)["']""")
+HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
+HEADING_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+HTML_TAG = re.compile(r"<[^>]*>")
+NOT_IN_SLUG = re.compile(r"[^\w\s-]")
 EXTERNAL = re.compile(r"^[a-z][a-z0-9+.-]*:", re.IGNORECASE)
 
 
@@ -42,6 +46,30 @@ def references(text: str):
         for pattern in (MARKDOWN_LINK, HTML_REFERENCE):
             for match in pattern.finditer(line):
                 yield number, match.group(1)
+
+
+def slug(heading: str) -> str:
+    """GitHub anchor of a heading: no markup or punctuation, lower case, spaces as hyphens."""
+    text = HTML_TAG.sub("", HEADING_LINK.sub(r"\1", heading))
+    return NOT_IN_SLUG.sub("", text.lower()).replace(" ", "-")
+
+
+def anchors(text: str) -> set[str]:
+    """The anchors of the headings of a document; a repeated heading gets -1, -2 and so on."""
+    seen: dict[str, int] = {}
+    found = set()
+    fenced = False
+    for line in text.splitlines():
+        if FENCE.match(line):
+            fenced = not fenced
+            continue
+        match = None if fenced else HEADING.match(line)
+        if match:
+            base = slug(match.group(1))
+            count = seen.get(base, 0)
+            seen[base] = count + 1
+            found.add(base if count == 0 else f"{base}-{count}")
+    return found
 
 
 def exists_with_case(root: Path, relative: Path) -> bool:
@@ -77,8 +105,14 @@ def check_links(root: Path) -> list[str]:
         for number, target in references(text):
             if EXTERNAL.match(target):
                 continue
-            if resolve(root, document, target) is None:
+            found = resolve(root, document, target)
+            if found is None:
                 errors.append(f"{name}:{number}: {target} does not resolve")
+                continue
+            _, _, fragment = target.partition("#")
+            if fragment and found.suffix == ".md":
+                if unquote(fragment) not in anchors(found.read_text(encoding="utf-8")):
+                    errors.append(f"{name}:{number}: {target} has no such heading")
     return errors
 
 
