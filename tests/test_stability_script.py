@@ -13,7 +13,7 @@ from hiring_bias_xai import explanation_checks as checks
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "stability.py"
 NURSE = data.OCCUPATIONS.index("nurse")
 WEIGHTS = {f"w{i}": float(i - 4) for i in range(16)}
-VARIANTS = ("deberta", "deberta-seed7", "deberta-unk")
+VARIANTS = ("deberta", "deberta-seed7", "deberta-unk", "deberta-random")
 SAMPLE = ["test-1", "test-3", "test-4"]
 
 
@@ -269,3 +269,26 @@ def test_the_example_counts_every_occurrence_of_the_top_word_including_earlier_o
     case = checks.Case("test-2", words, np.eye(16)[11] * 5, np.zeros(16))  # the top word is word 11
     example = run.module._explain(case, 0.0, run.fake)
     assert [entry["position"] for entry in example["occurrences"]] == [0, 11]
+
+
+def test_the_randomisation_compares_the_random_model_with_the_main_run_and_has_no_verdict(run):
+    reversed_weights = BagOfWords({"nurse": {w: -v for w, v in WEIGHTS.items()}})
+    run.save("deberta-random", reversed_weights)
+    record = run()
+    random = record["randomisation"]
+    assert random["n_bios"] == 3
+    assert random["spearman"]["median"] == pytest.approx(-1.0)
+    assert random["top10_overlap"]["median"] < 1.0
+    for metric in ("spearman", "top10_overlap"):
+        low, high = random[metric]["median_ci"]
+        assert low <= random[metric]["median"] <= high
+    assert "random" in random["comparison"]
+    assert random["expected"]
+    assert not {"passed", "rule", "thresholds"} & random.keys()
+    assert set(record["checks"]) == {"seed", "removal", "method"}
+
+
+def test_a_random_run_made_on_other_words_than_the_main_run_stops_the_check(run):
+    run.save("deberta-random", BagOfWords({"nurse": WEIGHTS}), {"test-1": "x " * 16})
+    with pytest.raises(ValueError, match="test-1"):
+        run()
