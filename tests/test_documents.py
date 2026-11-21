@@ -72,3 +72,27 @@ def test_the_documents_write_hispanic_america_and_name_no_course():
             if not line.startswith("_Avoid_"):
                 assert "Latin America" not in line, name
         assert not re.search(r"(?i)\b(assignment|coursework|syllabus)\b", _read(name)), name
+
+
+ADRS = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "docs" / "decisions").glob("*.md"))
+STALE = re.compile(
+    r"(?i)\b(not yet|is planned|are planned|to be (run|done)|pending|will be (run|done|written))\b"
+)
+
+
+def test_every_decision_record_is_accepted_and_has_an_outcomes_section():
+    assert len(ADRS) == 8
+    for name in ADRS:
+        text = _read(name)
+        assert re.search(r"(?m)^Status: accepted\b", text), name
+        assert re.search(r"(?m)^## Outcomes\b", text), name
+
+
+def test_no_decision_record_still_talks_about_work_as_planned():
+    for name in ADRS:
+        assert not STALE.search(_read(name)), name
+
+
+def test_decision_records_do_not_point_to_numbers_the_readme_no_longer_holds():
+    assert "in the README" not in _read("docs/decisions/0005-counterfactual-gender-swap.md")
+    assert "Four results hold" not in _read("docs/decisions/0006-probing-and-patching.md")
