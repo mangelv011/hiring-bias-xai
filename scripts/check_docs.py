@@ -1034,8 +1034,6 @@ CELLS: list[Cell] = [
         "checks.seed.top10_overlap.median",
         "of10",
     ),
-    Cell(REPORT, r"epoch \(([\d.]+) to", TRAINING_LOG, f"{LOSS_LOW}:dev_loss", "dec2"),
-    Cell(REPORT, r"epoch \([\d.]+ to ([\d.]+)\)", TRAINING_LOG, f"{LOSS_LAST}:dev_loss", "dec2"),
     # Report: single decisions and what makes up the gap
     Cell(
         REPORT,

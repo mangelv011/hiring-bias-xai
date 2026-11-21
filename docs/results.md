@@ -240,7 +240,7 @@ Cost on the laptop: encoding the 11,721 bios took 26 s (pretrained) and 25 s (ma
 
 ## F7: does removing the cues close the gap?
 
-**In short:** scrubbing the pronouns narrows the shortlist gap by about a fifth for half a point of macro-F1, and the gap that remains is still more than twice what chance gives. Deleting six proxy words leaves it where it was.
+**In short:** scrubbing the pronouns narrows the shortlist gap by about a fifth for half a point of macro-F1, and the gap that remains is still more than twice the 95th percentile of what chance gives (0.050). Deleting six proxy words leaves it where it was.
 
 <p align="center"><img src="../results/figures/f7_mitigation.png" width="520" alt="Scrubbing pronouns moves the shortlist gap from 0.14 to 0.12 and macro-F1 from 0.784 to 0.779; deleting proxy words moves neither by much; every condition stays above the band that chance gives."></p>
 
