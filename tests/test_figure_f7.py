@@ -246,7 +246,7 @@ def test_each_condition_has_its_label_beside_its_dot(figure):
     # text offset in points from the dot, horizontal alignment
     labels = {
         "a original": ((6, 12), "left"),
-        "b scrubbed bios": ((-6, 3), "right"),
+        "b scrubbed bios": ((-4, 3), "right"),
         "c scrubbed model": ((7, -4), "left"),
         "d scrubbed both": ((-7, -10), "right"),
         "e proxy words deleted": ((-12, 26), "right"),

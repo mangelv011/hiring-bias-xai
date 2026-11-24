@@ -325,6 +325,16 @@ def _assert_labels_are_clear(fig):
     fixed = {
         t.get_text(): t.get_window_extent(renderer) for t in ax.texts if not hasattr(t, "xyann")
     }
+    for label in ax.texts:
+        arrow = getattr(label, "arrow_patch", None)
+        if arrow is None:
+            continue
+        leader = arrow.get_path().transformed(arrow.get_transform())
+        for name, box in (boxes | fixed).items():
+            if name != label.get_text():
+                assert not leader.intersects_bbox(box, filled=False), (
+                    f"{label.get_text()} leader crosses {name}"
+                )
     names = list(boxes)
     for i, name in enumerate(names):
         box = boxes[name]

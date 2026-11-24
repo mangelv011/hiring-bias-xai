@@ -9,6 +9,8 @@ from pathlib import Path
 
 import matplotlib.text
 import numpy as np
+from matplotlib.path import Path as PlotPath
+from matplotlib.transforms import Bbox
 
 from hiring_bias_xai import plotting
 from hiring_bias_xai.config import RESULTS_DIR
@@ -17,6 +19,7 @@ HEIGHT_INCHES = 3.2
 DARK = "#333333"
 LABEL_RADII_PT = (6, 12, 20, 30, 42, 56)
 LEADER_FROM_PT = 9
+LEADER_COST = 50
 DISTANCE_COST = 0.05
 DOT_COST, DOT_PAD_PX, LINE_PAD_PX = 50, 4, 2
 BAR_COST, FIT_COST, ZERO_COST = 10, 40, 5
@@ -64,8 +67,9 @@ def _label(fig, ax, points: dict, sides: dict, obstacles: dict, texts: dict) -> 
     ]
     axes = ax.get_window_extent(renderer)
     taken = [tuple(t.get_window_extent(renderer).extents) for t in ax.texts]  # notes and r
+    leaders = []
     offsets = {}
-    for name in (n for n in points if n in sides):
+    for name in sorted(sides, key=lambda name: len(texts[name]), reverse=True):
         text = ax.text(0, 0, texts[name])
         extent = matplotlib.text.Text.get_window_extent(text, renderer)
         text.remove()
@@ -81,19 +85,30 @@ def _label(fig, ax, points: dict, sides: dict, obstacles: dict, texts: dict) -> 
                 box = (left, bottom, left + extent.width, bottom + extent.height)
                 cost = radius * DISTANCE_COST + DOT_COST * _inside(box, dots, DOT_PAD_PX)
                 cost += sum(c for c, line in lines if _inside(box, line, LINE_PAD_PX))
-                if radius > LEADER_FROM_PT:  # a leader line must not run through another dot
-                    end = (box[0] if dx >= 0 else box[2], (box[1] + box[3]) / 2)
+                leader = None
+                if radius > LEADER_FROM_PT:
+                    end = ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+                    leader = PlotPath([dot, end])
                     along = dot + np.linspace(0, 1, 30)[:, None] * (end - dot)
                     gaps = np.linalg.norm(dots[:, None, :] - along[None], axis=2).min(axis=1)
                     cost += DOT_COST * int(((gaps < DOT_PAD_PX) & (gaps > 0.5)).sum())
+                    cost += LEADER_COST * sum(
+                        leader.intersects_bbox(Bbox.from_extents(*other), filled=False)
+                        for other in taken
+                    )
                 cost += TAKEN_COST * sum(_overlap(box, other) for other in taken)
+                cost += LEADER_COST * sum(
+                    line.intersects_bbox(Bbox.from_extents(*box), filled=False) for line in leaders
+                )
                 cost += OUTSIDE_COST * (
                     box[0] < axes.x0 or box[2] > axes.x1 or box[1] < axes.y0 or box[3] > axes.y1
                 )
                 if best is None or cost < best[0]:
-                    best = (cost, (dx, dy), box)
-        taken.append(best[2])
-        offsets[name] = best[1]
+                    best = (cost, (dx, dy), box, leader)
+        _, offsets[name], box, leader = best
+        taken.append(box)
+        if leader is not None:
+            leaders.append(leader)
     for name, (dx, dy) in offsets.items():
         label = ax.annotate(
             texts[name],

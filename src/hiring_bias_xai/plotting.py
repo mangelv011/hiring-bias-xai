@@ -11,7 +11,7 @@ import numpy as np
 from hiring_bias_xai.config import FIGURES_DIR
 
 DPI = 300
-WIDTH_INCHES = 3.3  # one column
+WIDTH_INCHES = 3.03  # one column of the report
 MIN_FONT_PT = 7
 
 WOMEN = "#CC79A7"
@@ -22,6 +22,7 @@ NEUTRAL = "#999999"
 STYLE = {
     "font.size": MIN_FONT_PT,
     "axes.titlesize": MIN_FONT_PT,
+    "figure.titlesize": MIN_FONT_PT,
     "axes.labelsize": MIN_FONT_PT,
     "xtick.labelsize": MIN_FONT_PT,
     "ytick.labelsize": MIN_FONT_PT,

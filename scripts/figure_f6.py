@@ -31,9 +31,7 @@ OCCUPATION_ONLY = "occupation_only"
 BANDED = ("tfidf", OCCUPATION_ONLY)  # the two references the text compares the model with
 LABEL_GAP = 0.07  # least distance between the labels of panel a, as a share of its y range
 LABEL_ROOM = 2.0  # room right of the last layer for the labels, in layers
-LAST_LAYER_NOTE = (
-    "Last layer:\nthe classifier\nreads only the\nfirst position,\nso edited words\ngive 0%."
-)
+LAST_LAYER_NOTE = "Last layer:\nonly the\nfirst token\ncounts, so\nedits give\n0%."
 
 
 def _all_bios(probing: pd.DataFrame) -> pd.DataFrame:

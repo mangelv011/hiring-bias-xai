@@ -133,7 +133,7 @@ def _set_passed(stability, *flags):
 PASSED_DELETION = "Shapley finds the words the model relies on"
 FAILED_DELETION = "Shapley's top words matter no more than random ones"
 DEPENDS = "their order depends on how it is computed"
-STEADY = "their order barely depends on how it is computed"
+STEADY = "their order barely depends on the method"
 
 
 def _set_spearman(stability, name, low, high):

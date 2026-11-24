@@ -356,10 +356,7 @@ def test_the_readme_cite_section_states_the_ai_assistance():
 def test_the_report_prints_the_figures_wide_enough_to_keep_their_text_legible():
     report = _read("report/main.tex")
     by_figure = {figure: width for width, figure in re.findall(r"width=([^\]]+)\]\{f(\d)_", report)}
-    for figure in "2356":
-        assert by_figure[figure] == r"\columnwidth", figure
-    for figure in "1478":
-        assert by_figure[figure] == r"0.95\columnwidth", figure
+    assert by_figure == dict.fromkeys("12345678", r"\columnwidth")
 
 
 def test_the_figure_captions_explain_what_a_reader_needs():
@@ -423,10 +420,3 @@ def test_the_readme_layout_lists_the_report_and_the_prompts_and_the_run_note_is_
     layout = _readme_section("Repository layout")
     assert "report/" in layout and "prompts/" in layout
     assert "uv run python scripts/<name>.py" in _readme_section("How to run")
-
-
-def test_every_figure_in_the_report_prints_at_its_true_size():
-    # a figure drawn 3.03 in wide scaled to the column would print its 7 pt text smaller
-    widths = re.findall(r"\includegraphics\[width=([^\]]*)\]", _read("report/main.tex"))
-    assert len(widths) == 8
-    assert set(widths) == {r"\columnwidth"}

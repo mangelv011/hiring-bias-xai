@@ -242,7 +242,7 @@ def test_no_panel_header_runs_up_to_the_right_edge_of_the_figure(figure):
 
 def test_the_x_axis_names_the_quantity_and_its_unit(figure):
     for ax in _data_axes(figure):
-        assert ax.get_xlabel() == "Women-minus-men gap contribution (score points)"
+        assert ax.get_xlabel() == "Women-minus-men gap contribution\n(score points)"
 
 
 def test_the_figure_is_3_03_inches_wide_and_no_text_is_below_7_pt(figure):
