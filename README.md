@@ -90,7 +90,7 @@ tests/                 pytest suite, run by CI on every pull request
 
 ## How to run
 
-Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build. Run the steps in this order; times are measured on the RTX 3050 Laptop GPU (4 GB). Data and model weights live outside the repository, in `HBX_ARTIFACTS` (default `~/.cache/hiring-bias-xai`). Each command is `uv run python scripts/<name>.py`, with the arguments listed in [docs/results.md](docs/results.md#reproduce-every-result). Without `uv`: `pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128`, then `pip install -e . --no-deps`.
+Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins PyTorch to the CUDA 12.8 build. Run the steps in this order; times are measured on the RTX 3050 Laptop GPU (4 GB). Experiments store their inputs and intermediates outside the repository, in `HBX_ARTIFACTS` (default `~/.cache/hiring-bias-xai`). This directory holds downloaded data and pretrained weights (`hf/`), trained models (`models/`), name lists (`ine/` and `names/`), test predictions (`predictions/`), per-bio Shapley values (`attributions/`) and probe inputs and partial results (`probing/`). Each command is `uv run python scripts/<name>.py`, with the arguments listed in [docs/results.md](docs/results.md#reproduce-every-result). Without `uv`: `pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128`, then `pip install -e . --no-deps`.
 
 | Step | Commands, in order | Time |
 |---|---|---|
@@ -100,12 +100,14 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). The lock file pins Py
 | F1 | `scripts/gap_statistics.py`; `scripts/figure_f1.py` | – |
 | F2, F3 | `scripts/shapley_pilot.py`; `scripts/shapley_run.py`; `scripts/shapley_stability.py`; `scripts/word_units.py`; `scripts/figure_f2.py`; `scripts/gap_decomposition.py`; `scripts/figure_f3.py` | run 1.97 hours for the main model and 5 minutes for the baseline; decomposition about 30 seconds |
 | F4 | `scripts/fetch_first_names.py`; `scripts/counterfactual_hand_check.py`; `scripts/counterfactual_gender.py`; `scripts/figure_f4.py` | scoring about 45 seconds |
-| F5 | `scripts/deletion_curves.py`; `scripts/stability_runs.py`; `scripts/stability.py`; `scripts/figure_f5.py` | curves about 6 minutes; the two reruns about 10 and 15 minutes |
+| F5 | `scripts/deletion_curves.py`; `scripts/stability_runs.py`; `scripts/stability.py`; `scripts/figure_f5.py` | curves about 6 minutes; the seed and removal reruns about 10 and 15 minutes |
 | F6 | `scripts/probing_features.py`; `scripts/probing.py`; `scripts/patching.py`; `scripts/figure_f6.py` | features about 1 minute each; probes 1, 4 and 5 minutes; patching 32 seconds |
 | F7 | `scripts/proxy_words.py`; `scripts/train_scrubbed.py`; `scripts/mitigation.py`; `scripts/figure_f7.py` | training about 1.9 hours; scoring about 2.8 minutes per condition and 2 minutes for the report |
 | F8 | `scripts/llm_names.py`; `scripts/llm_name_check.py`; `scripts/llm_pilot.py`; `scripts/llm_run.py`; `scripts/llm_analyse.py`; `scripts/figure_f8.py` | name check 3 minutes; pilot 2.4 minutes; run 2.99 hours; analysis about 25 seconds |
 
-The arguments of each script and the order inside a step are in [docs/results.md](docs/results.md#reproduce-every-result). A dash means I did not measure the time, so only the measured times are given. The notebook is a results viewer: it loads no model, runs on a CPU in seconds, and each stage of the audit is one script (the figure-to-script table is in [docs/results.md](docs/results.md#reproduce-every-result)). Run it with `pytest --nbmake notebooks/audit.ipynb`, the command CI uses. Before a pull request, `uv run python scripts/check_docs.py` checks the links and the numbers of this page and the model card against `results/`.
+The arguments of each script and the order inside a step are in [docs/results.md](docs/results.md#reproduce-every-result). A dash means I did not measure the time, so only the measured times are given. The notebook is a results viewer: it loads no model, runs on a CPU in seconds, and each stage of the audit is one script (the figure-to-script table is in [docs/results.md](docs/results.md#reproduce-every-result)). Run it with `uv run pytest --nbmake notebooks/audit.ipynb`. Before a pull request, `uv run python scripts/check_docs.py` checks the links and the numbers of this page and the model card against `results/`.
+
+For a CPU reproducibility check, use an empty `HBX_ARTIFACTS` directory and run `prepare_data.py`, `train_baseline.py` and `shapley_stability.py` in that order with `uv run python scripts/<name>.py`. Compare `results/metrics_baseline.json` (excluding `runtime_seconds`) and `results/shapley_stability.json` with the committed versions.
 
 ## Cite
 
