@@ -103,7 +103,7 @@ def build(panels: Sequence[Panel]):
         words = panel.words.sort_values("contribution", ascending=False, kind="stable")
         rows = range(len(words))
         ax.set_title(header(panel), loc="left")
-        ax.set_xlabel("Women-minus-men gap contribution (score points)")
+        ax.set_xlabel("Women-minus-men gap contribution\n(score points)")
         ax.axvline(0, color=DARK, lw=0.6)
         colours = [plotting.HIGHLIGHT if g else plotting.NEUTRAL for g in words["gendered"]]
         ax.hlines(rows, words["contribution_ci_low"], words["contribution_ci_high"], colors=colours)

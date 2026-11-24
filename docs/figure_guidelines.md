@@ -11,7 +11,7 @@ Every figure in this project shows one result a reader gets at first glance. The
 5. **Sort by value, not alphabetically.** Ordered categories show the pattern; alphabetical order shows the alphabet. Source: Wilke, "Visualizing amounts"; Cleveland and McGill (1984) on judging positions along a common scale.
 6. **Always show uncertainty and reference lines.** Draw the 95% interval of every estimate and a line at zero or at chance. Source: Wilke, "Visualizing uncertainty"; Rougier et al. (2014), "Do not mislead the reader".
 7. **Colour-blind safe palette, stable meaning.** Colours are the Okabe-Ito set, and a colour means the same thing in every figure: women, men, highlight, neutral grey (`plotting.WOMEN`, `MEN`, `HIGHLIGHT`, `NEUTRAL`). Check each figure under a deuteranopia simulation (`scripts/check_deuteranopia.py`) and keep the result in `docs/figure_checks/`. Source: Okabe and Ito (2008); Wilke, "Common pitfalls of color use".
-8. **No chartjunk.** No top or right spine, no grid unless it carries information, no decoration. Figures are 3.3 inches wide (one column) and no text is smaller than 7 pt, so they stay readable at the size they print. Source: Rougier et al. (2014), "Avoid chartjunk" and "Adapt the figure to the support medium" (the 3.3 inch width and the 7 pt floor); Wilke, "Balance the data and the context".
+8. **No chartjunk.** No top or right spine, no grid unless it carries information, no decoration. Figures are 3.03 inches wide (one report column) and no text is smaller than 7 pt, so they stay readable at the size they print. Source: Rougier et al. (2014), "Avoid chartjunk" and "Adapt the figure to the support medium" (the 7 pt floor); Wilke, "Balance the data and the context".
 
 ## Checks
 

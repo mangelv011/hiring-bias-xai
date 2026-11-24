@@ -102,7 +102,7 @@ def build(report: dict):
     fig.text(0.01, 0.01, _note(report), color=DARK, va="bottom", ha="left", wrap=True)
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
-    ax.set_xlabel("Change in yes-rate (points),\nagainst no name")
+    ax.set_xlabel("Change in yes-rate (points),\nagainst no name", x=1, ha="right")
     return fig
 
 

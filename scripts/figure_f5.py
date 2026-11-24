@@ -58,8 +58,12 @@ def title(areas: dict, stability: dict) -> str:
         else "Shapley's top words matter no more than random ones"
     )
     joiner = "but" if deletion_passed and depends else "and"
-    order = "their order depends" if depends else "their order barely depends"
-    return f"{lead}, {joiner} {order} on how it is computed."
+    order = (
+        "their order depends on how it is computed"
+        if depends
+        else "their order barely depends on the method"
+    )
+    return f"{lead}, {joiner} {order}."
 
 
 def _deletion_panel(ax, curves: pd.DataFrame) -> None:

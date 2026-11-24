@@ -22,7 +22,7 @@ HEIGHT_INCHES = 3.4
 # name, text offset in points, horizontal alignment
 LABELS = {
     "a": ("a original", (6, 12), "left"),
-    "b": ("b scrubbed bios", (-6, 3), "right"),
+    "b": ("b scrubbed bios", (-4, 3), "right"),
     "c": ("c scrubbed model", (7, -4), "left"),
     "d": ("d scrubbed both", (-7, -10), "right"),
     "e": ("e proxy words deleted", (-12, 26), "right"),
