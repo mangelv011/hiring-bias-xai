@@ -381,6 +381,7 @@ uv run python scripts/figure_f3.py       # reads those two files, writes F3 and 
 uv run python scripts/deletion_curves.py   # GPU, about 6 minutes: results/deletion_curves.csv and deletion_areas.json
 uv run python scripts/stability_runs.py deberta-seed7   # GPU, about 10 minutes, resumable; also writes results/stability_sample_ids.csv
 uv run python scripts/stability_runs.py deberta-unk     # GPU, about 15 minutes, resumable
+uv run python scripts/stability_runs.py deberta-random  # GPU, resumable
 uv run python scripts/stability.py       # GPU, leave-one-out on all bios: results/stability.json
 uv run python scripts/figure_f5.py       # reads the three result files, writes F5
 ```
