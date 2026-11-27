@@ -23,6 +23,7 @@ GAPS = {name: 1.2 * share - 0.6 + OFF_LINE[name] for name, share in SHARES.items
 BELOW, ABOVE = 0.03, 0.07
 R, R_LOW, R_HIGH = 0.8547, 0.7071, 0.9309
 SHOWCASE = ["o1", "o2", "o3", "o6", "o7", "o8"]
+EXAMPLES = ("o1", "o8")  # the two labelled jobs; the real figure labels surgeon and nurse
 
 
 def _write(results, name, content):
@@ -69,12 +70,17 @@ def results(tmp_path):
     return tmp_path
 
 
-@pytest.fixture
-def figure(results):
+def _render(results, examples=EXAMPLES):
     spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    fig = module.main(results)
+    module.EXAMPLES = examples
+    return module.main(results)
+
+
+@pytest.fixture
+def figure(results):
+    fig = _render(results)
     yield fig
     plt.close(fig)
 
@@ -130,13 +136,11 @@ def test_the_figure_states_pearson_r_with_its_fisher_interval(figure):
     assert "r = 0.85 [0.71, 0.93]" in [t.get_text() for t in ax.texts]
 
 
-def test_only_the_showcase_occupations_are_labelled_next_to_their_dots(figure):
+def test_only_the_two_example_jobs_are_labelled_next_to_their_dots(figure):
     (ax,) = figure.axes
-    labels = {t.get_text(): t for t in ax.texts if hasattr(t, "xyann")}
-    assert sorted(labels) == sorted(
-        o.replace("_", " ") for o in ["o1", "o2", "o3", "o6", "o7", "o8"]
-    )
-    for name in ("o1", "o6"):
+    labels = {t.get_text().split(":")[0]: t for t in ax.texts if hasattr(t, "xyann")}
+    assert sorted(labels) == sorted(EXAMPLES)
+    for name in EXAMPLES:
         x, y = labels[name].xy
         assert (x, y) == pytest.approx((SHARES[name], GAPS[name]))
 
@@ -154,7 +158,7 @@ def test_showcase_dots_have_the_highlight_colour_and_the_others_are_grey(figure)
     assert {colour_of[SHARES["o4"]], colour_of[SHARES["o5"]]} == {"#999999"}
 
 
-def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
+def test_labels_of_example_dots_that_nearly_coincide_do_not_overlap(results):
     # o1 and o2 get almost the same share and gap, so labels placed beside their dots would collide.
     metrics = json.loads((results / "metrics_deberta.json").read_text())
     gap = GAPS["o1"] - 0.004
@@ -167,17 +171,14 @@ def test_labels_of_showcase_dots_that_nearly_coincide_do_not_overlap(results):
     stats = json.loads((results / "gap_statistics.json").read_text())
     stats["main_model"]["occupations"]["o2"]["share_women"] = SHARES["o1"] + 0.01
     (results / "gap_statistics.json").write_text(json.dumps(stats))
-    spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    fig = module.main(results)
+    fig = _render(results, examples=("o1", "o2"))
     try:
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
         boxes = [
             matplotlib.text.Text.get_window_extent(t, renderer)  # the text, not its leader line
             for t in fig.axes[0].texts
-            if t.get_text() in ("o1", "o2")
+            if t.get_text().split(":")[0] in ("o1", "o2")
         ]
         assert len(boxes) == 2
         assert not boxes[0].overlaps(boxes[1])
@@ -232,24 +233,20 @@ def test_the_direction_of_the_gap_is_written_above_and_below_zero(figure):
 
 
 def test_two_example_jobs_carry_their_numbers_per_100(results):
-    spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    module.EXAMPLES = ("o1", "o8")
-    fig = module.main(results)
+    fig = _render(results)
     try:
         (ax,) = fig.axes
         texts = [t.get_text() for t in ax.texts]
         women_o1, men_o1 = round(100 * (0.7 + GAPS["o1"] / 2)), round(100 * (0.7 - GAPS["o1"] / 2))
         assert f"o1: {women_o1} of 100 women,\n{men_o1} of 100 men shortlisted" in texts
         assert any(t.startswith("o8: ") for t in texts)
-        assert "o2" in texts  # the other showcase jobs keep plain names
+        assert not any(t.startswith(("o2", "o3", "o4", "o5", "o6", "o7")) for t in texts)
         _assert_labels_are_clear(fig)
     finally:
         plt.close(fig)
 
 
-def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
+def test_only_the_showcase_dots_have_their_bootstrap_interval_as_an_error_bar(figure):
     (ax,) = figure.axes
     bars = [
         segment
@@ -258,7 +255,7 @@ def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
         for segment in c.get_segments()
     ]
     found = sorted((s[0][0], s[0][1], s[1][1]) for s in bars)
-    expected = sorted((SHARES[o], GAPS[o] - BELOW, GAPS[o] + ABOVE) for o in SHARES)
+    expected = sorted((SHARES[o], GAPS[o] - BELOW, GAPS[o] + ABOVE) for o in SHOWCASE)
     assert np.array(found) == pytest.approx(np.array(expected))
     bar_colours = {
         matplotlib.colors.to_hex(c.get_color()[0]).upper()
@@ -268,24 +265,17 @@ def test_every_dot_has_its_bootstrap_interval_as_an_error_bar(figure):
     assert bar_colours == {"#999999"}
 
 
-def _render(results):
-    spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.main(results)
-
-
 def test_a_long_label_beside_the_rightmost_dot_stays_inside_the_axes(results):
     long_name = "dietitian"
     for name in ("metrics_deberta.json", "gap_statistics.json", "showcase_occupations.json"):
         path = results / name
         path.write_text(path.read_text().replace('"o8"', f'"{long_name}"'))
-    fig = _render(results)
+    fig = _render(results, examples=(long_name,))
     try:
         fig.canvas.draw()
         renderer = fig.canvas.get_renderer()
         (ax,) = fig.axes
-        label = next(t for t in ax.texts if t.get_text() == long_name.replace("_", " "))
+        label = next(t for t in ax.texts if t.get_text().startswith(long_name))
         box = matplotlib.text.Text.get_window_extent(label, renderer)
         assert box.x1 <= ax.get_window_extent(renderer).x1
     finally:
@@ -362,7 +352,7 @@ def test_the_committed_f1_has_clear_labels():
     spec.loader.exec_module(module)
     fig = module.build(SCRIPT.parents[1] / "results")
     try:
-        assert len(_label_boxes(fig)) == 6
+        _assert_labels_are_clear(fig)
         _assert_labels_are_clear(fig)
     finally:
         plt.close(fig)

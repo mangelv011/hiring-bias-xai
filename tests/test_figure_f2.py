@@ -25,7 +25,7 @@ def _load_script():
     return module
 
 
-# 36 words in the error bio; the 8 largest |value| are marked below. Two of them are gendered
+# 32 words in the error bio; the 8 largest |value| are marked below. Two of them are gendered
 # ("She", "her"), and one word is longer than a line of the sentence block.
 ERROR_WORDS = (
     "She leads a team of surgeons and her patients praise the care; contact "
@@ -38,8 +38,6 @@ for word, value in {
     "nurse": 3.0, "trained": -0.4,
 }.items():  # fmt: skip
     ERROR_VALUES[ERROR_WORDS.index(word)] = value
-MAN_WORDS = "He is a nurse and his ward is busy".split()
-MAN_VALUES = np.array([0.5, 0.0, 0.0, 2.0, 0.0, 1.0, 0.0, 0.5, 0.0])
 
 
 @pytest.fixture(scope="module")
@@ -47,16 +45,18 @@ def f2():
     return _load_script()
 
 
-@pytest.fixture
-def cases(f2):
-    woman = f2.Case("test-1", ERROR_WORDS, "surgeon", "nurse", "female", ERROR_VALUES)
-    man = f2.Case("test-2", MAN_WORDS, "nurse", "surgeon", "male", MAN_VALUES)
-    return woman, man
+EXCERPT = 25  # words of the bio that the figure prints; the real figure prints 40
 
 
 @pytest.fixture
-def figure(f2, cases):
-    fig = f2.build(*cases)
+def case(f2, monkeypatch):
+    monkeypatch.setattr(f2, "MAX_WORDS", EXCERPT)
+    return f2.Case("test-1", ERROR_WORDS, "surgeon", "nurse", "female", ERROR_VALUES)
+
+
+@pytest.fixture
+def figure(f2, case):
+    fig = f2.build(case)
     fig.set_dpi(plotting.DPI)  # the resolution the figure is saved at
     fig.canvas.draw()
     yield fig
@@ -99,8 +99,8 @@ def test_nothing_is_drawn_outside_the_figure(figure):
         assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
 
 
-def test_each_case_has_horizontal_bars_for_its_eight_largest_values_sorted_by_size(figure):
-    error_ax, man_ax = _bar_axes(figure)
+def test_the_case_has_horizontal_bars_for_its_eight_largest_values_sorted_by_size(figure):
+    (error_ax,) = _bar_axes(figure)
     expected = ["nurse", "She", "surgeons", "her", "patients", "care;", "hospital", "trained"]
     labels = [t.get_text() for t in error_ax.get_yticklabels()]
     assert labels == expected  # top to bottom
@@ -108,15 +108,10 @@ def test_each_case_has_horizontal_bars_for_its_eight_largest_values_sorted_by_si
     assert widths == pytest.approx([3.0, 2.0, -1.5, 1.2, 0.9, -0.7, 0.6, -0.4])
     assert [p.get_y() + p.get_height() / 2 for p in error_ax.patches] == pytest.approx(range(8))
     assert error_ax.yaxis_inverted()  # the largest value is the first bar, at the top
-    assert len(man_ax.patches) == 8
-    # Ties (here the zeros and the two 0.5) keep the order of the words in the bio.
-    assert [t.get_text() for t in man_ax.get_yticklabels()] == [
-        "nurse", "his", "He", "is", "is", "a", "and", "ward"
-    ]  # fmt: skip
 
 
 def test_gendered_words_are_in_the_highlight_colour_and_the_others_in_grey(figure):
-    error_ax, _ = _bar_axes(figure)
+    (error_ax,) = _bar_axes(figure)
     labels = [t.get_text() for t in error_ax.get_yticklabels()]
     colours = [matplotlib.colors.to_hex(p.get_facecolor()).upper() for p in error_ax.patches]
     gendered = {"She", "her"}
@@ -128,38 +123,44 @@ def test_gendered_words_are_in_the_highlight_colour_and_the_others_in_grey(figur
 
 
 def test_every_bar_has_its_value_written_at_its_end(figure):
-    error_ax, _ = _bar_axes(figure)
+    (error_ax,) = _bar_axes(figure)
     assert [t.get_text() for t in error_ax.texts] == [
         "+3.0", "+2.0", "-1.5", "+1.2", "+0.9", "-0.7", "+0.6", "-0.4"
     ]  # fmt: skip
 
 
 def test_there_is_a_zero_line_and_an_axis_label_naming_the_predicted_occupation(figure):
-    woman_ax, man_ax = _bar_axes(figure)
-    for ax, predicted in ((woman_ax, "nurse"), (man_ax, "surgeon")):
-        assert any(np.all(np.asarray(line.get_xdata()) == 0) for line in ax.get_lines())
-        assert predicted in ax.get_xlabel()
-        assert "log-odds" not in ax.get_xlabel()
-        assert "score points" in ax.get_xlabel()
+    (ax,) = _bar_axes(figure)
+    assert any(np.all(np.asarray(line.get_xdata()) == 0) for line in ax.get_lines())
+    assert "nurse" in ax.get_xlabel()
+    assert "log-odds" not in ax.get_xlabel()
+    assert "score points" in ax.get_xlabel()
 
 
-def test_the_whole_bio_is_written_above_its_bars_in_a_monospaced_font(figure):
-    error_text, man_text = _text_axes(figure)
-    for ax, words in ((error_text, ERROR_WORDS), (man_text, MAN_WORDS)):
-        shown = [t.get_text() for t in ax.texts]
-        assert "".join(shown) == "".join(words)
-        assert {t.get_fontfamily()[0] for t in ax.texts} == {"monospace"}
+def test_the_bio_is_written_in_monospace_and_cut_after_the_excerpt_with_an_ellipsis(f2, case):
+    fig = f2.build(case)
+    fig.canvas.draw()
+    (ax,) = _text_axes(fig)
+    assert "".join(t.get_text() for t in ax.texts) == "".join(ERROR_WORDS[:EXCERPT]) + "\u2026"
+    assert {t.get_fontfamily()[0] for t in ax.texts} == {"monospace"}
+    short = f2.build(_case(f2, ERROR_WORDS[:20], ERROR_VALUES[:20]))
+    short.canvas.draw()
+    (short_ax,) = _text_axes(short)
+    assert "".join(t.get_text() for t in short_ax.texts) == "".join(ERROR_WORDS[:20])
+    plt.close(fig)
+    plt.close(short)
 
 
 def _underlines(ax):
     return [line for line in ax.get_lines() if line.get_gid() == "underline"]
 
 
-def test_the_eight_words_of_the_bars_are_underlined_under_their_own_text(figure):
-    error_text, _ = _text_axes(figure)
+def test_the_words_of_the_bars_inside_the_excerpt_are_underlined_under_their_own_text(figure):
+    (error_text,) = _text_axes(figure)
     underlined = _underlines(error_text)
-    # The 8 words fit on one line each; no underlined word is a chunk of the long address.
-    assert len(underlined) == 8
+    # She, surgeons, her, patients, care; and hospital lie in the first 25 words; trained and
+    # nurse come later. No underlined word is a chunk of the long address.
+    assert len(underlined) == 6
     pieces = {t.get_text(): t for t in error_text.texts}
     for line in underlined:
         (x0, x1), (y0, _) = line.get_xdata(), line.get_ydata()
@@ -176,11 +177,11 @@ def test_the_eight_words_of_the_bars_are_underlined_under_their_own_text(figure)
 
 
 def test_underlines_of_gendered_words_are_highlighted_and_the_rest_dark(figure):
-    error_text, _ = _text_axes(figure)
+    (error_text,) = _text_axes(figure)
     colours = sorted(
         matplotlib.colors.to_hex(line.get_color()).upper() for line in _underlines(error_text)
     )
-    assert colours == sorted([plotting.HIGHLIGHT] * 2 + ["#333333"] * 6)
+    assert colours == sorted([plotting.HIGHLIGHT] * 2 + ["#333333"] * 4)
 
 
 def _case(f2, words, values, gender="female", bio_id="test-9", true="a", predicted="b"):
@@ -188,7 +189,7 @@ def _case(f2, words, values, gender="female", bio_id="test-9", true="a", predict
 
 
 def test_a_word_longer_than_a_line_is_split_over_lines_and_each_piece_underlined_if_it_is_top(f2):
-    fig = f2.build(_case(f2, ["x" * 120, "she"], [5.0, 1.0]), None)
+    fig = f2.build(_case(f2, ["x" * 120, "she"], [5.0, 1.0]))
     fig.canvas.draw()
     (error_text,) = _text_axes(fig)
     assert "".join(t.get_text() for t in error_text.texts) == "x" * 120 + "she"
@@ -198,7 +199,7 @@ def test_a_word_longer_than_a_line_is_split_over_lines_and_each_piece_underlined
 
 
 def test_a_unit_that_only_contains_a_gendered_word_is_not_highlighted(f2):
-    fig = f2.build(_case(f2, ["shoot...she", "She,", "sheriff"], [5.0, 1.0, 0.5]), None)
+    fig = f2.build(_case(f2, ["shoot...she", "She,", "sheriff"], [5.0, 1.0, 0.5]))
     fig.canvas.draw()
     (ax,) = _bar_axes(fig)
     colours = [matplotlib.colors.to_hex(p.get_facecolor()).upper() for p in ax.patches]
@@ -216,48 +217,22 @@ def _title_lines(fig):
     return title.get_text(), title._get_wrapped_text().count("\n") + 1
 
 
-def test_the_title_is_one_sentence_of_at_most_two_lines_with_both_pushes(figure):
-    # Gendered sum of the woman's bio: She 2.0 + her 1.2 = 3.2. Of the man's: He 0.5 + his 1.0.
+def test_the_title_is_one_sentence_of_at_most_two_lines_with_the_push(figure):
+    # Gendered sum of the case: She 2.0 + her 1.2 = 3.2.
     text, lines = _title_lines(figure)
-    assert text == (
-        "Gender words added 3.2 score points to a wrong job for a woman and 1.5 for a man."
-    )
+    assert text == "Gender words added 3.2 score points to a wrong job for a woman."
     assert lines <= 2
 
 
-def test_the_title_says_which_group_has_no_case(f2):
-    woman = _case(f2, ["she", "x"], [2.0, 1.0])
-    only_woman, lines = _title_lines(f2.build(woman, None))
-    assert only_woman == (
-        "Gender words added 2.0 score points to a wrong job for a woman; "
-        "no misclassified man qualified."
-    )
+def test_the_title_and_panel_say_when_there_is_no_case(f2):
+    none, lines = _title_lines(f2.build(None))
+    assert none == "No misclassified woman met the rules, so there is no case to show."
     assert lines <= 2
-    man = _case(f2, ["he", "x"], [3.0, 1.0], gender="male")
-    only_man, lines = _title_lines(f2.build(None, man))
-    assert only_man == (
-        "Gender words added 3.0 score points to a wrong job for a man; "
-        "no misclassified woman qualified."
-    )
-    assert lines <= 2
-    none, lines = _title_lines(f2.build(None, None))
-    assert none == "No misclassified woman or man met the rules, so there is no case to show."
-    assert lines <= 2
-
-
-def test_a_group_without_a_case_has_a_panel_that_says_so_and_no_bars(f2):
-    fig = f2.build(_case(f2, ["she", "x"], [2.0, 1.0]), None)
-    fig.canvas.draw()
-    assert len(_bar_axes(fig)) == 1
-    texts = [t.get_text() for t in fig.texts]
-    assert "Man in a female-dominated occupation: no bio met the rules." in texts
-    empty = f2.build(None, None)
+    empty = f2.build(None)
     empty.canvas.draw()
     assert _bar_axes(empty) == []
     texts = [t.get_text() for t in empty.texts]
     assert "Woman in a male-dominated occupation: no bio met the rules." in texts
-    assert "Man in a female-dominated occupation: no bio met the rules." in texts
-    plt.close(fig)
     plt.close(empty)
 
 
@@ -272,21 +247,20 @@ def test_the_figure_says_that_per_word_values_carry_sampling_noise(figure):
     assert any("sampling noise" in t.get_text() for t in figure.texts)
 
 
-def test_each_case_is_named_above_its_sentence_by_gender_true_and_predicted_occupation(figure):
+def test_the_case_is_named_above_its_sentence_by_gender_true_and_predicted_occupation(figure):
     headers = [t.get_text() for t in figure.texts]
-    # Gendered units of the woman's bio: She, her and she (2.0 + 1.2 + 0.0); of the man's: He, his.
-    assert "Woman, true surgeon, predicted nurse (test-1)." in headers
-    assert "Man, true nurse, predicted surgeon (test-2)." in headers
+    assert "Woman, true surgeon, predicted nurse (test-1), first 25 of 32 words." in headers
 
 
-def test_a_note_gives_the_gender_words_total_of_each_case_and_how_extreme_the_cases_are(f2, cases):
-    fig = f2.build(*cases, wrong=(114, 154))
+def test_a_short_note_gives_the_gender_words_total_and_how_extreme_the_case_is(f2, case):
+    fig = f2.build(case, wrong=114)
     notes = [" ".join(t.get_text().split()) for t in fig.texts]
-    assert any(
-        "Gender words: +3.2 from 3 units for the woman, +1.5 from 2 for the man; "
-        "the largest of 114 and 154 wrong decisions." in note
-        for note in notes
+    # Gendered units of the bio: She, her and she (2.0 + 1.2 + 0.0).
+    assert (
+        "Gender words: +3.2 from 3 units, the largest of 114 wrong decisions. "
+        "Per-word values carry sampling noise." in notes
     )
+    assert not any("A score point is" in note for note in notes)
     plt.close(fig)
 
 
@@ -352,18 +326,19 @@ def test_main_saves_the_figure_and_the_record_of_the_picked_bios(run):
     assert "male-dominated" in record["rule"] and "female-dominated" in record["rule"]
     assert "15 word units" in record["rule"]
     assert any("the largest of" in t.get_text() for t in run.figure.texts)
+    assert len(_bar_axes(run.figure)) == 1
     assert "six or more digits" in record["rule"]
 
 
 def test_a_label_longer_than_14_characters_is_cut_with_an_ellipsis(f2):
-    fig = f2.build(_case(f2, ["x" * 30, "she"], [5.0, 1.0]), None)
+    fig = f2.build(_case(f2, ["x" * 30, "she"], [5.0, 1.0]))
     (error_ax,) = _bar_axes(fig)
     assert [t.get_text() for t in error_ax.get_yticklabels()] == ["x" * 13 + "\u2026", "she"]
     plt.close(fig)
 
 
 def test_each_value_is_written_beyond_the_end_of_its_bar_on_the_side_it_points_to(figure):
-    error_ax, _ = _bar_axes(figure)
+    (error_ax,) = _bar_axes(figure)
     for bar, label in zip(error_ax.patches, error_ax.texts, strict=True):
         end = error_ax.transData.transform([(bar.get_x() + bar.get_width(), 0)])[0][0]
         extent = label.get_window_extent()
