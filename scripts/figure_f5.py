@@ -3,8 +3,8 @@
 Panel a: the main model's deletion curves from `results/deletion_curves.csv`: the fall in the
 score of the true occupation as words are removed most important first (highlight), at
 random (grey, with its 95% interval over bios) and least important first. Panel b: the
-median Spearman correlation and the median top-10 overlap, with 95% bootstrap intervals, of the
-three checks in `results/stability.json`, sorted by the correlation. Each row says what changed
+median Spearman correlation, with its 95% bootstrap interval, of the
+checks in `results/stability.json`, sorted by the correlation. Each row says what changed
 from the main run (Shapley, delete removal, seed 42).
 The title states the finding: whether the deletion check of `results/deletion_areas.json` holds,
 and whether another way of computing the values moves the ranking further than a rerun with
@@ -24,13 +24,11 @@ SCREENER = "deberta"
 FIGURE_NAME = "f5_explanation_checks"
 DARK = "#333333"
 LERF = "#666666"  # a mid grey: darker than random's NEUTRAL, with its own dashed line
-HEIGHT_INCHES = 4.4
+HEIGHT_INCHES = 4.0
 LAST_STEP = 0.5  # the deletion curves stop at half of the words
 LABEL_ROOM = 0.22  # room right of the last step for the curve labels, in fractions of the bio
 LABEL_GAP = 0.13  # least distance between curve labels, as a share of the y range
-NAME_OFFSET_PT = 30  # the measure names sit this far right of the last row's intervals
 LABEL_OFFSET_PT = 8  # gap between a dot and its value, in points
-OFFSET = 0.18  # distance of each dot from the row's centre line
 CURVES = (
     ("morf", HIGHLIGHT, "-", "highest value\nfirst"),
     ("random", NEUTRAL, "-", "random"),
@@ -102,45 +100,27 @@ def _agreement_panel(ax, stability: dict) -> None:
     names = sorted(checks, key=lambda name: -checks[name]["spearman"]["median"])
     rows = list(range(len(names)))
     ax.axvline(0, color=DARK, lw=0.6)
-    for metric, colour, shift, label in (
-        ("spearman", HIGHLIGHT, -OFFSET, "rank correlation"),
-        ("top10_overlap", NEUTRAL, OFFSET, "shared top-10 words"),
-    ):
-        ys = [row + shift for row in rows]
-        values = [checks[name][metric]["median"] for name in names]
-        bounds = [checks[name][metric]["median_ci"] for name in names]
-        ax.hlines(ys, [b[0] for b in bounds], [b[1] for b in bounds], colors=colour)
-        ax.scatter(values, ys, c=colour, zorder=3)
-        for y, value, bound in zip(ys, values, bounds, strict=True):
-            ax.annotate(
-                f"{value:.2f}",
-                (max(value, bound[1]), y),
-                xytext=(LABEL_OFFSET_PT, 0),
-                textcoords="offset points",
-                color=colour,
-                va="center",
-                ha="left",
-            )
-        last_high = max(
-            max(checks[names[-1]][m]["median_ci"][1], checks[names[-1]][m]["median"])
-            for m in ("spearman", "top10_overlap")
-        )
+    values = [checks[name]["spearman"]["median"] for name in names]
+    bounds = [checks[name]["spearman"]["median_ci"] for name in names]
+    ax.hlines(rows, [b[0] for b in bounds], [b[1] for b in bounds], colors=HIGHLIGHT)
+    ax.scatter(values, rows, c=HIGHLIGHT, zorder=3)
+    for y, value, bound in zip(rows, values, bounds, strict=True):
         ax.annotate(
-            label,
-            (last_high, ys[-1]),
-            xytext=(NAME_OFFSET_PT, 0),
+            f"{value:.2f}",
+            (max(value, bound[1]), y),
+            xytext=(LABEL_OFFSET_PT, 0),
             textcoords="offset points",
-            color=colour,
+            color=HIGHLIGHT,
             va="center",
             ha="left",
         )
     ax.set_yticks(rows)
     ax.set_yticklabels([CHECK_NAMES[name] for name in names])
     ax.set_ylim(len(names) - 0.5, -0.5)
-    ax.set_xlim(min(0, min(checks[n]["spearman"]["median_ci"][0] for n in names)) - 0.15, 1.9)
+    ax.set_xlim(min(0, min(b[0] for b in bounds)) - 0.15, 1.3)
     ax.set_xticks([0, 0.5, 1])
     ax.xaxis.set_major_formatter(lambda value, _: f"{value:g}")
-    ax.set_xlabel("Agreement with the main run\n(median over bios, 95% interval)")
+    ax.set_xlabel("Rank correlation with the main run\n(median over bios, 95% interval)")
     ax.set_title("b  Do the rankings agree?", loc="left", fontweight="bold")
 
 
