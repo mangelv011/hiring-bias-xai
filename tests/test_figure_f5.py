@@ -249,33 +249,33 @@ def test_checks_are_rows_sorted_by_the_median_correlation_and_say_what_changed(f
     assert bottom.yaxis_inverted()
 
 
-def test_each_row_has_a_correlation_dot_in_the_highlight_and_an_overlap_dot_in_grey(figure):
+def test_each_row_has_one_correlation_dot_in_the_highlight_and_no_overlap_dot(figure):
     _, bottom = _axes(figure)
     dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
-    correlation, overlap = dots
+    (correlation,) = dots
     assert correlation.get_offsets()[:, 0].tolist() == pytest.approx([0.95, 0.89, 0.70, 0.06])
-    assert overlap.get_offsets()[:, 0].tolist() == pytest.approx([0.90, 0.80, 0.60, 0.20])
+    assert [y for _, y in correlation.get_offsets()] == pytest.approx([0, 1, 2, 3])
     assert {_hex(c) for c in correlation.get_facecolor()} == {plotting.HIGHLIGHT}
-    assert {_hex(c) for c in overlap.get_facecolor()} == {plotting.NEUTRAL}
-    intervals = [
+    (intervals,) = [
         c for c in bottom.collections if isinstance(c, matplotlib.collections.LineCollection)
     ]
-    first = [seg.tolist() for seg in intervals[0].get_segments()]
+    first = [seg.tolist() for seg in intervals.get_segments()]
     assert [seg[0][0] for seg in first] == pytest.approx([0.90, 0.84, 0.65, 0.02])
     assert [seg[1][0] for seg in first] == pytest.approx([0.99, 0.93, 0.74, 0.09])
 
 
-def test_the_two_measures_are_named_next_to_the_data_and_zero_is_marked(figure):
+def test_panel_b_shows_rank_correlation_only_named_in_its_axis_label_and_zero_is_marked(figure):
     _, bottom = _axes(figure)
-    texts = " ".join(t.get_text() for t in bottom.texts)
-    assert "rank correlation" in texts and "shared top-10 words" in texts
+    assert "Rank correlation" in bottom.get_xlabel()
+    texts = " ".join(t.get_text() for t in figure.findobj(matplotlib.text.Text))
+    assert "top-10" not in texts and "top 10" not in texts
     assert bottom.get_legend() is None
     assert any(list(line.get_xdata()) == [0, 0] for line in bottom.lines)
 
 
-def test_the_figure_is_3_03_by_4_4_inches_and_no_text_is_below_7_pt(figure):
+def test_the_figure_is_3_03_by_4_inches_and_no_text_is_below_7_pt(figure):
     assert plotting.WIDTH_INCHES == 3.03
-    assert tuple(figure.get_size_inches()) == (3.03, 4.4)
+    assert tuple(figure.get_size_inches()) == (3.03, 4.0)
     texts = [t for t in figure.findobj(matplotlib.text.Text) if t.get_text().strip()]
     assert min(t.get_fontsize() for t in texts) >= 7
 
@@ -353,46 +353,31 @@ def test_no_curve_label_sits_on_a_curve_or_on_the_zero_line(f5, curves, areas, s
 def test_value_labels_stand_right_of_their_interval_and_clear_their_dots(
     f5, curves, areas, stability
 ):
-    measured = {"seed": (0.89, 0.80), "removal": (0.47, 0.50), "method": (0.42, 0.50)}
-    for name, medians in measured.items():
+    measured = {"seed": 0.89, "removal": 0.47, "method": 0.42}
+    for name, median in measured.items():
         check = stability["checks"][name]
-        for metric, median in zip(("spearman", "top10_overlap"), medians, strict=True):
-            check[metric]["median"] = median
-            check[metric]["median_ci"] = [median - 0.001, median + 0.03]
+        check["spearman"]["median"] = median
+        check["spearman"]["median_ci"] = [median - 0.001, median + 0.03]
     figure = f5.build(curves, areas, stability)
     figure.canvas.draw()
     _, bottom = _axes(figure)
-    dots = [c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)]
-    radius = (dots[0].get_sizes()[0] ** 0.5) / 2 * figure.dpi / 72
+    (dots,) = [
+        c for c in bottom.collections if isinstance(c, matplotlib.collections.PathCollection)
+    ]
+    radius = (dots.get_sizes()[0] ** 0.5) / 2 * figure.dpi / 72
     values = [t for t in bottom.texts if re.fullmatch(r"\d\.\d\d", t.get_text())]
-    assert len(values) == 8
-    for dot in dots:
-        for x, y in dot.get_offsets():
-            px, py = bottom.transData.transform((x, y))
-            high = bottom.transData.transform((x + 0.03, y))[0]
-            (label,) = [
-                t
-                for t in values
-                if abs(t.get_window_extent().get_points()[:, 1].mean() - py) < 3
-                and t.get_text() == f"{x:.2f}"
-            ]
-            box = label.get_window_extent()
-            assert box.x0 >= max(px + radius, high) + 2, label.get_text()
-
-
-def test_the_series_names_stand_right_of_the_value_labels_of_their_row(figure):
-    _, bottom = _axes(figure)
-    names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "shared top-10 words")]
-    assert len(names) == 2
-    values = [t for t in bottom.texts if re.fullmatch(r"\d\.\d\d", t.get_text())]
-    for name in names:
-        box = name.get_window_extent()
-        centre = box.get_points()[:, 1].mean()
-        same_row = [
-            v for v in values if abs(v.get_window_extent().get_points()[:, 1].mean() - centre) < 3
+    assert len(values) == 4
+    for x, y in dots.get_offsets():
+        px, py = bottom.transData.transform((x, y))
+        high = bottom.transData.transform((x + 0.03, y))[0]
+        (label,) = [
+            t
+            for t in values
+            if abs(t.get_window_extent().get_points()[:, 1].mean() - py) < 3
+            and t.get_text() == f"{x:.2f}"
         ]
-        assert same_row
-        assert all(box.x0 > v.get_window_extent().x1 for v in same_row)
+        box = label.get_window_extent()
+        assert box.x0 >= max(px + radius, high) + 2, label.get_text()
 
 
 def test_no_pass_threshold_is_drawn(figure):
@@ -412,17 +397,6 @@ def test_curve_labels_stay_apart_when_curves_end_below_zero(f5, curves, areas, s
     span = 8.0 - (-3.0)  # the MoRF end is 8, the lowest end -3
     assert min(b - a for a, b in zip(ys, ys[1:], strict=False)) >= f5.LABEL_GAP * span - 1e-9
     plt.close(figure)
-
-
-def test_the_measure_names_stand_on_the_rows_of_the_last_check(figure):
-    _, bottom = _axes(figure)
-    last_row = {
-        round(bottom.transData.transform((0, y))[1])
-        for y in (3 - 0.18, 3 + 0.18)  # the correlation and overlap dots of the fourth row
-    }
-    names = [t for t in bottom.texts if t.get_text() in ("rank correlation", "shared top-10 words")]
-    centres = {round(t.get_window_extent().get_points()[:, 1].mean()) for t in names}
-    assert all(any(abs(c - y) <= 3 for y in last_row) for c in centres)
 
 
 def test_the_dots_are_drawn_above_the_lines(figure):
