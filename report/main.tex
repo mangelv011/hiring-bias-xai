@@ -32,7 +32,7 @@ An Explainable-AI Audit of Gender Bias in Occupation Classification}
 \maketitle
 
 \begin{abstract}
-A recruiter searches for a surgeon, and an AI model decides which candidate bios reach them. I audit such a screener: DeBERTa-v3-small fine-tuned to read a short professional bio and label which of 28 jobs it describes, trained on Bias in Bios. Of 100 qualified surgeons it shortlists 76 men but 56 women, and over all 28 jobs it favours the majority gender of each job, more so the larger that majority is ($r = 0.85$). I then ask why, with explainable-AI methods that check one another. Word-level Shapley values (SHAP) and an exact decomposition of the score gap show that in surgeon bios gender words lower women's scores by 1.1 score points and words about the job offset that, so the net score gap is small ($-0.8$, interval includes 0), and that the strongest single word in the largest gap is the name of a website found only in women's bios. Swapping gender words changes few decisions beyond what any edit does, and deletion curves and a weight-scrambling check show that the explanations follow what the model learned while their order depends on the method. Probing shows that the words still carry gender after the pronouns are gone, and the model does not remove it: its last layer holds about as much as word counts on the same text (58.0\% against 59.7\%). Removing pronouns in training and at scoring cuts the shortlist gap by 20\% (8\% to 30\%) for half a point of macro-F1, from one training run per model; removing them only at scoring, with no retraining, cuts it by 17\% (8\% to 25\%). A black-box audit of a local LLM screener finds no gap of 5 points or more between women's and men's names; any name at all lowers the yes-rate by about 6 points, a comparison I had not planned.
+A recruiter searches for a surgeon, and an AI model decides which candidate bios reach them. I audit such a screener: DeBERTa-v3-small, fine-tuned to label short professional bios with one of 28 jobs. Of 100 qualified surgeons it shortlists 76 men but 56 women, and over all 28 jobs it favours the majority gender of each job. Word-level Shapley values show gender words and proxy words pushing the scores, and checks against other methods show that the explanations follow what the model learned. Gender stays readable from the model's last layer once the pronouns are gone. Removing pronouns in training and at scoring cuts the shortlist gap by 20\% (8\% to 30\%) for half a point of macro-F1. A black-box audit of a local LLM screener finds no gap of 5 points or more between women's and men's names.
 \end{abstract}
 
 \section{Introduction}
@@ -41,7 +41,7 @@ Employers screen candidates with models that read text. In the setting I study, 
 
 Such a system is high-risk under the EU AI Act \citep[Annex III]{euaiact2024}: the provider has to examine possible bias, mitigate it and document it. Accuracy cannot show where a bias comes from; explanations can help. The stakeholders are the platform, which carries the legal duty, the recruiter, who sees a biased shortlist, and the candidates, who are set aside without knowing it.
 
-\citet{dearteaga2019bias} showed that occupation classifiers on these bios reproduce the gender imbalance of each job. I repeat that measurement on a modern transformer and go further, asking four questions with methods chosen so that each checks another: \emph{why} the model decides as it does (word-level SHAP and an exact gap decomposition), whether the explanation can be \emph{trusted} (counterfactual swaps, deletion curves and stability checks), \emph{where} gender lives inside the model (probing and activation patching), and \emph{what fixes it} at what cost. Last, I audit a general-purpose LLM used as a screener, where only inputs and outputs can be observed.
+\citet{dearteaga2019bias} showed that occupation classifiers on these bios reproduce the gender imbalance of each job. I repeat that measurement on a modern transformer and go further, asking four questions with methods chosen so that each checks another: \emph{why} the model decides as it does (word-level SHAP and an exact gap decomposition), whether the explanation can be \emph{trusted} (counterfactual swaps, deletion curves and stability checks), \emph{where} gender lives inside the model (probing), and \emph{what fixes it} at what cost. Last, I audit a general-purpose LLM used as a screener, where only inputs and outputs can be observed.
 
 \section{Data and Methods}
 
@@ -49,7 +49,7 @@ Such a system is high-risk under the EU AI Act \citep[Annex III]{euaiact2024}: t
 
 \paragraph{Models.} The \emph{main model} is DeBERTa-v3-small \citep{he2023debertav3}, reading at most 256 tokens, fine-tuned for five epochs (learning rate $3\times10^{-5}$, chosen on dev, seed 42). The \emph{baseline model} is TF-IDF (weighted counts of words and word pairs) with logistic regression. I report macro-F1, the average F1 over the 28 jobs, so small jobs count equally. Macro-F1 is 0.929 on the training bios, 0.788 on the dev bios and 0.783 on the test bios. Dev and test differ by 0.005, and dev macro-F1 was still highest at the last step, while dev loss rose slightly after the third epoch (0.59 to 0.64), a sign of growing confidence, not of lost accuracy. The train--test gap is 0.145, about half the baseline's 0.271. A bio's \emph{score} for a job is its log-odds, which I call score points (not to be confused with percentage points): zero means even odds between this job and all others together, and each point up multiplies the odds by about 2.7.
 
-\paragraph{Measuring bias.} I use two gaps. For each job, the \emph{shortlist gap} is the share of qualified women shortlisted minus the share of qualified men (the TPR gap). The overall shortlist gap is its root mean square over jobs \citep{romanov2019name}: a typical size of the per-job difference, so 0.148 means about 15 points on a typical job. It is 0.148 on the full test set, and 0.143 on the test bios outside the showcase subset, which the mitigation uses. The \emph{score gap} is the difference in mean score between women's and men's bios of a job, in score points; it uses scores, not decisions. All intervals are 95\% bootstrap intervals over bios. To check that shortlist gaps are not luck, I reshuffle gender within each job 1,000 times and count how often a reshuffle gives a gap as large as the real one; per-job tests are corrected for testing 28 jobs (Holm correction \citep{holm1979simple}).
+\paragraph{Measuring bias.} I use two gaps. For each job, the \emph{shortlist gap} is the share of qualified women shortlisted minus the share of qualified men (the TPR gap). The overall shortlist gap is its root mean square over jobs \citep{romanov2019name}: a typical size of the per-job difference, so 0.148 means about 15 points on a typical job. It is 0.148 on the full test set. The \emph{score gap} is the difference in mean score between women's and men's bios of a job, in score points; it uses scores, not decisions. All intervals are 95\% bootstrap intervals over bios. To check that shortlist gaps are not luck, I reshuffle gender within each job 1,000 times and count how often a reshuffle gives a gap as large as the real one; per-job tests are corrected for testing 28 jobs (Holm correction \citep{holm1979simple}).
 
 \paragraph{Explanation methods.} Each method answers one question; Table~\ref{tab:methods} says why each fits.
 
@@ -61,7 +61,7 @@ The \emph{gap decomposition} adds Shapley values over bios: the score gap of a j
 
 \emph{Deletion curves} remove words in order of attribution, in reverse and at random, replacing them with a blank (\texttt{[UNK]}) so the check does not repeat how the values were made \citep{samek2017evaluating}. \emph{Stability} compares the ranking with another seed, with a blank instead of deletion, and with leave-one-out (delete one word and see how the score changes). A \emph{weight-scrambling} check redraws every weight of the model and asks whether the ranking changes \citep{adebayo2018sanity}.
 
-\emph{Linear probing} \citep{belinkov2022probing} looks for a concept, here gender, in the model's activations: a linear probe tries to read gender from each layer of bios with pronouns and titles removed, against the gender predicted from the job alone and against probes on shuffled labels \citep{hewitt2019designing}. \emph{Activation patching} \citep{meng2022locating,heimersheim2024patching} copies the states of the original bio into the run on its swap, at one layer and one set of positions, and measures how much of the original score comes back, which shows where in the bio, at the gender words or elsewhere, the concept sits.
+\emph{Linear probing} \citep{belinkov2022probing} looks for a concept, here gender, in the model's activations: a linear probe tries to read gender from each layer of bios with pronouns and titles removed, against the gender predicted from the job alone and against probes on shuffled labels \citep{hewitt2019designing}.
 
 \begin{table}[!tbp]
 \small
@@ -74,7 +74,6 @@ Gap decomposition & global & Splits the women--men gap into one part per word. \
 Swaps & local & Tests what an edit does; the deletion control separates gender from editing. \\
 Deletion curves, scrambling & check & Check that values point at words the model needs. \\
 Probing & global & Asks if gender is still readable after scrubbing. \\
-Patching & local & Where the swap's effect sits, layer by layer. \\
 Name audit & global & The only option for an LLM seen as a black box. \\
 \bottomrule
 \end{tabular}
@@ -93,7 +92,7 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 \begin{figure}[!tbp]
 \centering
 \includegraphics[width=\columnwidth]{f1_gap_vs_share.pdf}
-\caption{Each dot is a job, with its 95\% interval. Above 0 the model shortlists more qualified women than men, per 100 of each.}
+\caption{Each dot is a job; orange dots are the six jobs used for the explanations, with their 95\% interval. Above 0 the model shortlists more qualified women than men, per 100 of each.}
 \label{fig:f1}
 \end{figure}
 
@@ -102,11 +101,11 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 \begin{figure}[!tbp]
 \centering
 \includegraphics[width=\columnwidth]{f2_shapley_cases.pdf}
-\caption{Two wrong decisions of the main model and the words that moved them: the bio of a woman whose job is mostly held by men and of a man whose job is mostly held by women, chosen by a rule fixed before looking. Bars show how many score points each word added to the score of the wrong job; gender words are highlighted.}
+\caption{A wrong decision of the main model and the words that moved it: the bio of a woman composer labelled rapper, chosen by a rule fixed before looking. The text is the start of the bio; bars show how many score points each of the eight largest words added to the score of the wrong job; gender words are highlighted.}
 \label{fig:f2}
 \end{figure}
 
-\paragraph{Single decisions (\fig{f2}).} A woman composer labelled rapper: her 11 gender words add +3.2 score points to ``rapper''. A man who works as a fashion model, labelled poet: his 2 gender words add +2.0 score points to ``poet''. In both, the strongest words are about the work. These are the most extreme of 114 and 154 wrong decisions, so they illustrate the mechanism and are not typical.
+\paragraph{A single decision (\fig{f2}).} A woman composer labelled rapper: her gender words add +3.2 score points to ``rapper''. The strongest words are about the work. This is the most extreme of 114 wrong decisions of women in jobs mostly held by men, so it illustrates the mechanism and is not typical.
 
 \begin{figure}[!tbp]
 \centering
@@ -115,85 +114,71 @@ Name audit & global & The only option for an LLM seen as a black box. \\
 \label{fig:f3}
 \end{figure}
 
-\paragraph{What makes up the gap (\fig{f3}).} In surgeon bios, women's and men's scores are about the same on average: the score gap ($-0.77$ [$-1.54$, $+0.08$]) cannot be told from zero. That hides two opposing parts. Gender words lower women's scores by 1.12 [1.02, 1.24] score points, and words about the job raise them. This is a breakdown of the score, not the effect of changing the words. In nurse bios gender words favour women by 1.97 score points. In fashion model bios, women's scores are 5.40 score points higher; gender words make up only 15\% of that. The strongest single word is \texttt{freeones}, the name of a website listing adult performers: it appears in 54 of 150 women's bios and none of 150 men's. It may reflect the work or where the bio was published. The baseline model shows the same signs as the main model in every one of the six jobs but software engineer, where the main model gives $+0.05$ [$-0.06$, $+0.16$] and the baseline $-1.84$.
+\paragraph{What makes up the gap (\fig{f3}).} In surgeon bios, women's and men's scores are about the same on average: the score gap ($-0.77$ [$-1.54$, $+0.08$]) cannot be told from zero. That hides two opposing parts. Gender words lower women's scores by 1.12 [1.02, 1.24] score points, and words about the job raise them. This is a breakdown of the score, not the effect of changing the words. In nurse bios gender words favour women by 1.97 score points. In fashion model bios, women's scores are 5.40 score points higher; gender words make up only 15\% of that. The strongest single word is \texttt{freeones}, the name of a website listing adult performers: it appears in 54 of 150 women's bios and none of 150 men's. It may reflect the work or where the bio was published.
 
-\begin{figure}[!tbp]
-\centering
-\includegraphics[width=\columnwidth]{f4_flip_rates.pdf}
-\caption{Share of the main model's decisions that change when gender words are swapped (highlight) or deleted (grey), by job and over the six showcase jobs, with 95\% intervals.}
-\label{fig:f4}
-\end{figure}
-
-\paragraph{Does changing only the gender change the decision? (\fig{f4})} Swapping changes 6.9\% [5.7, 8.1] of the main model's decisions and deleting the same words changes 6.3\% [5.2, 7.5]: most flips come from editing the text. So gender words push the scores (Figure~\ref{fig:f3}) but change few final decisions. When a swap flips a decision, 88\% [82, 94] of the new jobs have more workers of the new gender. For deletion flips, counted against the same reference, it is 72\% [63, 80]. The intervals overlap, so I find no reaction to gender beyond the edit, though with 1,721 bios a difference of one or two points would not show. The baseline model reacts more to the swap itself (13.5\% against 8.8\%). Reading 50 swapped bios by hand, 3 read wrongly.
+\paragraph{Does changing only the gender change the decision?} Swapping changes 6.9\% [5.7, 8.1] of the main model's decisions and deleting the same words changes 6.3\% [5.2, 7.5]: most flips come from editing the text. So gender words push the scores (Figure~\ref{fig:f3}) but change few final decisions. When a swap flips a decision, 88\% [82, 94] of the new jobs have more workers of the new gender. For deletion flips, counted against the same reference, it is 72\% [63, 80]. The intervals overlap, so I find no reaction to gender beyond the edit, though with 1,721 bios a difference of one or two points would not show. The baseline model reacts more to the swap itself (13.5\% against 8.8\%). Reading 50 swapped bios by hand, 3 read wrongly.
 
 \begin{figure}[!tbp]
 \centering
 \includegraphics[width=\columnwidth]{f5_explanation_checks.pdf}
-\caption{(a) Fall in the true job's score, in score points, as words are removed in three orders. (b) Agreement of the main Shapley ranking with a rerun under another seed, with a blank instead of deletion, with leave-one-out and after scrambling every weight of the model (orange: rank correlation; grey: shared top 10 words; intervals narrower than the marker are hidden).}
+\caption{(a) Fall in the true job's score, in score points, as words are removed in three orders. (b) Rank correlation of the main Shapley ranking with a rerun under another seed, with a blank instead of deletion, with leave-one-out and after scrambling every weight of the model, with 95\% intervals (hidden when narrower than the marker).}
 \label{fig:f5}
 \end{figure}
 
-\paragraph{Can the explanations be trusted? (\fig{f5})} Removing words with the highest Shapley values first lowers the main model's score by 7.0 score points on average, against 1.5 at random and a rise of 0.7 for the lowest first: the values point at words the model needs. Two Shapley runs with different seeds (100 bios) rank a bio's words almost the same way (median rank correlation 0.89, 8 of the top 10 shared). Hiding a word with \texttt{[UNK]} instead of deleting it (0.47), or using leave-one-out (0.42), changes the order far more. With every weight of the model scrambled, the rank correlation falls to 0.06 and the top 10 share 2 words, no more than chance, against 0.89 and 8 between two seeds: the explanations follow what the model learned.
+\paragraph{Can the explanations be trusted? (\fig{f5})} Removing words with the highest Shapley values first lowers the main model's score by 7.0 score points on average, against 1.5 at random and a rise of 0.7 for the lowest first: the values point at words the model needs. Two Shapley runs with different seeds (100 bios) rank a bio's words almost the same way (median rank correlation 0.89). Hiding a word with \texttt{[UNK]} instead of deleting it (0.47), or using leave-one-out (0.42), changes the order far more. With every weight of the model scrambled, the rank correlation falls to 0.06, against 0.89 between two seeds: the explanations follow what the model learned.
 
 \begin{figure}[!tbp]
 \centering
-\includegraphics[width=\columnwidth]{f6_probing_patching.pdf}
-\caption{(a) Share of bios whose gender a linear probe guesses, on bios without pronouns, by layer, against guesses from the job alone and from word counts (emb.\ is the input layer; pretrained is the same network before fine-tuning). (b) Share of the swap's effect restored by patching the states of the swapped words or of all the other words.}
+\includegraphics[width=\columnwidth]{f6_probing.pdf}
+\caption{Share of bios whose gender a linear probe guesses from the main model's layers, on bios without pronouns, against guesses from the job alone and from word counts (emb.\ is the input layer).}
 \label{fig:f6}
 \end{figure}
 
-\paragraph{Gender inside the model (\fig{f6}).} On bios without pronouns or titles, a probe still guesses gender 63\% of the time from the main model's embeddings and 58.0\% [55.8, 60.4] from its last layer, against 52.3\% [50.0, 54.6] from the job alone and 59.7\% [57.2, 62.0] from TF-IDF on the same words. The words themselves, such as names, topics and site names, carry gender, and the model does not remove it: its last layer holds about as much as word counts on the same text. Patching 168 bios that the swap moves most, the swapped words alone restore 96\% of the effect at layer 1, 42\% at layer 4 and 17\% at layer 5, while all the other words restore 3\%, 56\% and 82\%. The effect moves to other positions of the bio within four layers; patching shows where the effect sits and leaves open how it got there. A fix that edits only the pronouns would have to act early.
+\paragraph{Gender inside the model (\fig{f6}).} On bios without pronouns or titles, a probe still guesses gender 63\% of the time from the main model's embeddings and 58.0\% [55.8, 60.4] from its last layer, against 52.3\% [50.0, 54.6] from the job alone and 59.7\% [57.2, 62.0] from TF-IDF on the same words. The words themselves, such as names, topics and site names, carry gender, and the model does not remove it: its last layer holds about as much as word counts on the same text.
 
 \section{Actions and Insights}
 
-\begin{figure}[!tbp]
-\centering
-\includegraphics[width=\columnwidth]{f7_mitigation.pdf}
-\caption{Macro-F1 and overall shortlist gap of the five mitigation conditions of Table~\ref{tab:mitigation}, on the test bios outside the showcase subset, with 95\% intervals; arrows start at the original model, and the grey band is the gap that shuffled genders give.}
-\label{fig:f7}
-\end{figure}
-
 \begin{table}[!tbp]
-\small
+\footnotesize
 \centering
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lcc>{\centering\arraybackslash}p{1.8cm}@{}}
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{@{}lccc@{}}
 \toprule
-Condition & Macro-F1 & Shortlist gap & Change in gap vs (a) \\
+Condition & F1 & Gap & Change vs (a) \\
 \midrule
 a. original & 0.784 & 0.143 & \\
-b. scrubbed bios & 0.776 & 0.119 & $-0.025$ \\
-c. scrubbed model & 0.780 & 0.110 & $-0.033$ \\
-d. scrubbed both & 0.779 & 0.115 & $-0.028$ \\
-e. proxy words out & 0.782 & 0.141 & $-0.002$ \\
+b. scrubbed bios & 0.776 & 0.119 & $-0.025$ [$-0.035,-0.012$] \\
+c. scrubbed model & 0.780 & 0.110 & $-0.033$ [$-0.046,-0.018$] \\
+d. scrubbed both & 0.779 & 0.115 & $-0.028$ [$-0.043,-0.012$] \\
+e. proxy words out & 0.782 & 0.141 & $-0.002$ [$-0.005,0.000$] \\
 \bottomrule
 \end{tabular}
-\caption{Mitigation on 97,348 test bios outside the showcase subset; dietitian has no men left there, so the gap averages 27 jobs. The change is paired with (a); its interval excludes 0 for b--d and includes 0 for e.}
+\caption{Mitigation on 97,348 test bios outside the showcase subset, where dietitian has no men left, so the gap is the root mean square over 27 jobs. F1 is macro-F1. The change is paired with (a), with its 95\% interval in brackets.}
 \label{tab:mitigation}
 \end{table}
 
-\paragraph{What removing the cues achieves (\fig{f7}, Table~\ref{tab:mitigation}).} \fig{f3} shows that gender words make up a large part of the surgeon and nurse score gaps, which is why I scrub them. Training and scoring on bios without pronouns (d) lowers the overall shortlist gap from 0.143 to 0.115, a 20\% cut (8\% to 30\%), for 0.5 points of macro-F1. I choose (d) over (c), the scrubbed model on raw bios: their gaps differ by less than their intervals, and 99\% of the bios hold a gender word, which in (c) reaches a model that never saw one. Scrubbing only the bios at scoring time (b) cuts the gap by 17\% (8\% to 25\%) with no retraining. Deleting the six proxy words leaves the gap where it was: this tests the explanation's next hypothesis, that a few words carry the rest, and it does not hold. The remaining gap is still more than twice the 95th percentile of what chance gives (0.050). By job, the shortlist gap in fashion model moves from 44 to 40 more qualified women than men shortlisted per 100, and in surgeon from 22 to 18 fewer women; these per-job intervals overlap, so only the overall cut is established.
+\paragraph{What removing the cues achieves (Table~\ref{tab:mitigation}).} \fig{f3} shows that gender words make up a large part of the surgeon and nurse score gaps, which is why I scrub them. Training and scoring on bios without pronouns (d) lowers the overall shortlist gap from 0.143 to 0.115, a 20\% cut (8\% to 30\%), for 0.5 points of macro-F1. I choose (d) over (c), the scrubbed model on raw bios: their gaps differ by less than their intervals, and 99\% of the bios hold a gender word, which in (c) reaches a model that never saw one. Scrubbing only the bios at scoring time (b) cuts the gap by 17\% (8\% to 25\%) with no retraining. Deleting the six proxy words leaves the gap where it was: this tests the explanation's next hypothesis, that a few words carry the rest, and it does not hold. The remaining gap is still more than twice the 95th percentile of what chance gives (0.050). By job, the shortlist gap in fashion model moves from 44 to 40 more qualified women than men shortlisted per 100, and in surgeon from 22 to 18 fewer women; these per-job intervals overlap, so only the overall cut is established.
 
-\paragraph{A gendered shortcut found with the explanations.} The explanations point at \texttt{freeones}, a website name that appears in 54 of 150 women's and in none of 150 men's fashion model bios, and that adds +0.95 to the score gap there. The site lists adult performers and the job is fashion model, so the word may reflect the work or where the bio was published; I cannot tell which. Either way the model uses it as a gendered shortcut. Deleting it and the five other proxy words (condition e) moves the shortlist gap in fashion model from 44 to 42 points, and the overall shortlist gap from 0.143 to 0.141: the model reads gender from far more than these words.
+\paragraph{A gendered shortcut found with the explanations.} The strongest word in the fashion model gap, \texttt{freeones}, adds +0.95 to the score gap there. Whatever it reflects, the model uses it as a gendered shortcut. Deleting it and the five other proxy words (condition e) moves the shortlist gap in fashion model from 44 to 42 points: the model reads gender from far more than these words.
 
 \paragraph{Recommendations to the platform.} (1)~The model team scrubs pronouns and titles both in training and at scoring time and retrains, which cut the gap by a fifth in one run; it repeats this with several seeds, and scrubs at scoring time at least, as that alone gave 17\% with no retraining. (2)~The compliance team does not call the screener fair after that. It measures, for every job, the share of qualified women and of qualified men that the model shortlists, with intervals, on labelled held-out bios before each release and each quarter, because the overall number hides jobs such as fashion model and surgeon. (3)~The model team then tests removing gender from the representation itself \citep{ravfogel2020inlp,belrose2023leace}, because the gap that remains sits in other words and in the model's states (\fig{f6}), and reports the gap and the macro-F1 it costs. (4)~Whoever explains a decision to a candidate or an auditor reads explanations as totals over many bios, never word by word for one candidate.
 
-\paragraph{An LLM screener.} The model read the gender of 372 of 375 names and recognised Moroccan, Romanian and British names, but took most Spanish names for Hispanic American; I merged those two groups, as fixed in advance. Figure~\ref{fig:f8} shows the results. With a woman's or a man's name it says yes to 53 of 100 qualified candidates either way: the difference is $-0.5$ points [$-4.7$, $+3.5$], so there is no gap of 5 points or more. No origin group differs from the British one after correcting for the number of groups tested (Holm), but each interval reaches about 7 to 8 points either side of its estimate, so a smaller difference could not be seen. Having any name at all lowers the yes-rate by 6.0 points [2.1, 10.1], a comparison I had not planned, so it is a lead. It is also confounded: some bios already contain a name, for example a profile that opens with ``Mrs.'' and a full name, and adding a name sometimes changes the pronouns. Rewording the instruction moves it more (59 to 47 or 39). Of 594 changed decisions, 85\% by a keyword rule (82\% in a hand check of 50) give a reason that does not mention name, origin or gender.
+\paragraph{An LLM screener.} The model read the gender of 372 of 375 names and recognised Moroccan, Romanian and British names, but took most Spanish names for Hispanic American; I merged those two groups, as fixed in advance. Figure~\ref{fig:f8} shows the results. With a woman's or a man's name it says yes to 53 of 100 qualified candidates either way: the difference is $-0.5$ points [$-4.7$, $+3.5$], so there is no gap of 5 points or more. No origin group differs from the British one after correcting for the number of groups tested (Holm), but each interval reaches about 7 to 8 points either side of its estimate, so a smaller difference could not be seen. Having any name at all lowers the yes-rate by 6.0 points [2.1, 10.1], a comparison I had not planned, so it is a lead. It is also confounded: some bios already contain a name, for example a profile that opens with ``Mrs.'' and a full name, and adding a name sometimes changes the pronouns. Rewording the instruction moves it more. Of 594 changed decisions, 85\% by a keyword rule (82\% in a hand check of 50) give a reason that does not mention name, origin or gender.
 
 \begin{figure}[!tbp]
 \centering
 \includegraphics[width=\columnwidth]{f8_llm_screener.pdf}
-\caption{Change in the yes-rate of the LLM screener for qualified candidates, against a bio with no name, for each presentation, with 95\% intervals. The top dot is a woman's name minus a man's name; the 5 points of the text are the outer bound of its interval, not a margin fixed in advance; the grey band is the change that an identical rerun and a whitespace edit produce.}
+\caption{Change in the yes-rate of the LLM screener for qualified candidates, against a bio with no name, with 95\% intervals; origin groups are shown per gender. The top dot is a woman's name minus a man's name; the 5 points of the text are the outer bound of its interval, not a margin fixed in advance. The grey band is the change that an identical rerun and a whitespace edit produce.}
 \label{fig:f8}
 \end{figure}
 
 \section{Discussion}
 
-\paragraph{Where the methods agree and disagree.} Attribution and probing agree that gender words push scores towards the majority gender of each job, and that removing the pronouns leaves gender readable; swaps give only a weak hint, through flips that lean towards the new gender's typical job. They disagree on how much the pronouns matter: in Figure~\ref{fig:f3} they account for a large part of the surgeon and nurse score gaps, yet swapping them flips few decisions beyond an edit (Figure~\ref{fig:f4}). The two are compatible: a decomposition measures how the score is made up, a swap flips only decisions near the boundary; still a warning against reading attribution as causation \citep{jacovi2020faithfully}.
+\paragraph{Where the methods agree and disagree.} Attribution and probing agree that gender words push scores towards the majority gender of each job, and that removing the pronouns leaves gender readable; swaps give only a weak hint, through flips that lean towards the new gender's typical job. They disagree on how much the pronouns matter: in Figure~\ref{fig:f3} they account for a large part of the surgeon and nurse score gaps, yet swapping them flips few decisions beyond an edit. The two are compatible: a decomposition measures how the score is made up, a swap flips only decisions near the boundary; still a warning against reading attribution as causation \citep{jacovi2020faithfully}.
 
-\paragraph{How explanations could mislead a stakeholder.} A recruiter shown Figure~\ref{fig:f2} might conclude that the model ``uses gender'' for that candidate; the word ranking of one bio changes with the method (Figure~\ref{fig:f5}), so that reading is fragile. A compliance team shown that pronouns were removed might conclude that gender is gone; Figure~\ref{fig:f6} shows it is not. The \texttt{freeones} finding is easy to misread as a fact about women; it may reflect the work or where some bios were published.
+\paragraph{How explanations could mislead a stakeholder.} A recruiter shown Figure~\ref{fig:f2} might conclude that the model ``uses gender'' for that candidate; the word ranking of one bio changes with the method (Figure~\ref{fig:f5}), so that reading is fragile. A compliance team shown that pronouns were removed might conclude that gender is gone; Figure~\ref{fig:f6} shows it is not. The \texttt{freeones} finding is easy to misread as a fact about women.
 
-\paragraph{Limitations.} The data are short web bios and the task is predicting an occupation. That is a proxy for screening, not a real hiring decision, and the findings carry to CV screening only as far as that proxy holds. One training run per model, so the scrubbed and original models differ also by run-to-run noise. Gender is binary and inferred from pronouns. The deletion check uses a blank for a model trained on text without blanks; retraining-based evaluation \citep{hooker2019benchmark} was too costly, and the weight-scrambling check redraws all weights at once, not layer by layer. Patching shows that the swapped words' states are sufficient to restore the effect, not that they are necessary. The LLM audit covers one small model, one prompt with two rewordings and six jobs, and its pooled contrast sums over jobs, so effects of opposite sign in different jobs could cancel. Whether a stated reason mentions name, origin or gender was decided by a keyword rule, checked by hand on 50 cases (90\% agreement). Stated reasons of LLMs need not reflect their computation \citep{turpin2023language}.
+\paragraph{Limitations.} The data are short web bios and the task is predicting an occupation. That is a proxy for screening, not a real hiring decision, and the findings carry to CV screening only as far as that proxy holds. One training run per model, so the scrubbed and original models differ also by run-to-run noise. Gender is binary and inferred from pronouns. The deletion check uses a blank for a model trained on text without blanks; retraining-based evaluation \citep{hooker2019benchmark} was too costly, and the weight-scrambling check redraws all weights at once, not layer by layer. The LLM audit covers one small model, one prompt with two rewordings and six jobs, and its pooled contrast sums over jobs, so effects of opposite sign in different jobs could cancel. Whether a stated reason mentions name, origin or gender was decided by a keyword rule, checked by hand on 50 cases (90\% agreement). Stated reasons of LLMs need not reflect their computation \citep{turpin2023language}.
 
 \paragraph{Future work.} Remove gender from the representation (LEACE, INLP); compare with gradient attributions; audit larger LLMs.
 
