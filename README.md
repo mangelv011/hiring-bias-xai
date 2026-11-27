@@ -23,13 +23,15 @@ Explainable-AI methods answer why. Pronouns push scores towards the gender that 
 
 ## Key findings
 
-- **Gender words and proxy words push the scores ([F3](docs/results.md#f3-which-words-make-up-the-gap-between-women-and-men)).** In surgeon bios, *she* and *her* lower the model's score for "surgeon" and *he* and *his* raise it, so in sum gender words account for a lower score for women than for men; nurse bios show the reverse. A proxy word is a word that is not a gender word but that mostly one gender's bios contain. For the job "fashion model" the strongest single word is *freeones*, the name of a website listing adult performers. It is in 54 of 150 women's bios and in none of the 150 men's. It may reflect the work or where the bio was published; I cannot tell which, and either way the model uses it as a gendered shortcut.
-- **Swapping *she* for *he* changes few decisions ([F4](docs/results.md#f4-does-changing-only-the-gender-change-the-decision)).** Gender words push the scores, yet the swap changes the decision for 7 of every 100 bios, about as often as deleting the pronouns does (6 of 100). The decisions that do change lean towards the job that the new gender typically holds. The simpler baseline model reacts more: 14 against 9 of every 100.
-- **The explanations hold in aggregate and depend on the method word by word ([F5](docs/results.md#f5-can-the-explanations-be-trusted)).** Removing the words an explanation ranks highest hurts the model far more than removing random words, so the explanations point at what matters. The exact order of the words in one bio changes with how the explanation is computed, so the conclusions rest on totals over hundreds of bios.
-- **The model keeps gender after the pronouns go ([F6](docs/results.md#f6-gender-inside-the-model)).** Gender is carried by the words themselves, such as names, topics and website names, and the model does not remove it: its last layer holds about as much as word counts on the same text. A linear probe guesses gender from the main model's internal states for 58% to 63% of bios, against 52% from the job alone. The effect of swapping pronouns moves from the swapped words to the other positions of the bio within a few layers.
-- **Removing the pronouns narrows the gap by a fifth and leaves most of it ([F7](docs/results.md#f7-does-removing-the-cues-close-the-gap)).** Training and scoring on bios without pronouns brings the shortlist gap from 0.143 to 0.115 for half a point of macro-F1, both measured on the test bios outside the showcase subset. That is a 20% cut (8% to 30%) from one training run per model; scrubbing only at scoring time, with no retraining, cuts it by 17% (8% to 25%). What remains is still more than twice the 95th percentile of what chance gives (0.050). I recommend it as a first step, not as a fix: in the job "fashion model" the model still shortlists 40 more qualified women than men per 100 of each, against 44 before. Deleting the six proxy words barely moves it.
-- **A local LLM screener shows no gap of 5 points or more between women's and men's names, but having a name at all changes its answers ([F8](docs/results.md#f8-does-an-llm-screener-react-to-names)).** With a woman's name instead of a man's, its yes-rate for qualified candidates differs by -0.5 points (interval -4.7 to +3.5). Names from Spain, Morocco, Romania, Hispanic America and the United Kingdom show no difference this data can detect. Any name lowers the yes-rate by about 6 points against no name. That is a lead, not a finding: some bios already contain a name, and adding one sometimes changes the pronouns. Rewording the instruction changes 13% and 16% of its decisions.
-- **A more accurate model is not a fairer one.** The transformer is right more often than a simple word-count baseline (84 against 80 of every 100 bios), but its shortlist gap is not clearly smaller.
+- **Gender words and proxy words push the scores ([F3](docs/results.md#f3-which-words-make-up-the-gap-between-women-and-men)).** In surgeon bios *she* and *her* lower the score for "surgeon"; for "fashion model" the strongest word is *freeones*, a website name in 54 of 150 women's bios and none of 150 men's. It may reflect the work or where the bio was published.
+- **Swapping *she* for *he* changes few decisions ([F4](docs/results.md#f4-does-changing-only-the-gender-change-the-decision)).** The swap changes the decision for 7 of every 100 bios, about as often as deleting the pronouns (6 of 100).
+- **The explanations hold in aggregate and depend on the method word by word ([F5](docs/results.md#f5-can-the-explanations-be-trusted)).** Removing the top-ranked words hurts the model far more than removing random ones, but the word order of one bio changes with the method.
+- **The model keeps gender after the pronouns go ([F6](docs/results.md#f6-gender-inside-the-model)).** A linear probe guesses gender from its states for 58% to 63% of bios, against 52% from the job alone.
+- **Removing the pronouns narrows the gap by a fifth ([F7](docs/results.md#f7-does-removing-the-cues-close-the-gap)).** Scrubbing brings the shortlist gap from 0.143 to 0.115 for half a point of macro-F1, a 20% cut (8% to 30%) from one training run per model; a first step, not a fix.
+- **A local LLM screener shows no gap of 5 points or more between women's and men's names ([F8](docs/results.md#f8-does-an-llm-screener-react-to-names)).** The yes-rate differs by -0.5 points (interval -4.7 to +3.5); any name lowers it by about 6 points against no name, a lead, not a finding.
+- **A more accurate model is not a fairer one.** The transformer is right more often than a word-count baseline (84 against 80 of every 100 bios), but its shortlist gap is not clearly smaller.
+
+Every result, figure and the reasoning behind each number are in **[docs/results.md](docs/results.md)**, which also lists the script that makes each figure. Each technique has an entry in **[docs/methods.md](docs/methods.md)**, and the models and their limits are in the **[model card](docs/model_card.md)**.
 
 ## Limits and intended use
 
@@ -41,21 +43,6 @@ This is a research audit. Do not use these models to screen, rank or reject real
 - Removing pronouns is a first step. It does not make the screener fair.
 
 More in the [model card](docs/model_card.md#caveats-and-limitations).
-
-## What the audit does
-
-| Question | Method | Kind |
-|---|---|---|
-| Who is shortlisted less often, and by how much? | Compare the share of qualified women and men shortlisted, with bootstrap intervals and a shuffle test | Bias metric |
-| Which words drive one decision? | Word-level SHAP: how much each word adds to the score | Local (one decision) |
-| Which words make up the gap between women and men? | Split the score gap exactly into one part per word | Global (many bios) |
-| Does the decision change if only the gender changes? | Swap he and she, with deleting the pronouns as a control | Local and global |
-| Can the explanations be trusted? | Delete words in order of importance; rerun with another seed or method | Explanation check |
-| Where does the model store gender? | Read gender from each layer with a linear probe; copy states between runs (activation patching) | Mechanistic |
-| Does removing the cues close the gap, and at what cost? | Retrain on text without pronouns; delete proxy words | Mitigation |
-| Does a general-purpose LLM do the same with names? | Black-box audit with names from four origin groups (Spain and Hispanic America merged, because the model could not tell their names apart) | Audit |
-
-Every result, figure and the reasoning behind each number are in **[docs/results.md](docs/results.md)**, which also lists the script that makes each figure. Each technique has an entry in **[docs/methods.md](docs/methods.md)**, and the models and their limits are in the **[model card](docs/model_card.md)**.
 
 ## Results
 
