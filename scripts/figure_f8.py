@@ -3,10 +3,11 @@
 Reads `results/llm_audit.json`. Each dot is the change in the yes-rate of qualified candidates
 from the arm with no header, in points, with its 95% interval (bootstrap over bios and first
 names). The grey band is the range of changes that nothing meaningful produces: an identical
-rerun and a whitespace edit. The top dot, in the highlight colour, is the primary contrast:
-women's names minus men's names. The note under the axis gives the share of decision changes
-whose reason does not mention name, origin, nationality or gender, or says the decision barely
-depends on the name when no name arm changes decisions more than the noise does.
+rerun and a whitespace edit. The two top dots, in the highlight colour, are the primary contrast
+(women's names minus men's names) and the pooled change of any name against none. Origin groups
+are shown per gender, because `results/llm_audit.json` holds no pooled-gender statistic for them.
+The share of decision changes whose reason does not mention name, origin or gender is in the
+report text, not in the figure.
 """
 
 import json
@@ -17,8 +18,7 @@ from hiring_bias_xai.config import RESULTS_DIR
 
 FIGURE_NAME = "f8_llm_screener"
 DARK = "#333333"
-HEIGHT_INCHES = 4.1
-NOTE_SHARE = 0.11  # share of the figure height kept free under the axis label for the note
+HEIGHT_INCHES = 3.9
 
 
 def _points(stat: dict) -> tuple[float, float, float]:
@@ -52,26 +52,9 @@ def _label(arm: str) -> str:
     return f"{group}, {'woman' if gender == 'female' else 'man'}"
 
 
-def _note(report: dict) -> str:
-    stated = report["rationalization"]["beyond_noise"]
-    if stated is None:
-        return (
-            "No name arm changes decisions more than the noise does: "
-            "the decision barely depends on the name."
-        )
-    share = stated["share_no_mention"]
-    low, high = 100 * share["ci_low"], 100 * share["ci_high"]
-    return (
-        f"Of {stated['n_flips']} changed decisions, a keyword rule finds that "
-        f"{100 * share['value']:.0f}% ({low:.0f} to {high:.0f}) give a reason that does not "
-        "mention name, origin or gender."
-    )
-
-
 def build(report: dict):
     fig, ax = plotting.new_figure(HEIGHT_INCHES)
     fig.suptitle(title(report), fontweight="bold", wrap=True, x=0, ha="left")
-    fig.get_layout_engine().set(rect=(0, NOTE_SHARE, 1, 1 - NOTE_SHARE))  # the note goes below
     arms = {
         key.split("|", 1)[1]: _points(stat)
         for key, stat in report["statistics"].items()
@@ -81,8 +64,11 @@ def build(report: dict):
     floor = [_points(report["noise_floor"][part]["tpr_diff"]) for part in ("rerun", "edit")]
     band_low, band_high = min(f[1] for f in floor), max(f[2] for f in floor)
     ax.axvspan(band_low, band_high, color=plotting.NEUTRAL, alpha=0.3, lw=0)
-    primary_y = len(ordered) + 0.8
+    pooled_y = len(ordered) + 0.5
+    primary_y = pooled_y + 0.8
     rows = [(y, _label(arm), stat, plotting.NEUTRAL) for y, (arm, stat) in enumerate(ordered)]
+    pooled = _points(report["statistics"]["pooled_names_vs_none"])
+    rows.append((pooled_y, "Any name", pooled, plotting.HIGHLIGHT))
     primary = _points(report["statistics"]["primary"])
     rows.append((primary_y, "Woman's minus man's name", primary, plotting.HIGHLIGHT))
     for y, _, (value, low, high), colour in rows:
@@ -99,7 +85,6 @@ def build(report: dict):
     ax.axvline(
         0, ymax=(primary_y + 0.3 - bottom) / (top - bottom), color=DARK, lw=0.8
     )  # stops under the label
-    fig.text(0.01, 0.01, _note(report), color=DARK, va="bottom", ha="left", wrap=True)
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
     ax.set_xlabel("Change in yes-rate (points),\nagainst no name", x=1, ha="right")
