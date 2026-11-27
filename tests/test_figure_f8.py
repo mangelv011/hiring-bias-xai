@@ -129,7 +129,7 @@ def test_each_arm_the_primary_contrast_and_any_name_is_a_dot_in_points_sorted_by
     assert [d[2] for d in arms] == [plotting.NEUTRAL] * len(SHOWN)
     values = [d[0] for d in arms]
     assert values == pytest.approx(sorted(100 * ARMS[arm] for arm in SHOWN))
-    assert highlighted[0][1] > arms[-1][1]  # the two contrasts sit above the arms
+    assert highlighted[0][1] > arms[-1][1]
 
 
 def test_every_dot_has_a_95_percent_interval_and_there_is_a_line_at_zero(figure):
