@@ -326,6 +326,7 @@ def test_main_saves_the_figure_and_the_record_of_the_picked_bios(run):
     assert "15 word units" in record["rule"]
     assert any("the largest of" in t.get_text() for t in run.figure.texts)
     assert len(_bar_axes(run.figure)) == 1
+    assert any(t.get_text().startswith("Woman, true surgeon") for t in run.figure.texts)
     assert "six or more digits" in record["rule"]
 
 
@@ -436,3 +437,23 @@ def test_the_count_of_wrong_calls_of_a_group_leaves_out_the_right_calls(run):
     )
     record = json.loads((run() / "f2_cases.json").read_text())
     assert record["women_in_male_dominated"]["n_wrong"] == wrong_women - 1
+
+
+def test_the_word_after_the_excerpt_is_not_underlined_even_when_it_is_a_top_word(f2, monkeypatch):
+    monkeypatch.setattr(f2, "MAX_WORDS", 3)
+    fig = f2.build(_case(f2, list("abcde"), [0.0, 0.0, 0.0, 9.0, 1.0]))
+    fig.canvas.draw()
+    (text_ax,) = _text_axes(fig)
+    assert [t.get_text() for t in text_ax.texts] == ["a", "b", "c", "\u2026"]
+    assert len(_underlines(text_ax)) == 3  # a, b and c; the top word "d" lies beyond the excerpt
+    plt.close(fig)
+
+
+def test_a_bio_of_exactly_the_excerpt_length_is_printed_whole_without_an_ellipsis(f2, monkeypatch):
+    monkeypatch.setattr(f2, "MAX_WORDS", 3)
+    fig = f2.build(_case(f2, list("abc"), [1.0, 2.0, 3.0]))
+    fig.canvas.draw()
+    (text_ax,) = _text_axes(fig)
+    assert "".join(t.get_text() for t in text_ax.texts) == "abc"
+    assert not any("first" in t.get_text() for t in fig.texts)
+    plt.close(fig)

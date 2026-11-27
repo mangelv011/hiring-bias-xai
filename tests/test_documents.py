@@ -154,7 +154,7 @@ def test_key_findings_has_at_most_one_bullet_per_finding():
 
 
 def test_every_key_finding_is_one_line_of_at_most_300_characters_without_its_link():
-    lines = _readme_section("Key findings").split("\n\n")[1].splitlines()  # the bullet list
+    lines = _readme_section("Key findings").split("\n\n")[1].splitlines()
     assert lines and all(line.startswith("- **") for line in lines)
     assert all(len(re.sub(r"\]\([^)]*\)", "]", line)) <= 300 for line in lines)
 
