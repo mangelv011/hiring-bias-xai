@@ -209,8 +209,8 @@ def _bars(fig, case: Case, order: np.ndarray, rect) -> None:
 
 
 GROUPS = (
-    ("Woman", "women_in_male_dominated", "female", "male_dominated"),
-    ("Man", "men_in_female_dominated", "male", "female_dominated"),
+    ("women_in_male_dominated", "female", "male_dominated"),
+    ("men_in_female_dominated", "male", "female_dominated"),
 )
 
 
@@ -304,7 +304,7 @@ def main(results_dir: Path = RESULTS_DIR):
     cases, skipped = load_cases(subset, list(predicted))
     showcase = json.loads((results_dir / "showcase_occupations.json").read_text())
     picks, record, wrong = [], {}, []
-    for _, key, gender, side in GROUPS:
+    for key, gender, side in GROUPS:
         group = [row["occupation"] for row in showcase[side]]
         n_wrong = sum(
             c.gender == gender and c.true in group and c.true != c.predicted for c in cases
