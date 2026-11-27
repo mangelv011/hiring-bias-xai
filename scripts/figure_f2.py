@@ -1,8 +1,8 @@
-"""F2: which words drove the main model's wrong screening decisions for women and for men.
+"""F2: which words drove one of the main model's wrong screening decisions for a woman.
 
-Two showcase-subset bios, from the saved Shapley values of the main model, with values recomputed
-for the occupation it predicted. The cases mirror the finding of F1 and are picked by rules fixed
-before looking at the bios:
+One showcase-subset bio, from the saved Shapley values of the main model, with values recomputed
+for the occupation it predicted. The record `results/f2_cases.json` still holds both cases, a woman
+and a man, picked by rules fixed before looking at the bios; the figure shows the woman's:
 
 - Women whose true occupation is one of the three male-dominated showcase occupations and whom
   the main model gets wrong: the bio where the gender words add the most to the log-odds of the
@@ -86,6 +86,7 @@ def load_cases(subset: pd.DataFrame, predicted: Sequence[str]) -> tuple[list[Cas
 
 
 TOP_WORDS = 8
+MAX_WORDS = 40  # the figure prints the first words of the bio, not all of it
 FIGURE_NAME = "f2_shapley_cases"
 RULE = (
     "Women whose true occupation is one of the three male-dominated showcase occupations, and "
@@ -153,17 +154,22 @@ def _axes(fig, left: float, bottom: float, width: float, height: float):
     return fig.add_axes([left / page_w, bottom / page_h, width / page_w, height / page_h])
 
 
+def _excerpt(case: Case) -> list[str]:
+    """The first MAX_WORDS words of the bio, with an ellipsis when it goes on."""
+    return case.words[:MAX_WORDS] + (["\u2026"] if len(case.words) > MAX_WORDS else [])
+
+
 def _sentence(fig, case: Case, rect, char_pt: float, capacity: int, top: set[int]) -> None:
-    """The bio as words on lines with the `top` words underlined; one data unit is one point."""
+    """The excerpt as words on lines with the `top` words underlined; one data unit is a point."""
     ax = _axes(fig, *rect)
     ax.set_xlim(0, rect[2])
     ax.set_ylim(0, rect[3])
     ax.axis("off")
     gendered = _gendered_mask(case)
-    for line, column, index, piece in _layout(case.words, capacity):
+    for line, column, index, piece in _layout(_excerpt(case), capacity):
         x, baseline = column * char_pt, rect[3] - (line + 1) * LINE_PT + 2.5
         ax.text(x, baseline, piece, family="monospace", fontsize=FONT_PT, color=DARK)
-        if index in top:
+        if index in top and index < MAX_WORDS:
             colour = plotting.HIGHLIGHT if gendered[index] else DARK
             end = x + len(piece) * char_pt
             ax.plot([x, end], [baseline - 1.6] * 2, color=colour, lw=0.7, gid="underline")
@@ -208,39 +214,27 @@ GROUPS = (
 )
 
 
-def _title(woman: Case | None, man: Case | None) -> str:
-    if woman and man:
+def _title(case: Case | None) -> str:
+    if case:
         return (
-            f"Gender words added {gendered_push(woman):.1f} score points to a wrong job "
-            f"for a woman and {gendered_push(man):.1f} for a man."
+            f"Gender words added {gendered_push(case):.1f} score points to a wrong job for a woman."
         )
-    for case, who, other in ((woman, "a woman", "man"), (man, "a man", "woman")):
-        if case:
-            return (
-                f"Gender words added {gendered_push(case):.1f} score points to a wrong job "
-                f"for {who}; no misclassified {other} qualified."
-            )
-    return "No misclassified woman or man met the rules, so there is no case to show."
+    return "No misclassified woman met the rules, so there is no case to show."
 
 
-def _totals(woman: Case | None, man: Case | None, wrong: tuple[int, int] | None) -> str:
-    """The gender words total of each case, and how extreme the cases are among the wrong calls."""
-    parts = []
-    for case, who, first in ((woman, "woman", True), (man, "man", False)):
-        if case:
-            units = int(_gendered_mask(case).sum())
-            tail = f" units for the {who}" if first else f" for the {who}"
-            parts.append(f"{gendered_push(case):+.1f} from {units}{tail}")
-    text = "Gender words: " + ", ".join(parts)
-    if wrong and woman and man:
-        text += f"; the largest of {wrong[0]} and {wrong[1]} wrong decisions"
-    return text + ". "
+def _totals(case: Case, wrong: int | None) -> str:
+    """The gender words total of the case, and how extreme it is among the wrong calls."""
+    units = int(_gendered_mask(case).sum())
+    text = f"Gender words: {gendered_push(case):+.1f} from {units} units"
+    if wrong:
+        text += f", the largest of {wrong} wrong decisions"
+    return text + ". Per-word values carry sampling noise."
 
 
-def build(woman: Case | None, man: Case | None, wrong: tuple[int, int] | None = None):
-    """For each group, the bio with its eight largest words underlined and a bar for each.
+def build(case: Case | None, wrong: int | None = None):
+    """The bio's first words with its eight largest words underlined, and a bar for each.
 
-    A group without a case gets a one-line panel that says so.
+    Without a case, a one-line panel says so.
     """
     fig, probe = plotting.new_figure(1.0)
     probe.remove()
@@ -251,51 +245,46 @@ def build(woman: Case | None, man: Case | None, wrong: tuple[int, int] | None = 
     char_pt = _char_width_pt(fig)
     text_width = width - 2 * MARGIN_PT
     capacity = int(text_width // char_pt)
-    title = _title(woman, man)
-    note = _totals(woman, man, wrong) + (
-        "A score point is one unit of the model's score for a job. Per-word values carry sampling "
-        "noise; no per-word interval is shown."
-    )
+    title = _title(case)
     title_pt = _text_height_pt(fig, title, fontweight="bold")
-    note_pt = _text_height_pt(fig, note)
-    panels = []
-    for (label, _, _, side), case in zip(GROUPS, (woman, man), strict=True):
-        if case is None:
-            kind = "male" if side == "male_dominated" else "female"
-            header = f"{label} in a {kind}-dominated occupation: no bio met the rules."
-            panels.append((header, _text_height_pt(fig, header), None, None, 0))
-            continue
+    if case is None:
+        header = "Woman in a male-dominated occupation: no bio met the rules."
+        note = ""
+        note_pt = 0
+        order, sentence_pt, bars_pt = None, 0, 0
+    else:
         header = (
-            f"{label}, true {plotting.job_name(case.true)}, "
-            f"predicted {plotting.job_name(case.predicted)} "
-            f"({case.bio_id})."
+            f"Woman, true {plotting.job_name(case.true)}, "
+            f"predicted {plotting.job_name(case.predicted)} ({case.bio_id})"
+            + (
+                f", first {MAX_WORDS} of {len(case.words)} words."
+                if len(case.words) > MAX_WORDS
+                else "."
+            )
         )
+        note = _totals(case, wrong)
+        note_pt = _text_height_pt(fig, note)
         order = np.argsort(-np.abs(case.values), kind="stable")[:TOP_WORDS]
-        sentence_pt = (_layout(case.words, capacity)[-1][0] + 1) * LINE_PT + 2
-        panels.append((header, _text_height_pt(fig, header), case, order, sentence_pt))
-    bars_pt = TOP_WORDS * BAR_PT
-    total = 2 * MARGIN_PT + title_pt + note_pt
-    for _, header_pt, case, _, sentence_pt in panels:
-        total += GAP_PT + header_pt
-        if case is not None:
-            total += sentence_pt + GAP_PT + bars_pt + AXIS_PT
+        sentence_pt = (_layout(_excerpt(case), capacity)[-1][0] + 1) * LINE_PT + 2
+        bars_pt = TOP_WORDS * BAR_PT
+    header_pt = _text_height_pt(fig, header)
+    total = 2 * MARGIN_PT + title_pt + note_pt + GAP_PT + header_pt
+    if case is not None:
+        total += sentence_pt + GAP_PT + bars_pt + AXIS_PT
     fig.set_size_inches(plotting.WIDTH_INCHES, total / 72)
     left = MARGIN_PT / width
     fig.text(left, 1 - MARGIN_PT / total, title, wrap=True, va="top", fontweight="bold")
-    cursor = total - MARGIN_PT - title_pt
-    for header, header_pt, case, order, sentence_pt in panels:
-        cursor -= GAP_PT
-        fig.text(left, cursor / total, header, wrap=True, va="top")
-        cursor -= header_pt
-        if case is None:
-            continue
-        cursor -= sentence_pt
-        top = {int(i) for i in order}
-        _sentence(fig, case, (MARGIN_PT, cursor, text_width, sentence_pt), char_pt, capacity, top)
-        cursor -= GAP_PT + bars_pt
-        bar_width = width - LABEL_PT - MARGIN_PT - VALUE_ROOM_PT
-        _bars(fig, case, order, (LABEL_PT, cursor, bar_width, bars_pt))
-        cursor -= AXIS_PT
+    cursor = total - MARGIN_PT - title_pt - GAP_PT
+    fig.text(left, cursor / total, header, wrap=True, va="top")
+    cursor -= header_pt
+    if case is None:
+        return fig
+    cursor -= sentence_pt
+    top = {int(i) for i in order}
+    _sentence(fig, case, (MARGIN_PT, cursor, text_width, sentence_pt), char_pt, capacity, top)
+    cursor -= GAP_PT + bars_pt
+    bar_width = width - LABEL_PT - MARGIN_PT - VALUE_ROOM_PT
+    _bars(fig, case, order, (LABEL_PT, cursor, bar_width, bars_pt))
     fig.text(left, (MARGIN_PT + note_pt) / total, note, wrap=True, va="top")
     return fig
 
@@ -328,7 +317,7 @@ def main(results_dir: Path = RESULTS_DIR):
             "n_wrong": n_wrong,
             "pick": _record(picked) if picked else None,
         }
-    fig = build(*picks, wrong=(wrong[0], wrong[1]))
+    fig = build(picks[0], wrong=wrong[0])
     plotting.save(fig, FIGURE_NAME, results_dir / "figures")
     results.write_json(
         results_dir / "f2_cases.json",
