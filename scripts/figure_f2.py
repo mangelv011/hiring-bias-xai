@@ -224,8 +224,7 @@ def _title(case: Case | None) -> str:
 
 def _totals(case: Case, wrong: int | None) -> str:
     """The gender words total of the case, and how extreme it is among the wrong calls."""
-    units = int(_gendered_mask(case).sum())
-    text = f"Gender words: {gendered_push(case):+.1f} from {units} units"
+    text = f"Gender words: {gendered_push(case):+.1f}"
     if wrong:
         text += f", the largest of {wrong} wrong decisions"
     return text + ". Per-word values carry sampling noise."

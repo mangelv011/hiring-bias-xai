@@ -4,8 +4,8 @@ Reads `results/llm_audit.json`. Each dot is the change in the yes-rate of qualif
 from the arm with no header, in points, with its 95% interval (bootstrap over bios and first
 names). The grey band is the range of changes that nothing meaningful produces: an identical
 rerun and a whitespace edit. The two top dots, in the highlight colour, are the primary contrast
-(women's names minus men's names) and the pooled change of any name against none. Origin groups
-are shown per gender, because `results/llm_audit.json` holds no pooled-gender statistic for them.
+(women's names minus men's names) and the pooled change of any name against none. The
+origin groups are in the report text and in `docs/results.md`, not in the figure.
 The share of decision changes whose reason does not mention name, origin or gender is in the
 report text, not in the figure.
 """
@@ -18,7 +18,8 @@ from hiring_bias_xai.config import RESULTS_DIR
 
 FIGURE_NAME = "f8_llm_screener"
 DARK = "#333333"
-HEIGHT_INCHES = 3.9
+HEIGHT_INCHES = 3.0
+ARMS = ("neutral", "swap")  # the header and pronoun arms; the name arms are not drawn
 
 
 def _points(stat: dict) -> tuple[float, float, float]:
@@ -44,22 +45,13 @@ def title(report: dict) -> str:
 
 
 def _label(arm: str) -> str:
-    if arm == "neutral":
-        return "neutral ID header"
-    if arm == "swap":
-        return "pronouns swapped"
-    _, group, gender = arm.split("|")
-    return f"{group}, {'woman' if gender == 'female' else 'man'}"
+    return "neutral ID header" if arm == "neutral" else "pronouns swapped"
 
 
 def build(report: dict):
     fig, ax = plotting.new_figure(HEIGHT_INCHES)
     fig.suptitle(title(report), fontweight="bold", wrap=True, x=0, ha="left")
-    arms = {
-        key.split("|", 1)[1]: _points(stat)
-        for key, stat in report["statistics"].items()
-        if key.startswith("diff_tpr|")
-    }
+    arms = {arm: _points(report["statistics"][f"diff_tpr|{arm}"]) for arm in ARMS}
     ordered = sorted(arms.items(), key=lambda item: item[1][0])
     floor = [_points(report["noise_floor"][part]["tpr_diff"]) for part in ("rerun", "edit")]
     band_low, band_high = min(f[1] for f in floor), max(f[2] for f in floor)

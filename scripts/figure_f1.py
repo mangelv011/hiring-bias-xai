@@ -176,8 +176,12 @@ def build(results_dir: Path):
         va="bottom",
         color=DARK,
     )
-    for y, note, va in ((0.97, "↑ favours women", "top"), (0.03, "↓ favours men", "bottom")):
-        ax.text(0.03, y, note, transform=ax.transAxes, va=va, color=DARK)
+    # the lower note sits right of the low-share dots of the male-dominated jobs
+    for note_x, y, note, va in (
+        (0.03, 0.97, "↑ favours women", "top"),
+        (0.22, 0.03, "↓ favours men", "bottom"),
+    ):
+        ax.text(note_x, y, note, transform=ax.transAxes, va=va, color=DARK)
     ax.set_xlabel("Share of women in the job")
     ax.set_ylabel("Qualified women minus qualified men\nshortlisted, per 100")
     ax.set_xlim(right=1.15)  # room for the labels of the female-dominated showcase occupations
