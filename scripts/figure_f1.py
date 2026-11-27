@@ -1,8 +1,10 @@
 """F1: the main model's TPR gap against the share of women in each occupation.
 
 Written for a reader who has never seen a TPR: the y axis is how many more qualified women than
-men the model shortlists for the recruiter, per 100 of each, and two familiar jobs carry their
-numbers. The title states the finding in plain words when the Fisher interval of r excludes 0."""
+men the model shortlists for the recruiter, per 100 of each. Only two familiar jobs are
+labelled, with their numbers. All 28 dots stay, since r is computed over them; only the six
+showcase jobs, which the explanations use, are highlighted and carry their 95% interval. The title
+states the finding in plain words when the Fisher interval of r excludes 0."""
 
 import json
 from pathlib import Path
@@ -45,8 +47,8 @@ def _overlap(a, b) -> bool:
     return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
 
-def _label(fig, ax, points: dict, sides: dict, obstacles: dict, texts: dict) -> None:
-    """Label each showcase occupation at the nearest clear spot around its dot.
+def _label(fig, ax, points: dict, obstacles: dict, texts: dict) -> None:
+    """Label each occupation of `texts` at the nearest clear spot around its dot.
 
     Each label is tried at several distances and directions from its dot. The spot with the least
     overlap with dots, error bars, the fitted line, the zero line, texts already in the axes,
@@ -69,7 +71,7 @@ def _label(fig, ax, points: dict, sides: dict, obstacles: dict, texts: dict) -> 
     taken = [tuple(t.get_window_extent(renderer).extents) for t in ax.texts]  # notes and r
     leaders = []
     offsets = {}
-    for name in sorted(sides, key=lambda name: len(texts[name]), reverse=True):
+    for name in sorted(texts, key=lambda name: len(texts[name]), reverse=True):
         text = ax.text(0, 0, texts[name])
         extent = matplotlib.text.Text.get_window_extent(text, renderer)
         text.remove()
@@ -135,14 +137,21 @@ def build(results_dir: Path):
     high = np.array([per_occupation[name]["tpr_gap"]["ci_high"] for name in names])
 
     fig, ax = plotting.new_figure(HEIGHT_INCHES)
-    ax.errorbar(x, gap, yerr=[gap - low, high - gap], fmt="none", ecolor=plotting.NEUTRAL, lw=0.6)
     showcase = _read(results_dir, "showcase_occupations.json")
-    labelled = {
-        row["occupation"]: side
+    shown = {
+        row["occupation"]
         for side in ("male_dominated", "female_dominated")
         for row in showcase[side]
     }
-    is_showcase = np.array([name in labelled for name in names])
+    is_showcase = np.array([name in shown for name in names])
+    ax.errorbar(
+        x[is_showcase],
+        gap[is_showcase],
+        yerr=[(gap - low)[is_showcase], (high - gap)[is_showcase]],
+        fmt="none",
+        ecolor=plotting.NEUTRAL,
+        lw=0.6,
+    )
     ax.scatter(x[~is_showcase], gap[~is_showcase], s=12, color=plotting.NEUTRAL, zorder=3)
     ax.scatter(x[is_showcase], gap[is_showcase], s=16, color=plotting.HIGHLIGHT, zorder=4)
     ax.axhline(0, color=DARK, lw=0.6, zorder=1)
@@ -181,19 +190,21 @@ def build(results_dir: Path):
         "dots": np.column_stack([x, gap]),
         "bars": [
             np.column_stack([np.full(20, xi), np.linspace(lo, hi, 20)])
-            for xi, lo, hi in zip(x, low, high, strict=True)
+            for xi, lo, hi in zip(x[is_showcase], low[is_showcase], high[is_showcase], strict=True)
         ],
         "fit": [np.column_stack([fit_x, intercept + slope * fit_x])],
         "zero": [np.column_stack([fit_x, np.zeros(len(fit_x))])],
     }
     points = {name: (xi, yi) for name, xi, yi in zip(names, x, gap, strict=True)}
-    texts = {name: plotting.job_name(name) for name in names}
+    texts = {}
     for name in EXAMPLES:
         if name in per_occupation:
             women = round(100 * per_occupation[name]["tpr_female"]["value"])
             men = round(100 * per_occupation[name]["tpr_male"]["value"])
-            texts[name] += f": {women} of 100 women,\n{men} of 100 men shortlisted"
-    _label(fig, ax, points, labelled, obstacles, texts)
+            texts[name] = (
+                f"{plotting.job_name(name)}: {women} of 100 women,\n{men} of 100 men shortlisted"
+            )
+    _label(fig, ax, points, obstacles, texts)
     return fig
 
 
