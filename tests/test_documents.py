@@ -153,6 +153,12 @@ def test_key_findings_has_at_most_one_bullet_per_finding():
     assert len(labels) == len(set(labels))
 
 
+def test_every_key_finding_is_one_line_of_at_most_300_characters_without_its_link():
+    lines = _readme_section("Key findings").split("\n\n")[1].splitlines()  # the bullet list
+    assert lines and all(line.startswith("- **") for line in lines)
+    assert all(len(re.sub(r"\]\([^)]*\)", "]", line)) <= 300 for line in lines)
+
+
 def test_the_repository_map_lists_the_notebook_the_model_card_and_the_methods_page():
     layout = _readme_section("Repository layout")
     for path in ("notebooks/", "docs/model_card.md", "docs/methods.md"):
@@ -215,7 +221,7 @@ def test_the_origin_groups_are_four_after_the_merge():
     for name in ("README.md", "docs/model_card.md", "GLOSSARY.md"):
         text = _read(name)
         assert not re.search(r"(?i)\bfive (?:origin )?groups", text), name
-    assert "four origin groups" in _read("README.md")
+    assert "four origin groups" in _read("docs/model_card.md")
 
 
 def test_the_readme_limits_say_the_task_is_a_proxy_for_screening():
@@ -243,23 +249,51 @@ def test_the_report_says_the_intervals_are_too_wide_to_separate_what_it_compares
 
 def test_the_report_gives_the_surgeon_gap_as_a_breakdown_and_says_so_once():
     report = _report()
-    assert "net score gap is small" in report
     assert report.count("a breakdown of the score, not the effect of changing the words") == 1
 
 
-def test_the_report_reads_freeones_as_a_possible_trace_of_the_work_or_the_site():
+def test_the_report_explains_freeones_once_as_a_possible_trace_of_the_work_or_the_site():
     report = _report()
     assert "It says nothing about the person's work" not in report
-    assert "\paragraph{A gendered shortcut found with the explanations.}" in report
-    assert "may reflect the work or where the bio was published" in report
-    assert "I cannot tell which" in report
-    assert "it may reflect the work or where some bios were published" in report
+    assert "\\paragraph{A gendered shortcut found with the explanations.}" in report
+    assert report.count("may reflect the work or where the bio was published") == 1
+    assert report.count("the name of a website listing adult performers") == 1
+    assert "where some bios were published" not in report
 
 
-def test_the_report_says_the_mitigation_gap_averages_27_jobs():
+def test_the_report_says_the_mitigation_gap_is_over_27_jobs_and_gives_the_interval_of_the_change():
     report = _report()
-    assert "dietitian has no men left there, so the gap averages 27 jobs" in report
-    assert "Change in gap vs (a)" in report
+    assert "so the gap is the root mean square over 27 jobs" in report
+    assert "Change vs (a)" in report
+    assert "$-0.025$ [$-0.035,-0.012$]" in report
+    assert "$-0.002$ [$-0.005,0.000$]" in report
+
+
+def test_the_abstract_is_about_130_words_with_its_four_numbers():
+    abstract = _report().split("\\begin{abstract}")[1].split("\\end{abstract}")[0]
+    assert len(abstract.split()) <= 140
+    for number in ("76 men but 56 women", "20\\% (8\\% to 30\\%)", "no gap of 5 points or more"):
+        assert number in abstract, number
+    assert "readable from the model's last layer once the pronouns are gone" in abstract
+
+
+def test_the_report_leaves_out_f4_f7_patching_and_the_sentences_the_cut_removed():
+    report = _report()
+    for gone in (
+        "f4_flip_rates",
+        "f7_mitigation",
+        "fig:f4",
+        "fig:f7",
+        "software engineer, where the main model gives",
+        "11 gender words",
+        "59 to 47",
+        "0.143 on the test bios outside the showcase subset, which the mitigation uses",
+        "top 10 share",
+    ):
+        assert gone not in report, gone
+    assert "patching" not in report.lower()
+    assert "Swapping changes 6.9\\% [5.7, 8.1]" in report
+    assert "deleting the same words changes 6.3\\% [5.2, 7.5]" in report
 
 
 def test_the_report_says_the_stated_reasons_were_sorted_by_a_keyword_rule():
@@ -316,9 +350,8 @@ def test_the_report_describes_the_data_the_models_and_the_gap_plainly():
         "reading at most 256 tokens",
         "TF-IDF (weighted counts of words and word pairs)",
         "overall shortlist gap is lower than the baseline's (0.148 against 0.167),",
-        "in every one of the six jobs but software engineer",
         "explanations can help",
-        "Change in gap vs (a)",
+        "Change vs (a)",
     ):
         assert phrase in report, phrase
     assert "biographies, text," not in report and "(dietitian, nurse, model)" not in report
@@ -336,6 +369,8 @@ def test_the_chance_level_is_named_as_the_95th_percentile_of_what_chance_gives()
     for name in ("report/main.tex", "README.md", "docs/results.md"):
         text = " ".join(_read(name).split())
         assert "twice what chance gives" not in text, name
+        if name == "README.md":
+            continue  # its key findings are one line each and no longer carry the chance level
         assert "twice the 95th percentile of what chance gives (0.050)" in text, name
 
 
@@ -356,7 +391,7 @@ def test_the_readme_cite_section_states_the_ai_assistance():
 def test_the_report_prints_the_figures_wide_enough_to_keep_their_text_legible():
     report = _read("report/main.tex")
     by_figure = {figure: width for width, figure in re.findall(r"width=([^\]]+)\]\{f(\d)_", report)}
-    assert by_figure == dict.fromkeys("12345678", r"\columnwidth")
+    assert by_figure == dict.fromkeys("123568", r"\columnwidth")  # F4 and F7 left the report
 
 
 def test_the_figure_captions_explain_what_a_reader_needs():
@@ -366,9 +401,10 @@ def test_the_figure_captions_explain_what_a_reader_needs():
         "The ten words make up 61\% of the fashion model gap",
         "no share is given for surgeon, whose gap interval includes 0",
         "emb.\ is the input layer",
-        "pretrained is the same network before fine-tuning",
-        "orange: rank correlation; grey: shared top 10 words",
-        "intervals narrower than the marker are hidden",
+        "Rank correlation of the main Shapley ranking",
+        "hidden when narrower than the marker",
+        "orange dots are the six jobs used for the explanations",
+        "The text is the start of the bio",
         "the 5 points of the text are the outer bound of its interval, not a margin fixed",
     ):
         assert phrase in report, phrase
@@ -399,15 +435,11 @@ def test_why_it_matters_comes_right_after_the_opening_and_before_the_key_finding
     assert headings.index("Why it matters") < headings.index("Key findings")
 
 
-def test_what_the_audit_does_has_no_status_column_and_eight_rows():
-    rows = [
-        line
-        for line in _readme_section("What the audit does").splitlines()
-        if line.startswith("| ") and not line.startswith(("| Question", "|---"))
-    ]
-    assert len(rows) == 8
-    assert "Status" not in _readme_section("What the audit does")
-    assert "TPR" not in _readme_section("What the audit does")
+def test_the_readme_has_no_what_the_audit_does_table():
+    readme = _read("README.md")
+    assert "What the audit does" not in _readme_headings()
+    assert "| Question |" not in readme
+    assert "docs/results.md" in readme and "docs/methods.md" in readme
 
 
 def test_the_readme_defines_rms_and_tpr_once_under_the_results_table():

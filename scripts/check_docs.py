@@ -375,6 +375,13 @@ def condition_rows(label, key):
             "dec3",
         )
         rows.append(change)
+        after = start + r"[\d.]+ & [\d.]+ & -[\d.]+ \["
+        for bound, pattern in (
+            ("ci_low", after + r"(-[\d.]+),"),
+            ("ci_high", after + r"-[\d.]+,(-?[\d.]+)\]"),
+        ):
+            path = f"{base}.change_from_a.rms_tpr_gap.{bound}"
+            rows.append(Cell(REPORT, pattern, MITIGATION, path, "dec3"))
     return rows
 
 
@@ -470,23 +477,9 @@ CELLS: list[Cell] = [
     ),
     Cell(
         README,
-        r"does \((\d+) of 100\)",
+        r"pronouns \((\d+) of 100\)",
         FLIPS,
         "screener=deberta,occupation=pooled,subset=all,condition=removal:flip_rate",
-        "per100",
-    ),
-    Cell(
-        README,
-        r"reacts more: (\d+) against \d+ of every",
-        FLIPS,
-        "screener=baseline,occupation=pooled,subset=all,condition=swap:flip_rate",
-        "per100",
-    ),
-    Cell(
-        README,
-        r"reacts more: \d+ against (\d+) of every",
-        FLIPS,
-        "screener=baseline,occupation=pooled,subset=all,condition=removal:flip_rate",
         "per100",
     ),
     Cell(
@@ -525,16 +518,6 @@ CELLS: list[Cell] = [
         "dec3",
     ),
     Cell(
-        README,
-        r"still shortlists (\d+) more qualified",
-        MITIGATION,
-        f"{CONDITION_D}.tpr_gap.model.value",
-        "per100",
-    ),
-    Cell(
-        README, r"against (\d+) before", MITIGATION, f"{CONDITION_A}.tpr_gap.model.value", "per100"
-    ),
-    Cell(
         README, r"differs by (-[\d.]+) points", AUDIT, "statistics.primary.value", "signed_points1"
     ),
     Cell(README, r"\(interval (-[\d.]+) to", AUDIT, "statistics.primary.ci_low", "signed_points1"),
@@ -545,20 +528,6 @@ CELLS: list[Cell] = [
         AUDIT,
         "statistics.pooled_names_vs_none.value",
         "abs_per100",
-    ),
-    Cell(
-        README,
-        r"changes (\d+)% and \d+% of its",
-        AUDIT,
-        "prompt_sensitivity.v2.flip_rate_against_v1",
-        "per100",
-    ),
-    Cell(
-        README,
-        r"changes \d+% and (\d+)% of its",
-        AUDIT,
-        "prompt_sensitivity.v3.flip_rate_against_v1",
-        "per100",
     ),
     Cell(README, r"\((\d+) against \d+ of every 100 bios\)", MAIN, "test.accuracy.value", "per100"),
     Cell(README, r"\(\d+ against (\d+) of every 100 bios\)", BASE, "test.accuracy.value", "per100"),
@@ -852,13 +821,6 @@ CELLS: list[Cell] = [
     Cell(REPORT, r"it shortlists (\d+) men but", MAIN, f"{SURGEON}.tpr_male.value", "per100"),
     Cell(REPORT, r"men but (\d+) women", MAIN, f"{SURGEON}.tpr_female.value", "per100"),
     Cell(REPORT, r"r = ([\d.]+)", GAPS, "main_model.pearson.value", "dec2"),
-    Cell(
-        REPORT,
-        r"in surgeon bios gender words lower women's scores by ([\d.]+) score points",
-        EXPLAINED,
-        f"{DEBERTA_SURGEON}.value",
-        "abs1",
-    ),
     Cell(REPORT, r"subsample of ([\d,]+) bios", "data_summary.json", "bios.train", "count"),
     Cell(REPORT, r"select on ([\d,]+) of the dev", "data_summary.json", "bios.dev", "count"),
     Cell(REPORT, r"and ([\d,]+) test bios;", "data_summary.json", "bios.test", "count"),
@@ -870,13 +832,6 @@ CELLS: list[Cell] = [
         "conditions.b.outside_showcase.change_from_a.rms_tpr_gap.value over "
         f"{CONDITION_A}.rms_tpr_gap.value",
         "abs_per100",
-    ),
-    Cell(
-        README,
-        r"what chance gives \(([\d.]+)\)",
-        MITIGATION,
-        f"{CONDITION_A}.rms_tpr_gap.null.p95",
-        "dec3",
     ),
     Cell(REPORT, r"test on all ([\d,]+) test bios", "data_summary.json", "bios.test", "count"),
     Cell(
@@ -990,13 +945,6 @@ CELLS: list[Cell] = [
     Cell(REPORT, r"It is ([\d.]+) on the full test set", MAIN, "test.rms_tpr_gap.value", "dec3"),
     Cell(
         REPORT,
-        r"and ([\d.]+) on the test bios outside",
-        MITIGATION,
-        f"{CONDITION_A}.rms_tpr_gap.value",
-        "dec3",
-    ),
-    Cell(
-        REPORT,
         r"a lot \(rank correlation ([\d.]+),",
         STABILITY,
         "checks.removal.spearman.median",
@@ -1011,31 +959,17 @@ CELLS: list[Cell] = [
     ),
     Cell(
         REPORT,
-        r"correlation falls to ([\d.]+) and",
+        r"correlation falls to ([\d.]+), against",
         STABILITY,
         "randomisation.spearman.median",
         "dec2",
     ),
     Cell(
         REPORT,
-        r"top 10 share (\d) words",
-        STABILITY,
-        "randomisation.top10_overlap.median",
-        "of10",
-    ),
-    Cell(
-        REPORT,
-        r"against ([\d.]+) and \d between two seeds",
+        r"against ([\d.]+) between two seeds",
         STABILITY,
         "checks.seed.spearman.median",
         "dec2",
-    ),
-    Cell(
-        REPORT,
-        r"and (\d) between two seeds",
-        STABILITY,
-        "checks.seed.top10_overlap.median",
-        "of10",
     ),
     Cell(REPORT, r"epoch \(([\d.]+) to", TRAINING_LOG, f"{LOSS_LOW}:dev_loss", "dec2"),
     Cell(REPORT, r"epoch \([\d.]+ to ([\d.]+)\)", TRAINING_LOG, f"{LOSS_LAST}:dev_loss", "dec2"),
@@ -1048,13 +982,11 @@ CELLS: list[Cell] = [
         "signed1",
     ),
     Cell(
-        REPORT, r"add (\+[\d.]+) score points to ``poet''", F2, f"{F2_MAN}.gendered_push", "signed1"
-    ),
-    Cell(
-        REPORT, r"of (\d+) and \d+ wrong decisions", F2, "women_in_male_dominated.n_wrong", "count"
-    ),
-    Cell(
-        REPORT, r"of \d+ and (\d+) wrong decisions", F2, "men_in_female_dominated.n_wrong", "count"
+        REPORT,
+        r"most extreme of (\d+) wrong decisions",
+        F2,
+        "women_in_male_dominated.n_wrong",
+        "count",
     ),
     Cell(REPORT, r"gap \((-[\d.]+) \[", EXPLAINED, f"{DEBERTA_SURGEON_GAP}.value", "dec2"),
     Cell(REPORT, r"\(-[\d.]+ \[(-[\d.]+), \+", EXPLAINED, f"{DEBERTA_SURGEON_GAP}.ci_low", "dec2"),
@@ -1075,13 +1007,6 @@ CELLS: list[Cell] = [
         EXPLAINED,
         f"{DEBERTA_SURGEON}.ci_low",
         "abs2",
-    ),
-    Cell(
-        REPORT,
-        r"net score gap is small \((-[\d.]+), interval",
-        EXPLAINED,
-        f"{DEBERTA_SURGEON_GAP}.value",
-        "signed1",
     ),
     Cell(
         REPORT,
@@ -1114,13 +1039,6 @@ CELLS: list[Cell] = [
     Cell(
         REPORT,
         r"in (\d+) of 150 women's bios",
-        "gap_decomposition.csv",
-        "screener=deberta,occupation=model,word=freeones:freq_female",
-        "of150",
-    ),
-    Cell(
-        REPORT,
-        r"in (\d+) of 150 women's and in none",
         "gap_decomposition.csv",
         "screener=deberta,occupation=model,word=freeones:freq_female",
         "of150",
@@ -1175,13 +1093,12 @@ CELLS: list[Cell] = [
     ),
     Cell(REPORT, r"against ([\d.]+) at random", DELETION, f"{DELETION_MAIN}.random.value", "dec1"),
     Cell(REPORT, r"a rise of ([\d.]+) for", DELETION, f"{DELETION_MAIN}.lerf.value", "abs1"),
-    Cell(REPORT, r"correlation ([\d.]+), \d of", STABILITY, "checks.seed.spearman.median", "dec2"),
     Cell(
         REPORT,
-        r"correlation [\d.]+, (\d) of",
+        r"median rank correlation ([\d.]+)\)",
         STABILITY,
-        "checks.seed.top10_overlap.median",
-        "of10",
+        "checks.seed.spearman.median",
+        "dec2",
     ),
     Cell(REPORT, r"deleting it \(([\d.]+)\)", STABILITY, "checks.removal.spearman.median", "dec2"),
     Cell(REPORT, r"leave-one-out \(([\d.]+)\)", STABILITY, "checks.method.spearman.median", "dec2"),
@@ -1230,24 +1147,6 @@ CELLS: list[Cell] = [
             (r"and [\d.]+% \[[\d.]+, ([\d.]+)\] from TF-IDF", "model=tfidf,subset=all", "ci_high"),
         ]
     ],
-    Cell(REPORT, r"Patching (\d+) bios", "patching.json", "n_patched", "count"),
-    *[
-        Cell(
-            REPORT,
-            pattern,
-            "patching.csv",
-            f"layer={layer},position_set={positions}:mean",
-            "per100",
-        )
-        for pattern, layer, positions in [
-            (r"restore (\d+)% of the effect at layer 1", 1, "differing"),
-            (r"(\d+)% at layer 4", 4, "differing"),
-            (r"(\d+)% at layer 5", 5, "differing"),
-            (r"restore (\d+)%, \d+% and", 1, "others"),
-            (r"restore \d+%, (\d+)% and", 4, "others"),
-            (r"and (\d+)%\. The effect moves", 5, "others"),
-        ]
-    ],
     # Report: mitigation, and the website name found with the explanations
     Cell(
         REPORT,
@@ -1276,20 +1175,6 @@ CELLS: list[Cell] = [
         MITIGATION,
         "conditions.e.outside_showcase.tpr_gap.model.value",
         "abs_per100",
-    ),
-    Cell(
-        REPORT,
-        r"overall shortlist gap from ([\d.]+) to [\d.]+:",
-        MITIGATION,
-        f"{CONDITION_A}.rms_tpr_gap.value",
-        "dec3",
-    ),
-    Cell(
-        REPORT,
-        r"overall shortlist gap from [\d.]+ to ([\d.]+):",
-        MITIGATION,
-        "conditions.e.outside_showcase.rms_tpr_gap.value",
-        "dec3",
     ),
     Cell(
         REPORT,
@@ -1367,27 +1252,6 @@ CELLS: list[Cell] = [
     ),
     Cell(
         REPORT,
-        r"by about (\d+) points, a comparison",
-        AUDIT,
-        "statistics.pooled_names_vs_none.value",
-        "abs_per100",
-    ),
-    Cell(
-        REPORT,
-        r"last layer holds about as much as word counts on the same text \(([\d.]+)% against",
-        PROBING,
-        "model=deberta,layer=6,subset=all:accuracy",
-        "pct1",
-    ),
-    Cell(
-        REPORT,
-        r"same text \([\d.]+% against ([\d.]+)%\)",
-        PROBING,
-        "model=tfidf,subset=all:accuracy",
-        "pct1",
-    ),
-    Cell(
-        REPORT,
         r"differ by ([\d.]+), and dev",
         MAIN,
         "runs.1.best_dev_macro_f1 minus test.macro_f1.value",
@@ -1395,34 +1259,6 @@ CELLS: list[Cell] = [
     ),
     Cell(REPORT, r"gap is ([\d.]+), about half", MAIN, "overfitting_check.gap", "dec3"),
     Cell(REPORT, r"baseline's ([\d.]+)\.", BASE, "overfitting_check.gap", "dec3"),
-    Cell(
-        REPORT,
-        r"main model gives (\+[\d.]+) \[",
-        EXPLAINED,
-        "screeners.deberta.software_engineer.gendered_sum.value",
-        "signed2",
-    ),
-    Cell(
-        REPORT,
-        r"main model gives \+[\d.]+ \[(-[\d.]+),",
-        EXPLAINED,
-        "screeners.deberta.software_engineer.gendered_sum.ci_low",
-        "signed2",
-    ),
-    Cell(
-        REPORT,
-        r"main model gives \+[\d.]+ \[-[\d.]+, (\+[\d.]+)\]",
-        EXPLAINED,
-        "screeners.deberta.software_engineer.gendered_sum.ci_high",
-        "signed2",
-    ),
-    Cell(
-        REPORT,
-        r"the baseline (-[\d.]+)\.",
-        EXPLAINED,
-        "screeners.baseline.software_engineer.gendered_sum.value",
-        "signed2",
-    ),
     *cut_rows(
         "d",
         r"cuts the shortlist gap by (\d+)% \(",
@@ -1431,9 +1267,9 @@ CELLS: list[Cell] = [
     ),
     *cut_rows(
         "b",
-        r"cuts it by (\d+)% \(",
-        r"cuts it by \d+% \((\d+)% to",
-        r"cuts it by \d+% \(\d+% to (\d+)%\)",
+        r"cuts the gap by (\d+)% \(",
+        r"cuts the gap by \d+% \((\d+)% to",
+        r"cuts the gap by \d+% \(\d+% to (\d+)%\)",
     ),
     *cut_rows(
         "d",
@@ -1449,16 +1285,9 @@ CELLS: list[Cell] = [
     ),
     *cut_rows(
         "d",
-        r"That is a (\d+)% cut \(",
-        r"That is a \d+% cut \((\d+)% to",
-        r"That is a \d+% cut \(\d+% to (\d+)%\)",
-        README,
-    ),
-    *cut_rows(
-        "b",
-        r"no retraining, cuts it by (\d+)% \(",
-        r"no retraining, cuts it by \d+% \((\d+)% to",
-        r"no retraining, cuts it by \d+% \(\d+% to (\d+)%\)",
+        r", a (\d+)% cut \(",
+        r", a \d+% cut \((\d+)% to",
+        r", a \d+% cut \(\d+% to (\d+)%\)",
         README,
     ),
     # Report: the LLM screener
@@ -1505,9 +1334,6 @@ CELLS: list[Cell] = [
         "statistics.pooled_names_vs_none.ci_low",
         "abs_points1",
     ),
-    Cell(REPORT, r"\((\d+) to \d+ or \d+\)", AUDIT, "statistics.tpr|none.value", "per100"),
-    Cell(REPORT, r"\(\d+ to (\d+) or \d+\)", AUDIT, "prompt_sensitivity.v2.tpr", "per100"),
-    Cell(REPORT, r"\(\d+ to \d+ or (\d+)\)", AUDIT, "prompt_sensitivity.v3.tpr", "per100"),
     Cell(
         REPORT,
         r"Of (\d+) changed decisions",
@@ -1586,13 +1412,8 @@ ALLOWED: list[Allowed] = [
         "the full splits of the release, docs/data_card.md",
     ),
     Allowed(REPORT, r"at least 500 test bios", "the threshold of the showcase rule, config.py"),
-    Allowed(
-        REPORT, r"\b(?:11|2) gender words", "gender words of the two bios of F2, docs/results.md"
-    ),
     Allowed(REPORT, r"by about 2\.7\b", "e, the odds ratio of one score point"),
     Allowed(REPORT, r"the other 18", "the 28 jobs minus the 10 of main_model.n_significant_holm"),
-    Allowed(REPORT, r"\btop 10\b", "the size of the top list of the stability check"),
-    Allowed(REPORT, r"layer [145]\b", "a layer of patching.csv, named by the value it gives"),
     Allowed(REPORT, r"\([1-4]\)", "the numbering of the recommendations"),
     Allowed(REPORT, r"Above 0\b", "the zero of the gap"),
     Allowed(
@@ -1612,7 +1433,7 @@ ALLOWED: list[Allowed] = [
     Allowed(REPORT, r"interval includes 0[.)]", "the interval of the surgeon score gap spans zero"),
     Allowed(
         REPORT,
-        r"gap averages 27 jobs",
+        r"over 27 jobs",
         "28 jobs minus the dietitian of mitigation.json evaluation_set.occupations_left_out_of_gap",
     ),
     Allowed(
