@@ -1037,23 +1037,20 @@ def test_numbers_in_the_title_before_the_document_are_not_read(tmp_path):
 def test_the_rows_of_the_mitigation_table_match_their_own_line_and_label_only():
     module = _load()
     for cell in module.condition_rows("c. x", "c"):
-        assert re.search(cell.pattern, "c. x & 0.780 & 0.110 & -0.033 \\\\")
-        assert not re.search(cell.pattern, "see c. x & 0.780 & 0.110 & -0.033 \\\\")
-        assert not re.search(cell.pattern, "cz x & 0.780 & 0.110 & -0.033 \\\\")
+        assert re.search(cell.pattern, "c. x & 0.780 & 0.110 & -0.033 [-0.046,-0.018] \\\\")
+        assert not re.search(cell.pattern, "see c. x & 0.780 & 0.110 & -0.033 [-0.046,-0.018] \\\\")
+        assert not re.search(cell.pattern, "cz x & 0.780 & 0.110 & -0.033 [-0.046,-0.018] \\\\")
 
 
 ALLOWED_PHRASES = [
     ("257,478 train, 39,642 dev", "257,479 train, 39,642 dev"),
     ("about 7 to 8 points either side", "about 7 to 9 points either side"),
     ("interval includes 0)", "interval includes 1)"),
-    ("gap averages 27 jobs", "gap averages 26 jobs"),
+    ("over 27 jobs", "over 26 jobs"),
     ("the 5 points of the text", "the 6 points of the text"),
     ("at least 500 test bios", "at least 501 test bios"),
-    ("her 11 gender words", "her 12 gender words"),
-    ("his 2 gender words", "his 3 gender words"),
     ("by about 2.7", "by about 2.8"),
     ("the other 18", "the other 19"),
-    ("at layer 1", "at layer 2"),
     ("(1) Scrub", "(5) Scrub"),
     ("Above 0 the", "Above 1 the"),
     ("excludes 0 for", "excludes 1 for"),
@@ -1061,7 +1058,6 @@ ALLOWED_PHRASES = [
     ("yes to 53", "yes to 54"),
     ("gaps of 5 points", "gaps of 6 points"),
     ("a 4 GB RTX 3050 GPU", "a 5 GB RTX 3050 GPU"),
-    ("the top 10", "the top 11"),
 ]
 
 
