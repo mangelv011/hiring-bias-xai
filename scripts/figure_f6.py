@@ -1,13 +1,10 @@
-"""F6: where gender sits inside the main model, by layer.
+"""F6: can a probe read gender from the main model's layers, once pronouns are removed?
 
-Panel a: the accuracy of linear probes that read gender from scrubbed bios, for the pretrained
-encoder and the main model, with 95% bootstrap intervals, from `results/probing.csv` (all bios),
-and the three references on the same split as horizontal lines: the majority class, the
-occupation alone and TF-IDF. Panel b: the share of the swap's effect on the true occupation's score
-that patching clean states into the corrupted run restores, at the positions where the tokens
-differ and at all positions, with 95% bootstrap intervals, from `results/patching.csv`, with
-reference lines at 0 and 1.
-The title states the finding; the numbers are in the CSV files.
+The accuracy of linear probes that read gender from scrubbed bios, for the main model, with its
+95% bootstrap intervals, from `results/probing.csv` (all bios), and two references on the same
+split as horizontal lines: the occupation alone and TF-IDF. The pretrained encoder and the
+majority class stay in the CSV; activation patching is in `docs/results.md` only.
+The title states the finding; the numbers are in the CSV file.
 """
 
 from pathlib import Path
@@ -16,22 +13,19 @@ import pandas as pd
 
 from hiring_bias_xai import plotting
 from hiring_bias_xai.config import RESULTS_DIR
-from hiring_bias_xai.plotting import HIGHLIGHT, NEUTRAL
+from hiring_bias_xai.plotting import HIGHLIGHT
 
-FIGURE_NAME = "f6_probing_patching"
+FIGURE_NAME = "f6_probing"
 DARK = "#333333"
-HEIGHT_INCHES = 4.6
-MODELS = (("pretrained", NEUTRAL, "pretrained"), ("deberta", HIGHLIGHT, "main model"))
+HEIGHT_INCHES = 2.9
+MAIN = "deberta"
 REFERENCES = (
     ("tfidf", "TF-IDF", "-."),
     ("occupation_only", "occupation only", "--"),
-    ("majority", "majority class", ":"),
 )
 OCCUPATION_ONLY = "occupation_only"
-BANDED = ("tfidf", OCCUPATION_ONLY)  # the two references the text compares the model with
-LABEL_GAP = 0.07  # least distance between the labels of panel a, as a share of its y range
+LABEL_GAP = 0.07  # least distance between the labels, as a share of the y range
 LABEL_ROOM = 2.0  # room right of the last layer for the labels, in layers
-LAST_LAYER_NOTE = "Last layer:\nonly the\nfirst token\ncounts, so\nedits give\n0%."
 
 
 def _all_bios(probing: pd.DataFrame) -> pd.DataFrame:
@@ -43,11 +37,11 @@ def title(probing: pd.DataFrame) -> str:
     are removed.
 
     A probe counts when its interval starts above the interval of the occupation-only reference;
-    the title says "still readable" if all do, "in only some layers" if some do. It claims no
-    more: what patching shows is in the caption and the text.
+    the title says "still readable" if all the main model's layers do, "in only some layers" if
+    some do.
     """
     rows = _all_bios(probing)
-    probes = rows[rows["model"].isin([name for name, _, _ in MODELS])]
+    probes = rows[rows["model"] == MAIN]
     reference = rows[rows["model"] == OCCUPATION_ONLY].iloc[0]
     above = int((probes["ci_low"] > reference["ci_high"]).sum())
     if above == len(probes):
@@ -68,64 +62,42 @@ def _set_layers(ax, layers: list[int]) -> None:
 def _probe_panel(ax, probing: pd.DataFrame) -> None:
     rows = _all_bios(probing)
     layers = sorted(rows["layer"].dropna().astype(int).unique())
-    ends = []
-    for name, colour, label in MODELS:
-        model = rows[rows["model"] == name].sort_values("layer")
-        ax.fill_between(
-            model["layer"], model["ci_low"], model["ci_high"], color=colour, alpha=0.25, lw=0
-        )
-        ax.plot(model["layer"], model["accuracy"], color=colour, lw=1.2, label=name)
-        ends.append((label, colour, model["accuracy"].iloc[-1]))
+    model = rows[rows["model"] == MAIN].sort_values("layer")
+    ax.fill_between(
+        model["layer"], model["ci_low"], model["ci_high"], color=HIGHLIGHT, alpha=0.25, lw=0
+    )
+    ax.plot(model["layer"], model["accuracy"], color=HIGHLIGHT, lw=1.2, label=MAIN)
+    ends = [("main model", HIGHLIGHT, model["accuracy"].iloc[-1])]
+    shown = [model]
     for name, label, style in REFERENCES:
-        accuracy = rows[rows["model"] == name]["accuracy"].iloc[0]
-        if name in BANDED:
-            row = rows[rows["model"] == name].iloc[0]
-            ax.fill_between(
-                [layers[0], layers[-1]], row["ci_low"], row["ci_high"], color=DARK, alpha=0.1, lw=0
-            )
-        ax.plot(
-            [layers[0], layers[-1]], [accuracy, accuracy], color=DARK, lw=0.8, ls=style, label=name
+        row = rows[rows["model"] == name].iloc[0]
+        ax.fill_between(
+            [layers[0], layers[-1]], row["ci_low"], row["ci_high"], color=DARK, alpha=0.1, lw=0
         )
-        ends.append((label, DARK, accuracy))
-    low, high = rows["ci_low"].min() - 0.02, rows["ci_high"].max() + 0.02
+        ax.plot(
+            [layers[0], layers[-1]],
+            [row["accuracy"]] * 2,
+            color=DARK,
+            lw=0.8,
+            ls=style,
+            label=name,
+        )
+        ends.append((label, DARK, row["accuracy"]))
+        shown.append(rows[rows["model"] == name])
+    shown = pd.concat(shown)
+    low, high = shown["ci_low"].min() - 0.02, shown["ci_high"].max() + 0.02
     ax.set_ylim(low, high)
     label_y = plotting.spread([y for *_, y in ends], LABEL_GAP * (high - low))
     for (label, colour, _), y in zip(ends, label_y, strict=True):
         ax.text(layers[-1] + 0.15, y, label, color=colour, va="center", ha="left")
     _set_layers(ax, layers)
-    ax.yaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
+    ax.yaxis.set_major_formatter(lambda value, _: f"{value * 100:g}%")
     ax.set_ylabel("Probe accuracy")
-    ax.set_title("a  Reading gender from scrubbed bios", loc="left", fontweight="bold")
 
 
-def _patch_panel(ax, patching: pd.DataFrame) -> None:
-    layers = sorted(patching["layer"].unique())
-    for value, name in ((0, "zero"), (1, "one")):
-        ax.plot([layers[0], layers[-1]], [value, value], color=DARK, lw=0.6, label=name)
-    for position_set, colour, label in (
-        ("others", NEUTRAL, "all other words"),
-        ("differing", HIGHLIGHT, "edited words only"),
-    ):
-        rows = patching[patching["position_set"] == position_set].sort_values("layer")
-        ax.fill_between(
-            rows["layer"], rows["mean_ci_low"], rows["mean_ci_high"], color=colour, alpha=0.25, lw=0
-        )
-        ax.plot(rows["layer"], rows["mean"], color=colour, lw=1.2, label=position_set)
-        y = rows["mean"].iloc[-1] + (-0.1 if position_set == "others" else 0.12)
-        ax.text(layers[-1] + 0.15, y, label, color=colour, va="center", ha="left")
-    ax.text(0.02, 0.48, LAST_LAYER_NOTE, transform=ax.transAxes, color=DARK, va="center", ha="left")
-    _set_layers(ax, layers)
-    ax.set_yticks([0, 0.5, 1])
-    ax.yaxis.set_major_formatter(lambda value, _: f"{value:.0%}")
-    ax.set_ylabel("Restored share of the effect")
-    ax.set_title("b  Patching clean into swapped bios", loc="left", fontweight="bold")
-
-
-def build(probing: pd.DataFrame, patching: pd.DataFrame):
-    """Panel a above panel b, under a title that states the finding of panel a."""
-    fig, probe = plotting.new_figure(HEIGHT_INCHES)
-    probe.remove()
-    top, bottom = fig.subplots(2, 1, height_ratios=[1.15, 1])
+def build(probing: pd.DataFrame):
+    """One panel under a title that states the finding."""
+    fig, ax = plotting.new_figure(HEIGHT_INCHES)
     fig.suptitle(
         title(probing),
         fontsize=plotting.MIN_FONT_PT,
@@ -134,15 +106,12 @@ def build(probing: pd.DataFrame, patching: pd.DataFrame):
         x=0,
         ha="left",
     )
-    _probe_panel(top, probing)
-    _patch_panel(bottom, patching)
+    _probe_panel(ax, probing)
     return fig
 
 
 def main(results_dir: Path = RESULTS_DIR):
-    probing = pd.read_csv(results_dir / "probing.csv")
-    patching = pd.read_csv(results_dir / "patching.csv")
-    fig = build(probing, patching)
+    fig = build(pd.read_csv(results_dir / "probing.csv"))
     plotting.save(fig, FIGURE_NAME, results_dir / "figures")
     return fig
 

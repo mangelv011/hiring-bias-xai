@@ -182,7 +182,7 @@ I compared attribution with leave-one-out occlusion and with masking, not with g
 
 **In short:** gender is carried by the words of a bio, and the model keeps it after the pronouns are removed. A simple probe still guesses it 58% to 63% of the time from the main model's representations, against 52% from the occupation alone, and the effect of swapping pronouns moves from the swapped words to the other positions of the bio around layer 4.
 
-<p align="center"><img src="../results/figures/f6_probing_patching.png" width="520" alt="Gender can still be guessed from bios without pronouns in every layer, and the effect of a pronoun swap moves from the swapped words to the other words by layer 4."></p>
+<p align="center"><img src="../results/figures/f6_probing.png" width="520" alt="Gender can still be guessed from bios without pronouns in every layer, and the effect of a pronoun swap moves from the swapped words to the other words by layer 4."></p>
 
 Two questions. Removing the pronouns is the usual first fix, so is gender really gone afterwards? And does what the model keeps about gender change its decision? A probe answers the first, activation patching the second. Design, references and limits are in [ADR 0006](decisions/0006-probing-and-patching.md).
 
@@ -395,7 +395,7 @@ uv run python scripts/probing.py references            # CPU, about 1 minute
 uv run python scripts/probing.py pretrained            # CPU, about 4 minutes
 uv run python scripts/probing.py deberta               # CPU, about 5 minutes; the last part to run writes results/probing.csv and probing.json
 uv run python scripts/patching.py                      # GPU, about 30 seconds: results/patching.csv and patching.json
-uv run python scripts/figure_f6.py                     # reads the two csv files, writes F6
+uv run python scripts/figure_f6.py                     # reads probing.csv, writes F6
 ```
 
 The counterfactual swap needs the pinned name list, then both saved models (the main model on the GPU, with nothing else running; 45 s including the tagger):
