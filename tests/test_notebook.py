@@ -16,9 +16,9 @@ SECTIONS = [
     "The bias (F1)",
     "Local explanation: single decisions (F2)",
     "Global explanation: which words make the gap (F3)",
-    "Checking the explanations (F4, F5)",
+    "Checking the explanations (F5)",
     "Inside the model (F6)",
-    "Mitigation (F7)",
+    "Mitigation",
     "LLM screener (F8)",
     "What I would do",
     "Limits",
@@ -27,9 +27,8 @@ FIGURES = {
     "The bias (F1)": ["f1_gap_vs_share.png"],
     "Global explanation: which words make the gap (F3)": ["f3_gap_words.png"],
     "Local explanation: single decisions (F2)": ["f2_shapley_cases.png"],
-    "Checking the explanations (F4, F5)": ["f4_flip_rates.png", "f5_explanation_checks.png"],
-    "Inside the model (F6)": ["f6_probing_patching.png"],
-    "Mitigation (F7)": ["f7_mitigation.png"],
+    "Checking the explanations (F5)": ["f5_explanation_checks.png"],
+    "Inside the model (F6)": ["f6_probing.png"],
     "LLM screener (F8)": ["f8_llm_screener.png"],
 }
 IMPORTS = {"json", "pathlib", "pandas", "IPython", "matplotlib"}
@@ -156,7 +155,7 @@ def test_the_models_section_plots_the_training_log(nb):
 
 
 def test_the_weight_scrambling_result_is_read_from_stability(nb):
-    cells = _sections(nb)["Checking the explanations (F4, F5)"]
+    cells = _sections(nb)["Checking the explanations (F5)"]
     assert any('"randomisation"' in source(c) for c in cells)
 
 
@@ -172,7 +171,7 @@ def _text(nb, title):
 
 
 def test_the_f4_text_reads_the_direction_of_the_flips_from_the_results(nb):
-    text = _text(nb, "Checking the explanations (F4, F5)")
+    text = _text(nb, "Checking the explanations (F5)")
     assert "toward_share" in text
     assert "no extra reaction" not in text
 
@@ -230,15 +229,40 @@ def test_the_notebook_defines_its_terms_where_it_first_uses_them(nb):
     assert "Macro-F1 is" in _titled(nb, "Models and training")
     bias = _titled(nb, "The bias (F1)")
     assert "overall shortlist gap" in bias and "root mean square" in bias
-    assert "`[UNK]` is" in _titled(nb, "Checking the explanations (F4, F5)")
+    assert "`[UNK]` is" in _titled(nb, "Checking the explanations (F5)")
     llm = _titled(nb, "LLM screener (F8)")
     assert "origin groups" in llm and "no name" in llm and "Spain" in llm
 
 
 def test_every_figure_has_a_sentence_that_says_how_to_read_it(nb):
     text = _all_text(nb)
-    for number in range(1, 9):
+    for number in (1, 2, 3, 5, 6, 8):  # F4 and F7 left the report and the notebook
         assert f"To read F{number}:" in text, number
+    for number in (4, 7):
+        assert f"To read F{number}:" not in text, number
+
+
+def test_the_notebook_has_no_f4_or_f7_image_and_no_patching(nb):
+    text = _all_text(nb)
+    for gone in ("f4_flip_rates", "f7_mitigation", "f6_probing_patching", "patching"):
+        assert gone not in text.lower(), gone
+
+
+def test_the_f2_section_shows_the_woman_only(nb):
+    text = _text(nb, "Local explanation: single decisions (F2)")
+    assert "women_in_male_dominated" in text
+    assert "men_in_female_dominated" not in text
+
+
+def test_the_stability_table_gives_the_rank_correlation_only(nb):
+    text = _text(nb, "Checking the explanations (F5)")
+    assert "top10_overlap" not in text
+    assert "Top words shared" not in text
+
+
+def test_the_mitigation_table_gives_the_interval_of_the_change_in_the_gap(nb):
+    text = _text(nb, "Mitigation")
+    assert "Change in gap vs (a)" in text
 
 
 def test_the_notebook_reads_freeones_as_a_possible_trace(nb):
