@@ -10,7 +10,6 @@ import matplotlib.collections
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import matplotlib.text
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -30,10 +29,7 @@ def f6():
 # accuracy of the probe at layers 0, 1, 2; the interval is accuracy -/+ 0.02
 ACCURACY = {"pretrained": [0.60, 0.64, 0.66], "deberta": [0.60, 0.59, 0.57]}
 REFERENCES = {"majority": 0.48, "occupation_only": 0.52, "tfidf": 0.58}
-# restored share of the differing positions at layers 0, 1, 2 (mean, interval -/+ 0.03)
-SHARE = [1.0, 0.7, 0.0]
-# the same for all the other words
-OTHERS = [0.0, 0.2, 1.0]
+SHOWN_REFERENCES = ("tfidf", "occupation_only")  # the figure leaves the majority class out
 
 
 def _row(model, layer, subset, accuracy):
@@ -50,7 +46,8 @@ def _row(model, layer, subset, accuracy):
 
 @pytest.fixture
 def probing():
-    """A csv as `scripts/probing.py` writes it, with unflagged rows the figure must ignore."""
+    """A csv as `scripts/probing.py` writes it, with rows the figure must ignore: the unflagged
+    subset, the pretrained encoder and the majority class."""
     rows = []
     for model, values in ACCURACY.items():
         for layer, accuracy in enumerate(values):
@@ -61,41 +58,16 @@ def probing():
 
 
 @pytest.fixture
-def patching():
-    rows = []
-    for layer, share in enumerate(SHARE):
-        rows.append(
-            {
-                "layer": layer,
-                "position_set": "differing",
-                "mean": share,
-                "mean_ci_low": share - 0.03,
-                "mean_ci_high": share + 0.03,
-            }
-        )
-        rows.append(
-            {
-                "layer": layer,
-                "position_set": "others",
-                "mean": OTHERS[layer],
-                "mean_ci_low": OTHERS[layer] - 0.02,
-                "mean_ci_high": OTHERS[layer] + 0.02,
-            }
-        )
-    return pd.DataFrame(rows)
-
-
-@pytest.fixture
-def figure(f6, probing, patching):
-    fig = f6.build(probing, patching)
+def figure(f6, probing):
+    fig = f6.build(probing)
     fig.canvas.draw()
     yield fig
     plt.close(fig)
 
 
-def _panels(fig):
-    top, bottom = [a for a in fig.axes if a.lines]
-    return top, bottom
+def _panel(fig):
+    (ax,) = fig.axes
+    return ax
 
 
 def _line(ax, label):
@@ -114,8 +86,8 @@ def _band(ax, colour):
 
 
 def test_the_title_claims_only_that_gender_is_still_readable_without_pronouns(f6, probing):
-    # The occupation-only interval is 0.50 to 0.54. Every probe interval starts above it: the
-    # lowest is the main model at layer 2 (0.55).
+    # The occupation-only interval is 0.50 to 0.54. Every probe interval of the main model starts
+    # above it: the lowest is layer 2 (0.55).
     assert f6.title(probing) == "Gender is still readable from bios without pronouns."
 
 
@@ -131,86 +103,68 @@ def test_the_title_ignores_the_unflagged_rows(f6, probing):
     assert f6.title(probing) == "Gender is still readable from bios without pronouns."
 
 
-def test_panel_a_draws_the_two_models_per_layer_with_their_intervals_in_grey_and_highlight(figure):
-    top, _ = _panels(figure)
-    for name, colour in (("pretrained", plotting.NEUTRAL), ("deberta", plotting.HIGHLIGHT)):
-        line = _line(top, name)
-        assert list(line.get_xdata()) == [0, 1, 2]
-        assert list(line.get_ydata()) == pytest.approx(ACCURACY[name])
-        assert matplotlib.colors.to_hex(line.get_color()).upper() == colour
-        vertices = _band(top, colour).get_paths()[0].vertices
-        assert vertices[:, 1].min() == pytest.approx(min(ACCURACY[name]) - 0.02)
-        assert vertices[:, 1].max() == pytest.approx(max(ACCURACY[name]) + 0.02)
+def test_the_title_ignores_the_pretrained_encoder_which_the_figure_no_longer_shows(f6, probing):
+    probing.loc[probing["model"] == "pretrained", "ci_low"] = 0.0
+    assert f6.title(probing) == "Gender is still readable from bios without pronouns."
 
 
-def test_panel_a_draws_the_three_references_as_horizontal_lines_across_the_layers(figure):
-    top, _ = _panels(figure)
-    for name, accuracy in REFERENCES.items():
-        line = _line(top, name)
-        assert list(line.get_ydata()) == pytest.approx([accuracy, accuracy])
+def test_the_main_model_is_drawn_per_layer_with_its_interval_in_the_highlight(figure):
+    ax = _panel(figure)
+    line = _line(ax, "deberta")
+    assert list(line.get_xdata()) == [0, 1, 2]
+    assert list(line.get_ydata()) == pytest.approx(ACCURACY["deberta"])
+    assert matplotlib.colors.to_hex(line.get_color()).upper() == plotting.HIGHLIGHT
+    vertices = _band(ax, plotting.HIGHLIGHT).get_paths()[0].vertices
+    assert vertices[:, 1].min() == pytest.approx(min(ACCURACY["deberta"]) - 0.02)
+    assert vertices[:, 1].max() == pytest.approx(max(ACCURACY["deberta"]) + 0.02)
+
+
+def test_exactly_three_lines_are_drawn_without_the_pretrained_encoder_or_the_majority_class(figure):
+    ax = _panel(figure)
+    assert sorted(line.get_label() for line in ax.lines) == ["deberta", "occupation_only", "tfidf"]
+
+
+def test_the_two_references_are_horizontal_lines_across_the_layers(figure):
+    ax = _panel(figure)
+    for name in SHOWN_REFERENCES:
+        line = _line(ax, name)
+        assert list(line.get_ydata()) == pytest.approx([REFERENCES[name]] * 2)
         assert list(line.get_xdata()) == [0, 2]
 
 
-def test_panel_a_labels_every_line_directly_and_has_no_legend(figure):
-    top, _ = _panels(figure)
-    texts = {t.get_text() for t in top.texts}
-    assert {"main model", "pretrained", "TF-IDF", "occupation only", "majority class"} <= texts
-    assert top.get_legend() is None
+def test_every_line_is_labelled_directly_and_there_is_no_legend(figure):
+    ax = _panel(figure)
+    texts = {t.get_text() for t in ax.texts}
+    assert texts == {"main model", "TF-IDF", "occupation only"}
+    assert ax.get_legend() is None
 
 
-def test_panel_a_labels_do_not_overlap(figure):
-    top, _ = _panels(figure)
+def test_the_labels_do_not_overlap(figure):
+    ax = _panel(figure)
     boxes = sorted(
-        (t.get_window_extent() for t in top.texts if t.get_text().strip()), key=lambda b: b.y0
+        (t.get_window_extent() for t in ax.texts if t.get_text().strip()), key=lambda b: b.y0
     )
     for lower, upper in zip(boxes, boxes[1:], strict=False):
         assert upper.y0 >= lower.y1 - 1
 
 
-def test_panel_b_draws_the_restored_share_at_the_differing_positions_in_the_highlight(figure):
-    _, bottom = _panels(figure)
-    line = _line(bottom, "differing")
-    assert list(line.get_ydata()) == pytest.approx(SHARE)
-    assert matplotlib.colors.to_hex(line.get_color()).upper() == plotting.HIGHLIGHT
-    vertices = _band(bottom, plotting.HIGHLIGHT).get_paths()[0].vertices
-    assert vertices[:, 1].min() == pytest.approx(-0.03)
-    assert vertices[:, 1].max() == pytest.approx(1.03)
-
-
-def test_panel_b_draws_the_other_words_in_grey_and_the_reference_lines_at_zero_and_one(figure):
-    _, bottom = _panels(figure)
-    others = _line(bottom, "others")
-    assert list(others.get_ydata()) == pytest.approx(OTHERS)
-    assert matplotlib.colors.to_hex(others.get_color()).upper() == plotting.NEUTRAL
-    vertices = _band(bottom, plotting.NEUTRAL).get_paths()[0].vertices
-    assert vertices[:, 1].min() == pytest.approx(-0.02)
-    assert vertices[:, 1].max() == pytest.approx(1.02)
-    references = [line for line in bottom.lines if line.get_label() in ("zero", "one")]
-    assert sorted(line.get_ydata()[0] for line in references) == [0, 1]
-
-
-def test_panel_b_labels_the_lines_and_explains_the_zero_at_the_last_layer(figure):
-    _, bottom = _panels(figure)
-    texts = {t.get_text() for t in bottom.texts}
-    assert {"edited words only", "all other words"} <= texts
-    note = next(t for t in texts if "last layer" in t.lower())
-    assert "0%" in note and "[CLS]" not in note
-    assert bottom.get_legend() is None
-
-
-def test_both_panels_put_the_layers_on_the_x_axis_with_the_embeddings_first(figure):
-    top, bottom = _panels(figure)
-    for ax in (top, bottom):
-        assert [t.get_text() for t in ax.get_xticklabels()] == ["emb.", "1", "2"]
-        assert ax.get_xlabel() == "Layer output"
-    assert top.get_ylabel() == "Probe accuracy"
-    assert bottom.get_ylabel() == "Restored share of the effect"
+def test_the_layers_are_on_the_x_axis_with_the_embeddings_first(figure):
+    ax = _panel(figure)
+    assert [t.get_text() for t in ax.get_xticklabels()] == ["emb.", "1", "2"]
+    assert ax.get_xlabel() == "Layer output"
+    assert ax.get_ylabel() == "Probe accuracy"
 
 
 def test_the_figure_is_3_03_inches_wide_and_no_text_is_below_7_pt(figure):
     assert figure.get_size_inches()[0] == plotting.WIDTH_INCHES == 3.03
     texts = [t for t in figure.findobj(matplotlib.text.Text) if t.get_text().strip()]
     assert min(t.get_fontsize() for t in texts) >= 7
+
+
+def test_the_figure_has_one_panel_and_no_patching_text(figure):
+    assert len(figure.axes) == 1
+    texts = " ".join(t.get_text() for t in figure.findobj(matplotlib.text.Text)).lower()
+    assert "patch" not in texts and "restored" not in texts
 
 
 def test_nothing_is_drawn_outside_the_figure(figure):
@@ -222,13 +176,12 @@ def test_nothing_is_drawn_outside_the_figure(figure):
             assert extent.y0 >= box.y0 - 1 and extent.y1 <= box.y1 + 1, t.get_text()
 
 
-def test_main_saves_the_figure_from_the_two_csv_files(f6, probing, patching, tmp_path):
+def test_main_saves_the_figure_from_probing_csv_alone(f6, probing, tmp_path):
     probing.to_csv(tmp_path / "probing.csv", index=False)
-    patching.to_csv(tmp_path / "patching.csv", index=False)
     fig = f6.main(tmp_path)
     assert sorted(p.name for p in (tmp_path / "figures").iterdir()) == [
-        "f6_probing_patching.pdf",
-        "f6_probing_patching.png",
+        "f6_probing.pdf",
+        "f6_probing.png",
     ]
     assert fig._suptitle.get_text() == f6.title(probing)
     plt.close(fig)
@@ -262,42 +215,35 @@ def test_a_probe_counts_only_when_its_interval_starts_above_the_end_of_the_refer
     assert "in only some layers" in f6.title(probing)
 
 
-def test_panel_a_labels_sit_at_the_last_layer_accuracy_moved_apart_only_where_they_touch(figure):
-    top, _ = _panels(figure)
-    assert _text(top, "pretrained").get_position()[1] == pytest.approx(0.66)
-    assert _text(top, "main model").get_position()[1] == pytest.approx(0.57)  # TF-IDF is 0.58
+def test_the_label_of_the_main_model_sits_at_its_last_layer_accuracy(figure):
+    ax = _panel(figure)
+    # TF-IDF is 0.58, so the labels are moved apart by a hair.
+    assert _text(ax, "main model").get_position()[1] == pytest.approx(0.57, abs=0.01)
+    assert _text(ax, "occupation only").get_position()[1] == pytest.approx(0.52, abs=0.01)
 
 
-def test_panel_a_axis_spans_the_intervals_with_a_margin_of_two_points(figure):
-    top, _ = _panels(figure)
-    assert top.get_ylim() == pytest.approx((0.46 - 0.02, 0.68 + 0.02))
-    labels = [t.get_text() for t in top.get_yticklabels() if t.get_text()]
-    assert labels and all(re.fullmatch(r"\d+%", label) for label in labels)
+def test_the_axis_spans_the_intervals_of_the_three_lines_with_a_margin_of_two_points(figure):
+    ax = _panel(figure)
+    assert ax.get_ylim() == pytest.approx((0.50 - 0.02, 0.62 + 0.02))
+    labels = [t.get_text() for t in ax.get_yticklabels() if t.get_text()]
+    assert labels and all(re.fullmatch(r"[\d.]+%", label) for label in labels)
 
 
-def test_panel_b_ticks_zero_half_and_one_and_labels_its_lines_around_their_last_value(figure):
-    _, bottom = _panels(figure)
-    assert list(bottom.get_yticks()) == [0, 0.5, 1]
-    assert _text(bottom, "edited words only").get_position()[1] == pytest.approx(0.0 + 0.12)
-    assert _text(bottom, "all other words").get_position()[1] == pytest.approx(1.0 - 0.1)
-
-
-def test_the_bands_are_translucent_and_the_x_axis_line_spans_the_layers(figure):
-    top, bottom = _panels(figure)
-    for ax, colour in ((top, plotting.NEUTRAL), (bottom, plotting.HIGHLIGHT)):
-        assert _band(ax, colour).get_facecolor()[0][3] == pytest.approx(0.25)
-        assert ax.spines["bottom"].get_bounds() == (0, 2)
+def test_the_band_is_translucent_and_the_x_axis_line_spans_the_layers(figure):
+    ax = _panel(figure)
+    assert _band(ax, plotting.HIGHLIGHT).get_facecolor()[0][3] == pytest.approx(0.25)
+    assert ax.spines["bottom"].get_bounds() == (0, 2)
 
 
 def test_the_tfidf_and_occupation_only_lines_have_their_interval_as_a_faint_band(figure):
-    top, _ = _panels(figure)
+    ax = _panel(figure)
     bands = [
         c
-        for c in top.collections
+        for c in ax.collections
         if isinstance(c, matplotlib.collections.PolyCollection)
         and matplotlib.colors.to_hex(c.get_facecolor()[0]).upper() == "#333333"
     ]
-    assert len(bands) == 2  # the majority class is a plain baseline, so it has no band
+    assert len(bands) == 2
     spans = sorted(
         (
             round(b.get_paths()[0].vertices[:, 1].min(), 2),
@@ -310,64 +256,34 @@ def test_the_tfidf_and_occupation_only_lines_have_their_interval_as_a_faint_band
     assert all(b.get_facecolor()[0][3] < 0.2 for b in bands)
 
 
-def test_the_three_references_are_told_apart_by_line_style(figure):
-    top, _ = _panels(figure)
-    styles = [_line(top, name).get_linestyle() for name in REFERENCES]
-    assert len(set(styles)) == 3
+def test_the_two_references_are_told_apart_by_line_style(figure):
+    ax = _panel(figure)
+    styles = [_line(ax, name).get_linestyle() for name in SHOWN_REFERENCES]
+    assert len(set(styles)) == 2
 
 
-def test_the_title_is_left_aligned_and_the_top_panel_is_taller_than_the_bottom_one(figure):
-    top, bottom = _panels(figure)
+def test_the_title_is_left_aligned_and_the_figure_is_2_9_inches_high(figure):
     assert figure._suptitle.get_position()[0] == 0
-    assert top.get_position().height > bottom.get_position().height
-    assert figure.get_size_inches()[1] == 4.6
+    assert figure.get_size_inches()[1] == 2.9
 
 
-def test_the_labels_of_panel_a_fit_inside_the_axes_to_the_right_of_the_last_layer(figure):
-    top, _ = _panels(figure)
-    box = top.get_window_extent()
-    for label in ("main model", "pretrained", "TF-IDF", "occupation only", "majority class"):
-        assert _text(top, label).get_window_extent().x1 <= box.x1 + 1, label
+def test_the_labels_fit_inside_the_axes_to_the_right_of_the_last_layer(figure):
+    ax = _panel(figure)
+    box = ax.get_window_extent()
+    for label in ("main model", "TF-IDF", "occupation only"):
+        assert _text(ax, label).get_window_extent().x1 <= box.x1 + 1, label
 
 
 def test_the_title_says_some_layers_when_only_one_probe_is_above_the_reference(f6, probing):
-    rows = probing["model"].isin(["pretrained", "deberta"]) & (probing["subset"] == "all")
+    rows = (probing["model"] == "deberta") & (probing["subset"] == "all")
     probing.loc[rows, "ci_low"] = 0.0
-    probing.loc[rows & (probing["model"] == "pretrained") & (probing["layer"] == 0), "ci_low"] = 0.9
+    probing.loc[rows & (probing["layer"] == 0), "ci_low"] = 0.9
     assert "in only some layers" in f6.title(probing)
 
 
 def test_the_title_says_not_readable_when_no_probe_is_above_the_reference(f6, probing):
-    rows = probing["model"].isin(["pretrained", "deberta"]) & (probing["subset"] == "all")
+    rows = (probing["model"] == "deberta") & (probing["subset"] == "all")
     probing.loc[rows, "ci_low"] = 0.0
     assert f6.title(probing) == (
         "Gender is not readable beyond the occupation from bios without pronouns."
     )
-
-
-def test_the_note_on_the_last_layer_does_not_cover_a_curve_of_panel_b_with_seven_layers(f6):
-    # The curves of the real run: the note sits in the empty middle left of panel b.
-    shares = {
-        "differing": [1.0, 0.964, 0.908, 0.752, 0.419, 0.167, 0.0],
-        "others": [0.0, 0.034, 0.094, 0.239, 0.558, 0.821, 1.0],
-    }
-    patching = pd.DataFrame(
-        [
-            {"layer": layer, "position_set": name, "mean": v, "mean_ci_low": v, "mean_ci_high": v}
-            for name, values in shares.items()
-            for layer, v in enumerate(values)
-        ]
-    )
-    rows = [
-        _row(model, layer, "all", 0.6) for model in ("pretrained", "deberta") for layer in range(7)
-    ] + [_row(name, None, "all", accuracy) for name, accuracy in REFERENCES.items()]
-    figure = f6.build(pd.DataFrame(rows), patching)
-    figure.canvas.draw()
-    _, bottom = _panels(figure)
-    note = next(t for t in bottom.texts if "last layer" in t.get_text().lower())
-    box = note.get_window_extent()
-    for line in bottom.lines:
-        xs, ys = line.get_data()
-        grid = np.linspace(min(xs), max(xs), 200)
-        for x, y in bottom.transData.transform(np.column_stack([grid, np.interp(grid, xs, ys)])):
-            assert not (box.x0 <= x <= box.x1 and box.y0 <= y <= box.y1), line.get_label()
