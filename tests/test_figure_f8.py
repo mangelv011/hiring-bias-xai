@@ -47,6 +47,7 @@ ARMS = {
     "name|Morocco|male": 0.001,
 }
 HALF = 0.012
+SHOWN = ("neutral", "swap")  # the name arms are in the report but not in the figure
 
 
 @pytest.fixture
@@ -121,13 +122,13 @@ def test_the_title_fits_in_two_lines(figure):
 def test_each_arm_the_primary_contrast_and_any_name_is_a_dot_in_points_sorted_by_value(figure):
     ax = _ax(figure)
     dots = _dots(ax)
-    assert len(dots) == len(ARMS) + 2
+    assert len(dots) == len(SHOWN) + 2
     highlighted = sorted((d for d in dots if d[2] == plotting.HIGHLIGHT), key=lambda d: d[1])
     assert [d[0] for d in highlighted] == pytest.approx([-6.0, 1.2])  # any name, then primary
     arms = sorted((d for d in dots if d[2] != plotting.HIGHLIGHT), key=lambda d: d[1])
-    assert [d[2] for d in arms] == [plotting.NEUTRAL] * len(ARMS)
+    assert [d[2] for d in arms] == [plotting.NEUTRAL] * len(SHOWN)
     values = [d[0] for d in arms]
-    assert values == pytest.approx(sorted(100 * v for v in ARMS.values()))
+    assert values == pytest.approx(sorted(100 * ARMS[arm] for arm in SHOWN))
     assert highlighted[0][1] > arms[-1][1]  # the two contrasts sit above the arms
 
 
@@ -139,11 +140,11 @@ def test_every_dot_has_a_95_percent_interval_and_there_is_a_line_at_zero(figure)
         if isinstance(c, matplotlib.collections.LineCollection)
         for seg in c.get_segments()
     ]
-    assert len(segments) == len(ARMS) + 2
+    assert len(segments) == len(SHOWN) + 2
     assert all(s[0][1] == s[1][1] for s in segments)
     widths = sorted(round(s[1][0] - s[0][0], 6) for s in segments)
     # arms 2 x 1.2 points, the primary contrast 2 x 1.5, any name 2 x 4.0
-    assert widths == [2.4] * 6 + [3.0, 8.0]
+    assert widths == [2.4] * 2 + [3.0, 8.0]
     assert any(line.get_xdata()[0] == 0 for line in ax.lines)
 
 
@@ -169,7 +170,7 @@ def test_the_zero_line_does_not_cross_the_noise_floor_label(figure):
 def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qualified(figure):
     ax = _ax(figure)
     labels = [t.get_text() for t in ax.get_yticklabels()]
-    for name in ("neutral", "pronouns", "Morocco", "woman", "man", "Any name"):
+    for name in ("neutral", "pronouns", "Woman", "Any name"):
         assert any(name in label for label in labels)
     assert ax.get_legend() is None
     assert " ".join(ax.get_xlabel().split()) == ("Change in yes-rate (points), against no name")
@@ -204,18 +205,14 @@ def test_a_gap_is_claimed_only_when_the_interval_excludes_zero_not_when_it_touch
     assert f8.title(report) == SAME
 
 
-def test_each_row_is_labelled_with_the_origin_and_gender_of_its_arm(figure):
+def test_there_are_four_rows_and_none_for_the_origin_groups(figure):
     ax = _ax(figure)
     dots = _dots(ax)
     labels = {t.get_text(): y for y, t in zip(ax.get_yticks(), ax.get_yticklabels(), strict=True)}
-    for label, arm in (
-        ("Morocco, woman", "name|Morocco|female"),
-        ("Morocco, man", "name|Morocco|male"),
-        ("Spain + Hispanic America, woman", "name|Spain + Hispanic America|female"),
-        ("Spain + Hispanic America, man", "name|Spain + Hispanic America|male"),
-        ("neutral ID header", "neutral"),
-        ("pronouns swapped", "swap"),
-    ):
+    assert sorted(labels) == sorted(
+        ["Woman's minus man's name", "Any name", "neutral ID header", "pronouns swapped"]
+    )
+    for label, arm in (("neutral ID header", "neutral"), ("pronouns swapped", "swap")):
         (x,) = [d[0] for d in dots if d[1] == labels[label]]
         assert x == pytest.approx(100 * ARMS[arm]), label
     (any_name,) = [d[0] for d in dots if d[1] == labels["Any name"]]

@@ -255,9 +255,8 @@ def test_the_case_is_named_above_its_sentence_by_gender_true_and_predicted_occup
 def test_a_short_note_gives_the_gender_words_total_and_how_extreme_the_case_is(f2, case):
     fig = f2.build(case, wrong=114)
     notes = [" ".join(t.get_text().split()) for t in fig.texts]
-    # Gendered units of the bio: She, her and she (2.0 + 1.2 + 0.0).
     assert (
-        "Gender words: +3.2 from 3 units, the largest of 114 wrong decisions. "
+        "Gender words: +3.2, the largest of 114 wrong decisions. "
         "Per-word values carry sampling noise." in notes
     )
     assert not any("A score point is" in note for note in notes)

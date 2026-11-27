@@ -405,6 +405,7 @@ def test_the_figure_captions_explain_what_a_reader_needs():
         "hidden when narrower than the marker",
         "orange dots are the six jobs used for the explanations",
         "The text is the start of the bio",
+        "origin groups are in the text and in \\texttt{docs/results.md}",
         "the 5 points of the text are the outer bound of its interval, not a margin fixed",
     ):
         assert phrase in report, phrase
@@ -452,3 +453,17 @@ def test_the_readme_layout_lists_the_report_and_the_prompts_and_the_run_note_is_
     layout = _readme_section("Repository layout")
     assert "report/" in layout and "prompts/" in layout
     assert "uv run python scripts/<name>.py" in _readme_section("How to run")
+
+
+def test_the_results_page_alt_texts_describe_the_simplified_figures():
+    text = _read("docs/results.md")
+    alts = {
+        name: re.search(rf'results/figures/{name}[^>]*alt="([^"]*)"', text).group(1)
+        for name in ("f2_shapley_cases", "f6_probing", "f8_llm_screener")
+    }
+    assert "for a man" not in alts["f2_shapley_cases"]
+    assert "patch" not in alts["f6_probing"].lower() and "layer 4" not in alts["f6_probing"]
+    assert "eight name arms" not in alts["f8_llm_screener"]
+    assert "any name" in alts["f8_llm_screener"]
+    row = next(line for line in text.splitlines() if line.startswith("| F6 |"))
+    assert "patching" not in row.lower()
