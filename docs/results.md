@@ -54,7 +54,7 @@ The intervals here are wider than in the first table because the units are the 2
 
 **In short:** in two wrong decisions, gender words pushed the model towards the wrong job, though words about the work itself weighed more.
 
-<p align="center"><img src="../results/figures/f2_shapley_cases.png" width="520" alt="Gender words added 3.2 score points to a wrong job for a woman and 2.0 for a man."></p>
+<p align="center"><img src="../results/figures/f2_shapley_cases.png" width="520" alt="Gender words added 3.2 score points to a wrong job for a woman: the start of her bio and the eight words that moved the score most."></p>
 
 To see which words drive a decision, I use Shapley values. This is SHAP at the level of words: the same Shapley values that the SHAP library estimates, with the permutation estimator its PermutationExplainer uses. I did not use the library because its text masker hides a word with a mask token, while I delete it, and [F5](#f5-can-the-explanations-be-trusted) shows that hiding a word with `[UNK]` changes the ranking a lot (rank correlation 0.47). A bio's score is split among its words: each word gets the amount it adds to or takes from the score, averaged over many orders in which the words could be revealed. The parts add up exactly to the score. Here a word "absent" means deleted from the text, and each bio uses 40 random orders, each also read backwards.
 
@@ -182,7 +182,7 @@ I compared attribution with leave-one-out occlusion and with masking, not with g
 
 **In short:** gender is carried by the words of a bio, and the model keeps it after the pronouns are removed. A simple probe still guesses it 58% to 63% of the time from the main model's representations, against 52% from the occupation alone, and the effect of swapping pronouns moves from the swapped words to the other positions of the bio around layer 4.
 
-<p align="center"><img src="../results/figures/f6_probing.png" width="520" alt="Gender can still be guessed from bios without pronouns in every layer, and the effect of a pronoun swap moves from the swapped words to the other words by layer 4."></p>
+<p align="center"><img src="../results/figures/f6_probing.png" width="520" alt="Gender can still be guessed from bios without pronouns in every layer of the main model, above the occupation alone and near word counts (TF-IDF)."></p>
 
 Two questions. Removing the pronouns is the usual first fix, so is gender really gone afterwards? And does what the model keeps about gender change its decision? A probe answers the first, activation patching the second. Design, references and limits are in [ADR 0006](decisions/0006-probing-and-patching.md).
 
@@ -292,7 +292,7 @@ Limits. Each model has one training run, so the difference between the original 
 
 **In short:** I gave a local LLM a job ad and a bio and asked for a yes or a no, with a woman's name, a man's name or no name on top. Switching a man's name for a woman's changes the yes-rate for qualified candidates by half a point, with no gap of 5 points or more, and no origin group differs from the others. Any name at all lowers it by about six points. That is a lead, and a confounded one, and the reasons for the changes rarely name gender or origin.
 
-<p align="center"><img src="../results/figures/f8_llm_screener.png" width="520" alt="Dot plot of the change in the yes-rate of qualified candidates against the no-header arm: the primary contrast, women's minus men's names, is -0.5 points with an interval from -4.7 to +3.5; the eight name arms sit 4 to 8 points below zero, the neutral header and the swapped pronouns near zero, all within or near the grey noise band."></p>
+<p align="center"><img src="../results/figures/f8_llm_screener.png" width="520" alt="Dot plot of the change in the yes-rate of qualified candidates against the no-name arm: women's minus men's names is -0.5 points with an interval from -4.7 to +3.5, any name is -6.0 points with an interval from -10.1 to -2.1, and the neutral header and the swapped pronouns sit near zero, within or near the grey noise band."></p>
 
 Many companies now let a general-purpose LLM read a bio and decide who goes to an interview. [F4](#f4-does-changing-only-the-gender-change-the-decision) tested one trained classifier by swapping pronouns. Here the screener is an LLM I cannot open, so I test it from outside: the same bio goes in with different names, and I watch whether the answer changes. I also read the reason the model writes with each answer. Design, rules and the expectations I wrote before the run are in [ADR 0008](decisions/0008-llm-audit.md).
 
@@ -341,7 +341,8 @@ For each figure: the script that computes the result, the file it writes and the
 | F3 | Which words make the gap | [`gap_decomposition`](../scripts/gap_decomposition.py) | [`gap_decomposition.csv`](../results/gap_decomposition.csv) | [`figure_f3`](../scripts/figure_f3.py) |
 | F4 | Swapping gender words | [`counterfactual_gender`](../scripts/counterfactual_gender.py) | [`counterfactual_gender.csv`](../results/counterfactual_gender.csv) | [`figure_f4`](../scripts/figure_f4.py) |
 | F5 | Explanation check | [`deletion_curves`](../scripts/deletion_curves.py), [`stability`](../scripts/stability.py) | [`deletion_curves.csv`](../results/deletion_curves.csv), [`stability.json`](../results/stability.json) | [`figure_f5`](../scripts/figure_f5.py) |
-| F6 | Probing and patching | [`probing`](../scripts/probing.py), [`patching`](../scripts/patching.py) | [`probing.csv`](../results/probing.csv), [`patching.csv`](../results/patching.csv) | [`figure_f6`](../scripts/figure_f6.py) |
+| F6 | Probing | [`probing`](../scripts/probing.py) | [`probing.csv`](../results/probing.csv) | [`figure_f6`](../scripts/figure_f6.py) |
+| none | Activation patching (text only, not in the report) | [`patching`](../scripts/patching.py) | [`patching.csv`](../results/patching.csv) | none |
 | F7 | Mitigation | [`mitigation`](../scripts/mitigation.py) | [`mitigation.json`](../results/mitigation.json) | [`figure_f7`](../scripts/figure_f7.py) |
 | F8 | LLM name audit | [`llm_analyse`](../scripts/llm_analyse.py) | [`llm_audit.json`](../results/llm_audit.json) | [`figure_f8`](../scripts/figure_f8.py) |
 
