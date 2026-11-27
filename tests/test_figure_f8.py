@@ -60,11 +60,6 @@ def report():
             "rerun": {"tpr_diff": _stat(0.0, 0.0)},
             "edit": {"tpr_diff": _stat(-0.004, 0.006)},
         },
-        "rationalization": {
-            "name_arms_above_noise": 0,
-            "beyond_noise": None,
-            "all_name_and_swap_flips": {"n_flips": 90},
-        },
     }
 
 
@@ -123,17 +118,17 @@ def test_the_title_fits_in_two_lines(figure):
     assert title.get_window_extent().height <= 2 * line
 
 
-def test_each_arm_and_the_primary_contrast_is_a_dot_in_points_sorted_by_value(figure):
+def test_each_arm_the_primary_contrast_and_any_name_is_a_dot_in_points_sorted_by_value(figure):
     ax = _ax(figure)
     dots = _dots(ax)
-    assert len(dots) == len(ARMS) + 1
-    primary = max(dots, key=lambda d: d[1])
-    assert primary[0] == pytest.approx(1.2) and primary[2] == plotting.HIGHLIGHT
-    arms = sorted((d for d in dots if d is not primary), key=lambda d: d[1])
+    assert len(dots) == len(ARMS) + 2
+    highlighted = sorted((d for d in dots if d[2] == plotting.HIGHLIGHT), key=lambda d: d[1])
+    assert [d[0] for d in highlighted] == pytest.approx([-6.0, 1.2])  # any name, then primary
+    arms = sorted((d for d in dots if d[2] != plotting.HIGHLIGHT), key=lambda d: d[1])
     assert [d[2] for d in arms] == [plotting.NEUTRAL] * len(ARMS)
     values = [d[0] for d in arms]
     assert values == pytest.approx(sorted(100 * v for v in ARMS.values()))
-    assert primary[1] > arms[-1][1]
+    assert highlighted[0][1] > arms[-1][1]  # the two contrasts sit above the arms
 
 
 def test_every_dot_has_a_95_percent_interval_and_there_is_a_line_at_zero(figure):
@@ -144,10 +139,11 @@ def test_every_dot_has_a_95_percent_interval_and_there_is_a_line_at_zero(figure)
         if isinstance(c, matplotlib.collections.LineCollection)
         for seg in c.get_segments()
     ]
-    assert len(segments) == len(ARMS) + 1
+    assert len(segments) == len(ARMS) + 2
     assert all(s[0][1] == s[1][1] for s in segments)
     widths = sorted(round(s[1][0] - s[0][0], 6) for s in segments)
-    assert widths == [2.4] * 6 + [3.0]  # arms 2 x 1.2 points, the primary contrast 2 x 1.5
+    # arms 2 x 1.2 points, the primary contrast 2 x 1.5, any name 2 x 4.0
+    assert widths == [2.4] * 6 + [3.0, 8.0]
     assert any(line.get_xdata()[0] == 0 for line in ax.lines)
 
 
@@ -158,30 +154,8 @@ def test_the_band_is_the_range_of_the_noise_floor_intervals_in_points(figure):
     assert any("noise" in t.get_text() for t in ax.texts)
 
 
-def test_the_annotation_says_the_decision_barely_depends_on_the_name_when_no_arm_is_above_noise(
-    figure,
-):
-    text = " ".join(" ".join(t.get_text().split()) for t in figure.texts)
-    assert "barely depends on the name" in text
-
-
-def test_the_annotation_gives_the_share_without_a_mention_when_arms_are_above_noise(f8, report):
-    share = {"value": 0.9, "ci_low": 0.8, "ci_high": 0.95}
-    report["rationalization"]["beyond_noise"] = {"n_flips": 40, "share_no_mention": share}
-    report["rationalization"]["name_arms_above_noise"] = 2
-    fig = f8.build(report)
-    fig.canvas.draw()
-    text = " ".join(" ".join(t.get_text().split()) for t in fig.texts)
-    assert "Of 40 changed decisions, a keyword rule finds that 90% (80 to 95) give a reason" in text
-    plt.close(fig)
-
-
-def test_the_note_sits_below_the_axes_and_does_not_cover_the_noise_band(figure):
-    (note,) = [t for t in figure.texts if "barely depends" in " ".join(t.get_text().split())]
-    ax = _ax(figure)
-    assert note.get_window_extent().y1 <= ax.get_window_extent().y0
-    (band,) = [p for p in ax.patches if p.get_alpha() == 0.3]
-    assert not note.get_window_extent().overlaps(band.get_window_extent())
+def test_the_figure_holds_no_text_block_besides_its_title(figure):
+    assert [t for t in figure.texts if t is not figure._suptitle] == []
 
 
 def test_the_zero_line_does_not_cross_the_noise_floor_label(figure):
@@ -195,7 +169,7 @@ def test_the_zero_line_does_not_cross_the_noise_floor_label(figure):
 def test_arms_are_labelled_directly_without_a_legend_and_the_axis_is_per_100_qualified(figure):
     ax = _ax(figure)
     labels = [t.get_text() for t in ax.get_yticklabels()]
-    for name in ("neutral", "pronouns", "Morocco", "woman", "man"):
+    for name in ("neutral", "pronouns", "Morocco", "woman", "man", "Any name"):
         assert any(name in label for label in labels)
     assert ax.get_legend() is None
     assert " ".join(ax.get_xlabel().split()) == ("Change in yes-rate (points), against no name")
@@ -244,6 +218,8 @@ def test_each_row_is_labelled_with_the_origin_and_gender_of_its_arm(figure):
     ):
         (x,) = [d[0] for d in dots if d[1] == labels[label]]
         assert x == pytest.approx(100 * ARMS[arm]), label
+    (any_name,) = [d[0] for d in dots if d[1] == labels["Any name"]]
+    assert any_name == pytest.approx(-6.0)
 
 
 def test_the_axis_shows_the_whole_noise_band_and_every_interval_even_when_the_band_is_wider(
