@@ -356,3 +356,34 @@ def test_the_committed_f1_has_clear_labels():
         _assert_labels_are_clear(fig)
     finally:
         plt.close(fig)
+
+
+def test_the_direction_notes_cover_no_dot_of_the_committed_f1():
+    spec = importlib.util.spec_from_file_location("figure_f1", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fig = module.build(SCRIPT.parents[1] / "results")
+    try:
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        (ax,) = fig.axes
+        dots = np.concatenate(
+            [
+                ax.transData.transform(c.get_offsets())
+                for c in ax.collections
+                if isinstance(c, matplotlib.collections.PathCollection)
+            ]
+        )
+        notes = [t for t in ax.texts if "favours" in t.get_text()]
+        assert len(notes) == 2
+        for note in notes:
+            box = note.get_window_extent(renderer)
+            inside = (
+                (dots[:, 0] > box.x0 - 4)
+                & (dots[:, 0] < box.x1 + 4)
+                & (dots[:, 1] > box.y0 - 4)
+                & (dots[:, 1] < box.y1 + 4)
+            )
+            assert not inside.any(), note.get_text()
+    finally:
+        plt.close(fig)
